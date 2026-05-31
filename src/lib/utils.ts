@@ -1,14 +1,11 @@
-import { clsx } from 'clsx'
+import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
-export function cn(...inputs) {
+export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-/**
- * تنسيق العملة بالعربية
- */
-export function formatCurrency(amount, currency = 'USD') {
+export function formatCurrency(amount: number | null | undefined, currency = 'USD'): string {
   if (amount === null || amount === undefined) return '—'
   const num = Number(amount)
   if (isNaN(num)) return '—'
@@ -22,7 +19,6 @@ export function formatCurrency(amount, currency = 'USD') {
     }).format(num)
   }
 
-  // SYP — بدون رمز ISO، نعرض "ل.س"
   return (
     new Intl.NumberFormat('ar-SA', {
       minimumFractionDigits: 0,
@@ -31,10 +27,7 @@ export function formatCurrency(amount, currency = 'USD') {
   )
 }
 
-/**
- * تنسيق التاريخ بالعربية
- */
-export function formatDate(dateStr) {
+export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '—'
   return new Intl.DateTimeFormat('ar-SA', {
     year: 'numeric',
@@ -43,98 +36,79 @@ export function formatDate(dateStr) {
   }).format(new Date(dateStr))
 }
 
-/**
- * تنسيق الحصة كسراً
- */
-export function formatShare(numerator, denominator) {
+export function formatShare(numerator: number, denominator: number): string {
   if (!denominator) return '—'
   const pct = ((numerator / denominator) * 100).toFixed(2)
   return `${numerator}/${denominator} (${pct}٪)`
 }
 
-/**
- * التحقق من أن مجموع الحصص = 1
- */
-export function validateSharesSum(shares) {
-  if (!shares || shares.length === 0) return false
-  let numeratorSum = 0
-  let denominator = shares[0].share_denominator
+interface Share {
+  share_numerator: number | string
+  share_denominator: number | string
+}
 
-  // التحقق من أن جميع المقامات متساوية للمقارنة السهلة
+export function validateSharesSum(shares: Share[]): boolean {
+  if (!shares || shares.length === 0) return false
+  const denominator = shares[0].share_denominator
   const allSameDenominator = shares.every(s => s.share_denominator === denominator)
 
   if (allSameDenominator) {
-    numeratorSum = shares.reduce((sum, s) => sum + Number(s.share_numerator), 0)
-    return numeratorSum === denominator
+    const numeratorSum = shares.reduce((sum, s) => sum + Number(s.share_numerator), 0)
+    return numeratorSum === Number(denominator)
   }
 
-  // حساب المجموع ككسور عشرية
-  const sum = shares.reduce((acc, s) => acc + Number(s.share_numerator) / Number(s.share_denominator), 0)
+  const sum = shares.reduce(
+    (acc, s) => acc + Number(s.share_numerator) / Number(s.share_denominator),
+    0,
+  )
   return Math.abs(sum - 1) < 0.0001
 }
 
-/**
- * تحويل من SYP إلى USD
- */
-export function toUSD(amount, currency, exchangeRate) {
+export function toUSD(
+  amount: number | string,
+  currency: string,
+  exchangeRate: number | string,
+): number {
   if (currency === 'USD') return Number(amount)
   return Number(amount) / Number(exchangeRate)
 }
 
-/**
- * أنواع المحافظ
- */
 export const PORTFOLIO_TYPES = {
   cash_usd: 'نقد دولار',
   cash_syp: 'نقد سوري',
   gold: 'ذهب',
   project: 'مشروع',
-}
+} as const
 
-/**
- * أنواع المعاملات
- */
 export const TRANSACTION_TYPES = {
   income: 'دخل',
   expense: 'مصروف',
   transfer: 'تحويل',
-}
+} as const
 
-/**
- * أنواع العقارات
- */
 export const PROPERTY_TYPES = {
   residential: 'سكني',
   commercial: 'تجاري',
   land: 'أرض',
-}
+} as const
 
-/**
- * حالة العقار
- */
 export const PROPERTY_STATUS = {
   rented: 'مؤجّر',
   vacant: 'شاغر',
-}
+} as const
 
-/**
- * أسس الملكية
- */
 export const OWNERSHIP_BASIS = {
   إرث: 'إرث',
   شراء: 'شراء',
   هبة: 'هبة',
   وصية: 'وصية',
   شراكة: 'شراكة',
-}
+} as const
 
-/**
- * أنواع معاملات رأس المال
- */
 export const CAPITAL_TRANSACTION_TYPES = {
   capital_injection: 'زيادة حصة',
   capital_reduction: 'إنقاص حصة',
   drawing: 'مسحوبات',
   profit_share: 'نصيب أرباح',
   loss_share: 'نصيب خسائر',
-}
+} as const
