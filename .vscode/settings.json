@@ -1,0 +1,9 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.tabSize": 2,
+  "files.associations": { "*.jsx": "javascriptreact" },
+  "emmet.includeLanguages": { "javascript": "javascriptreact" },
+  "tailwindCSS.experimental.classRegex": [["cn\\(([^)]*)\\)", "\"([^\"]*)\""]],
+  "editor.quickSuggestions": { "strings": true }
+}

@@ -1,0 +1,60 @@
+# FinFamily — Cursor AI Rules
+
+## Project Context
+FinFamily is an Arabic RTL family asset management platform (شركة محاصة).
+Stack: React + Vite, Tailwind CSS v4, Supabase, Recharts, React Hook Form + Zod.
+
+## Coding Rules
+
+### Language
+- ALL UI text must be in Arabic — no English words visible to users
+- Numbers and technical symbols (%, $, etc.) are allowed
+- RTL layout: use `dir="rtl"` on root elements
+
+### React
+- Functional components only — no class components
+- Use hooks (useState, useEffect, useCallback, useMemo)
+- File naming: PascalCase for components (e.g., PortfolioCard.jsx)
+- One component per file
+
+### Styling
+- Tailwind CSS v4 utility classes only — no inline styles
+- Use `cn()` from `@/lib/utils` for conditional class merging
+- Design tokens via CSS variables (--primary, --background, etc.)
+- RTL-aware: prefer `ms-` / `me-` over `ml-` / `mr-`
+
+### Data & Forms
+- Forms: React Hook Form + Zod validation
+- ALL monetary values stored as NUMERIC(18,4) in Supabase
+- Currency: USD (reference) and SYP only
+- ALWAYS validate that shares sum to 1 before saving
+
+### Supabase
+- All queries via `@/lib/supabase.js`
+- RLS is ALWAYS enabled — never bypass
+- Use `.select()` with explicit columns, never `*` in production queries
+- Always handle errors with try/catch and display Arabic error messages
+
+### File Structure
+src/
+  components/
+    ui/          → Reusable atoms (Button, Input, Badge, etc.)
+    layout/      → AppLayout, Sidebar, Header
+    shared/      → Domain-shared components (ShareInput, CurrencyInput)
+  pages/         → One folder per module (dashboard, transactions, etc.)
+  hooks/         → Custom hooks (usePortfolios, useExchangeRate, etc.)
+  lib/           → supabase.js, utils.js
+  store/         → Zustand stores
+  types/         → JSDoc type definitions
+
+### Git Commits (English, Conventional Commits)
+feat: add partner capital account view
+fix: correct share validation for fractional denominators
+refactor: extract CurrencyInput into shared component
+chore: update supabase types
+
+## Critical Business Rules
+1. Sum of shares for any entity MUST equal 1 — enforce before every save
+2. Every monetary transaction stores: amount + currency + exchange_rate_at_time
+3. USD is the reference currency for all reports
+4. RLS must be active on every table — single authenticated user
