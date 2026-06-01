@@ -85,11 +85,23 @@ CREATE TABLE IF NOT EXISTS project_transactions (
 -- ────────────────────────────────────────────────────────────
 -- 2. ALTER TABLE — self-referencing FK on wbs_items
 --    STR-002 §4 — wbs_items.parent_id added after table creation
+--    Note: ADD CONSTRAINT IF NOT EXISTS is not supported in
+--    PostgreSQL — using DO $$ block for idempotent constraint
 -- ────────────────────────────────────────────────────────────
 
-ALTER TABLE wbs_items
-  ADD CONSTRAINT IF NOT EXISTS wbs_items_parent_id_fkey
-    FOREIGN KEY (parent_id) REFERENCES wbs_items(id) ON DELETE RESTRICT;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_name      = 'wbs_items'
+      AND constraint_name = 'wbs_items_parent_id_fkey'
+      AND constraint_type = 'FOREIGN KEY'
+  ) THEN
+    ALTER TABLE wbs_items
+      ADD CONSTRAINT wbs_items_parent_id_fkey
+      FOREIGN KEY (parent_id) REFERENCES wbs_items(id) ON DELETE RESTRICT;
+  END IF;
+END $$;
 
 -- ────────────────────────────────────────────────────────────
 -- 3. Share-sum function and trigger for project_members

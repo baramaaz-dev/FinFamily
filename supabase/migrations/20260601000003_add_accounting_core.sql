@@ -85,16 +85,38 @@ CREATE TABLE IF NOT EXISTS journal_entry_lines (
 -- ────────────────────────────────────────────────────────────
 -- 2. ALTER TABLE — self-referencing FKs
 --    STR-002 §4 — added after table creation to avoid circular
---    dependency errors
+--    dependency errors.
+--    Note: ADD CONSTRAINT IF NOT EXISTS is not supported in
+--    PostgreSQL — using DO $$ blocks for idempotent constraints.
 -- ────────────────────────────────────────────────────────────
 
-ALTER TABLE accounts
-  ADD CONSTRAINT IF NOT EXISTS accounts_parent_id_fkey
-    FOREIGN KEY (parent_id) REFERENCES accounts(id) ON DELETE RESTRICT;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_name      = 'accounts'
+      AND constraint_name = 'accounts_parent_id_fkey'
+      AND constraint_type = 'FOREIGN KEY'
+  ) THEN
+    ALTER TABLE accounts
+      ADD CONSTRAINT accounts_parent_id_fkey
+      FOREIGN KEY (parent_id) REFERENCES accounts(id) ON DELETE RESTRICT;
+  END IF;
+END $$;
 
-ALTER TABLE journal_entries
-  ADD CONSTRAINT IF NOT EXISTS journal_entries_reversal_of_fkey
-    FOREIGN KEY (reversal_of) REFERENCES journal_entries(id) ON DELETE RESTRICT;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_name      = 'journal_entries'
+      AND constraint_name = 'journal_entries_reversal_of_fkey'
+      AND constraint_type = 'FOREIGN KEY'
+  ) THEN
+    ALTER TABLE journal_entries
+      ADD CONSTRAINT journal_entries_reversal_of_fkey
+      FOREIGN KEY (reversal_of) REFERENCES journal_entries(id) ON DELETE RESTRICT;
+  END IF;
+END $$;
 
 -- ────────────────────────────────────────────────────────────
 -- 3. ALTER TABLE — add FK constraints on journal_entry_id
@@ -104,25 +126,75 @@ ALTER TABLE journal_entries
 --    cannot be deleted while source records reference it.
 -- ────────────────────────────────────────────────────────────
 
-ALTER TABLE transactions
-  ADD CONSTRAINT IF NOT EXISTS transactions_journal_entry_id_fkey
-    FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE RESTRICT;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_name      = 'transactions'
+      AND constraint_name = 'transactions_journal_entry_id_fkey'
+      AND constraint_type = 'FOREIGN KEY'
+  ) THEN
+    ALTER TABLE transactions
+      ADD CONSTRAINT transactions_journal_entry_id_fkey
+      FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE RESTRICT;
+  END IF;
+END $$;
 
-ALTER TABLE lease_payments
-  ADD CONSTRAINT IF NOT EXISTS lease_payments_journal_entry_id_fkey
-    FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE RESTRICT;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_name      = 'lease_payments'
+      AND constraint_name = 'lease_payments_journal_entry_id_fkey'
+      AND constraint_type = 'FOREIGN KEY'
+  ) THEN
+    ALTER TABLE lease_payments
+      ADD CONSTRAINT lease_payments_journal_entry_id_fkey
+      FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE RESTRICT;
+  END IF;
+END $$;
 
-ALTER TABLE property_expenses
-  ADD CONSTRAINT IF NOT EXISTS property_expenses_journal_entry_id_fkey
-    FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE RESTRICT;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_name      = 'property_expenses'
+      AND constraint_name = 'property_expenses_journal_entry_id_fkey'
+      AND constraint_type = 'FOREIGN KEY'
+  ) THEN
+    ALTER TABLE property_expenses
+      ADD CONSTRAINT property_expenses_journal_entry_id_fkey
+      FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE RESTRICT;
+  END IF;
+END $$;
 
-ALTER TABLE capital_transactions
-  ADD CONSTRAINT IF NOT EXISTS capital_transactions_journal_entry_id_fkey
-    FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE RESTRICT;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_name      = 'capital_transactions'
+      AND constraint_name = 'capital_transactions_journal_entry_id_fkey'
+      AND constraint_type = 'FOREIGN KEY'
+  ) THEN
+    ALTER TABLE capital_transactions
+      ADD CONSTRAINT capital_transactions_journal_entry_id_fkey
+      FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE RESTRICT;
+  END IF;
+END $$;
 
-ALTER TABLE project_transactions
-  ADD CONSTRAINT IF NOT EXISTS project_transactions_journal_entry_id_fkey
-    FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE RESTRICT;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_name      = 'project_transactions'
+      AND constraint_name = 'project_transactions_journal_entry_id_fkey'
+      AND constraint_type = 'FOREIGN KEY'
+  ) THEN
+    ALTER TABLE project_transactions
+      ADD CONSTRAINT project_transactions_journal_entry_id_fkey
+      FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE RESTRICT;
+  END IF;
+END $$;
 
 -- ────────────────────────────────────────────────────────────
 -- 4. Balance-check trigger on journal_entry_lines
