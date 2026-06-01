@@ -1,38 +1,39 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@/store/authStore'
-import { Landmark, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '@/store/authStore';
+import { Landmark, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ROUTES } from '@/router/routes';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPass, setShowPass] = useState(false)
-  const { login, loading, error } = useAuthStore()
-  const navigate = useNavigate()
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const { login, loading, error } = useAuthStore();
+  const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      await login(email, password)
-      navigate('/')
+      await login(email, password);
+      navigate(ROUTES.DASHBOARD);
     } catch {
       // error shown from store
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4" dir="rtl">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
             <Landmark className="w-9 h-9 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">FinFamily</h1>
-          <p className="text-sm text-gray-500 mt-1">منصة إدارة الأصول العائلية</p>
+          <p className="text-sm text-gray-500 mt-1">{t('pages.login')}</p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -91,10 +92,10 @@ export default function LoginPage() {
                        flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {loading ? 'جارٍ تسجيل الدخول...' : 'تسجيل الدخول'}
+            {loading ? t('common.loading') : t('pages.login')}
           </button>
         </form>
       </div>
     </div>
-  )
+  );
 }
