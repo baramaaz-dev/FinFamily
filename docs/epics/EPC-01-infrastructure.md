@@ -627,114 +627,323 @@ No off-brand color names in any modified file	✅ Grep scan clean
 `AuthUser` type in `src/types/index.ts`	✅ Line 71
 Pushed to `main` on GitHub	✅
 ---
-S-005 — Dinero.js Setup & Currency Logic (USD/SYP)
+EPC-01 — Infrastructure & Setup
+Epic: E1 — البنية التحتية والإعداد
+Sprint: Sprint 1 — Database Schema, RLS & Seed Data
+
+S-006 — Apply Database Migrations for All Tables
 Status: ✅ Done
-Closed: Sprint 0
+Closed: Sprint 1
+
+---
+
 What Was Built
-1. Currency Constants & Types — `src/lib/currency.ts`
-New file created at `src/lib/currency.ts` — pure utility layer, no UI components
-`USD` re-exported from `@dinero.js/currencies`
-`SYP` defined as a custom const with `exponent: 0` — ISO 4217 defines exponent 2
-(piastres) but piastres are obsolete in this system; confirmed at implementation
-time that `@dinero.js/currencies@2.0.0-alpha.1` ships `SYP.exponent === 2`,
-so the custom definition was required
-`SupportedCurrency` type: `'USD' | 'SYP'` — single source of truth for the
-currency domain type across the entire codebase
-`ShareFraction` interface: `{ numerator: number; denominator: number }` — used
-by share validation and profit allocation logic
-All exported symbols carry JSDoc blocks (18 JSDoc blocks total)
-No `any` types — full TypeScript strict compliance
-`Dinero<number>` throughout — BigInt variant not used
-2. Core Factory — `makeMoney`
-Accepts a human-readable decimal amount and a `SupportedCurrency` code
-Determines scale from `currencyObj.exponent` (`100` for USD, `1` for SYP)
-Uses `Math.round(amount * scale)` before passing to `dinero()` — eliminates
-floating-point precision errors at construction time
-Examples:
-  `makeMoney(1500.50, 'USD')` → Dinero { amount: 150050, currency: USD }
-  `makeMoney(250000, 'SYP')` → Dinero { amount: 250000, currency: SYP }
-3. Conversion & Formatting
-`dineroToNumber(d)` — extracts plain decimal from a Dinero object via
-`toDecimal()`, used for Supabase storage and non-Dinero contexts
-`toUSD(amount, currency, exchangeRate)` — pure number utility, not Dinero-based:
-  USD passthrough returns amount unchanged
-  SYP: `Math.round((amount / exchangeRate) * 100) / 100` — rounds to 2 decimal
-  places, avoids raw float imprecision
-`formatCurrency(amount, currency)` — display-only, never used in calculations:
-  Uses `Intl.NumberFormat` with locale `'ar-SY'` (not `'ar-SA'` — intentional
-  correction from the competing implementation in `utils.ts`)
-  USD: `style: 'currency'`, `minimumFractionDigits: 2`
-  SYP: `style: 'decimal'`, `maximumFractionDigits: 0`, suffix `' س.ل'`
-4. Arithmetic Helpers
-`addMoney(a, b)` — wraps Dinero's `add()`, same-currency operands required
-`subtractMoney(a, b)` — wraps Dinero's `subtract()`, same-currency operands required
-`zeroDinero(currency)` — returns `makeMoney(0, currency)`
-`isZero(d)` — delegates to Dinero's `isZero()` to avoid float comparison
-5. Share Validation — `validateShares`
-Validates that an array of `ShareFraction` objects sums to exactly 1
-Uses LCM integer arithmetic — zero floating-point comparison risk:
-  a) Compute LCM of all denominators (Euclidean GCD → LCM(a,b) = a*b/GCD(a,b))
-  b) Scale each numerator: `numerator * (LCM / denominator)`
-  c) Sum scaled numerators — must equal LCM exactly
-Returns `false` for empty arrays
-This is the same check enforced in UI forms before every save in future sprints
-6. Share Allocation — `allocateByShares`
-Distributes a total Dinero amount across partners by fractional shares
-Calls `validateShares()` internally and throws on invalid input
-Converts fractions to integer ratios via LCM before passing to Dinero's
-`allocate()` — guarantees no rounding loss (indivisible remainder assigned
-to first share per Dinero's allocate contract)
-Example: distributing $100 as [2/3, 1/3] → [$66.67, $33.33], total = $100.00
-7. Types Update — `src/types/index.ts`
-Added import: `import type { SupportedCurrency } from '@/lib/currency'`
-Replaced `Transaction.currency: 'USD' | 'SYP'` (line 28) with `SupportedCurrency`
-Replaced `Lease.currency: 'USD' | 'SYP'` (line 58) with `SupportedCurrency`
-`SupportedCurrency` is now the authoritative type — all future interfaces
-(portfolio balance, property valuation, exchange rates) will reference it
-8. Project Structure after S-005
+
+1. Migration M-01 — Fix Existing Schema — `20260601000001_fix_existing_schema.sql`
+
+Corrected 15 tables that existed from the original migration but contained defects discovered during the pre-sprint audit (AUDIT-S006-report.md).
+
+Numeric precision fix — 4 columns upgraded from NUMERIC(12,4) to NUMERIC(18,4)
+per STR-002 §6.2:
+  exchange_rates.rate
+  transactions.exchange_rate
+  lease_payments.exchange_rate
+  property_expenses.exchange_rate
+
+ON DELETE behavior fix — 5 foreign keys corrected from CASCADE to RESTRICT
+to prevent silent data destruction:
+  transactions.portfolio_id
+  lease_payments.lease_id
+  property_expenses.property_id
+  capital_transactions.capital_account_id
+  settlement_shares.partner_id
+Dynamic constraint discovery used information_schema.table_constraints with
+LIKE patterns inside DO $$ blocks — handles any auto-generated constraint names
+from the original migration without assuming exact names.
+
+entity_type CHECK fix — 3 tables had CHECK IN ('portfolio','property') missing
+the 'project' value required by STR-002 §1.5:
+  partner_capital_accounts.entity_type
+  profit_settlements.entity_type
+  distributions.entity_type
+Old CHECK constraints dropped dynamically, new constraints added with the
+correct three-value CHECK IN ('portfolio','property','project').
+
+journal_entry_id column added — 4 existing tables received the bare UUID column
+as preparation for the FK constraint added in M-03 once journal_entries exists:
+  transactions.journal_entry_id
+  lease_payments.journal_entry_id
+  property_expenses.journal_entry_id
+  capital_transactions.journal_entry_id
+
+Share-sum triggers created for the 2 existing join tables:
+  trg_portfolio_share_sum on portfolio_members (AFTER INSERT OR UPDATE)
+  trg_property_share_sum  on property_owners   (AFTER INSERT OR UPDATE)
+Both triggers use PostgreSQL 13+ built-in gcd(bigint, bigint) for pure integer
+LCM arithmetic — zero floating-point rounding risk.
+Both declared DEFERRABLE INITIALLY DEFERRED — allows inserting multiple partners
+in a single transaction before validation fires at COMMIT.
+
+---
+
+2. Migration M-02 — Projects & WBS — `20260601000002_add_projects_wbs.sql`
+
+Created 4 new tables for the v1.1 project management group per STR-002 §2.6:
+
+`projects`
+  Master project record with status lifecycle:
+  planning → active → on_hold → completed → cancelled
+  Optional budget fields (budget_amount + budget_currency) follow STR-002 §6.2
+  financial column pattern.
+
+`project_members`
+  Implements the Effective Dates pattern (STR-002 §1.6) for share history.
+  effective_from / effective_to date pair allows full audit trail of share
+  changes over project lifetime.
+  Current shares query: WHERE effective_to IS NULL
+  UNIQUE (project_id, person_id, effective_from) prevents duplicate rows.
+
+`wbs_items`
+  Self-referencing hierarchy: parent_id FK added via DO $$ block after CREATE
+  TABLE to avoid circular dependency error (STR-002 §4 creation order rule).
+  UNIQUE (project_id, code) enforces WBS code uniqueness per project.
+  PostgreSQL does not support ADD CONSTRAINT IF NOT EXISTS — DO $$ pattern
+  used for all idempotent constraint additions in this migration and all
+  subsequent ones.
+
+`project_transactions`
+  journal_entry_id included at creation time as bare UUID; FK constraint
+  added in M-03 after journal_entries table exists (STR-002 §7.6 two-phase
+  pattern).
+
+Share-sum trigger created for project_members:
+  trg_project_share_sum (AFTER INSERT OR UPDATE, DEFERRABLE INITIALLY DEFERRED)
+  Validates active shares only (effective_to IS NULL).
+  Allows 0-member state (project under construction) — check fires only when
+  total_num > 0.
+
+RLS enabled and authenticated_full_access policy created on all 4 tables.
+
+---
+
+3. Migration M-03 — Accounting Core — `20260601000003_add_accounting_core.sql`
+
+Created 4 new tables for the v1.2 double-entry accounting system per STR-002 §2.7:
+
+`accounting_periods`
+  Fiscal year + month structure with UNIQUE (fiscal_year, period_number).
+  Three-state status: open → closed → locked.
+  Locked periods reject all new journal entry postings.
+
+`accounts`
+  Chart of Accounts with full hierarchy via self-referencing parent_id.
+  is_postable boolean distinguishes control accounts (false) from detail
+  accounts that accept journal lines (true).
+  normal_balance stored explicitly as 'debit' | 'credit' alongside account_class
+  for query performance — derived logically but stored for speed.
+  Self-referencing FK added via DO $$ block after table creation.
+
+`journal_entries`
+  Header record for every accounting entry.
+  source_type + source_id polymorphic pattern links each entry back to its
+  originating document (transaction, lease_payment, property_expense,
+  capital_transaction, project_transaction, or manual).
+  reversal_of self-reference allows chaining of reversal entries.
+  Status lifecycle: draft → posted → reversed.
+  Self-referencing FK on reversal_of added via DO $$ block after table creation.
+
+`journal_entry_lines`
+  Separate debit_amount and credit_amount columns (both DEFAULT 0).
+  CHECK constraint enforces mutual exclusivity:
+    (debit_amount > 0 AND credit_amount = 0) OR
+    (credit_amount > 0 AND debit_amount = 0)
+  No line may carry both a debit and credit amount simultaneously.
+
+FK constraints wired — 7 DO $$ blocks added journal_entry_id FK on all 5 source
+tables (columns existed as bare UUIDs from M-01 and M-02):
+  transactions, lease_payments, property_expenses,
+  capital_transactions, project_transactions
+
+Balance-check trigger created:
+  trg_journal_balance on journal_entry_lines
+  (AFTER INSERT OR UPDATE, DEFERRABLE INITIALLY DEFERRED)
+  Fires only when parent entry status = 'posted'.
+  Rejects posting if Σ debit ≠ Σ credit for the journal_entry_id.
+  DEFERRABLE allows building up all lines within one transaction before the
+  balance check fires at COMMIT.
+
+general_ledger VIEW created:
+  Read-only projection joining journal_entry_lines → journal_entries →
+  accounts → accounting_periods.
+  Filters to posted entries only (je.status = 'posted').
+  Not a table — cannot be out of balance by construction.
+
+RLS enabled and authenticated_full_access policy created on all 4 tables.
+
+---
+
+4. Migration M-04 — Seed: Chart of Accounts — `20260601000004_seed_chart_of_accounts.sql`
+
+Inserted 27 default accounts for a شركة أشخاص (partnership) structure.
+ON CONFLICT (code) DO NOTHING ensures idempotency on re-run.
+Parent UUIDs resolved via subquery JOIN on code — no hardcoded UUIDs required.
+Inserted in parent-before-child order to satisfy the parent_id FK.
+
+Account structure seeded:
+  1000  الأصول           (asset     · debit  · level 1 · not postable)
+  1100  الأصول المتداولة  (asset     · debit  · level 2 · not postable)
+  1110  النقدية USD       (asset     · debit  · level 3 · postable)
+  1120  النقدية SYP       (asset     · debit  · level 3 · postable)
+  1130  الذمم المدينة     (asset     · debit  · level 3 · postable)
+  1200  الأصول الثابتة   (asset     · debit  · level 2 · not postable)
+  1210  العقارات          (asset     · debit  · level 3 · postable)
+  1220  الاستثمارات       (asset     · debit  · level 3 · postable)
+  2000  الخصوم            (liability · credit · level 1 · not postable)
+  2100  الخصوم المتداولة  (liability · credit · level 2 · not postable)
+  2110  الذمم الدائنة     (liability · credit · level 3 · postable)
+  2120  مصروفات مستحقة   (liability · credit · level 3 · postable)
+  3000  حقوق الشركاء      (equity    · credit · level 1 · not postable)
+  3100  رأس المال         (equity    · credit · level 2 · not postable)
+  3110  رأس مال — شريك أ  (equity    · credit · level 3 · postable)
+  3120  رأس مال — شريك ب  (equity    · credit · level 3 · postable)
+  3200  المسحوبات          (equity    · debit  · level 2 · not postable)
+  3210  مسحوبات — شريك أ  (equity    · debit  · level 3 · postable)
+  3220  مسحوبات — شريك ب  (equity    · debit  · level 3 · postable)
+  4000  الإيرادات          (revenue   · credit · level 1 · not postable)
+  4100  إيرادات الإيجار   (revenue   · credit · level 2 · postable)
+  4200  إيرادات المشاريع  (revenue   · credit · level 2 · postable)
+  4300  إيرادات المحافظ   (revenue   · credit · level 2 · postable)
+  5000  المصروفات          (expense   · debit  · level 1 · not postable)
+  5100  مصروفات التشغيل   (expense   · debit  · level 2 · postable)
+  5200  مصروفات العقارات  (expense   · debit  · level 2 · postable)
+  5300  مصروفات المشاريع  (expense   · debit  · level 2 · postable)
+
+---
+
+5. Migration M-05 — Seed: Accounting Periods — `20260601000005_seed_accounting_periods.sql`
+
+Inserted 12 monthly periods for fiscal year 2026.
+ON CONFLICT (fiscal_year, period_number) DO NOTHING ensures idempotency.
+All periods seeded with status = 'open'.
+Period names in Arabic: يناير through ديسمبر.
+
+---
+
+6. TypeScript Types — `src/types/index.ts`
+
+Added 9 new interfaces for the tables introduced in M-02 and M-03:
+  Project
+  ProjectMember
+  WbsItem
+  ProjectTransaction
+  AccountingPeriod
+  Account
+  JournalEntry
+  JournalEntryLine
+  GeneralLedgerRow    (maps to general_ledger VIEW columns)
+
+Updated 5 existing interfaces with journal_entry_id: string | null:
+  Transaction
+  LeasePayment
+  PropertyExpense
+  CapitalTransaction
+
+Updated 7 interfaces that existed without proper typing (discovered during
+audit — not present in original types file):
+  Portfolio, PortfolioMember, Property, PropertyOwner,
+  Lease, ExchangeRate, Distribution
+
+All currency fields use SupportedCurrency from '@/lib/currency'.
+All CHECK IN columns use TypeScript union types matching STR-002 §6.4 exactly.
+Nullable database columns typed as Type | null throughout.
+
+---
+
+7. Strategy Document — `STR-002-database-schema.md`
+
+Created as the canonical database reference for the project (v1.3).
+Covers all 23 tables with full column definitions, FK relationships,
+ON DELETE behavior, creation order, canonical column naming dictionary
+(§6), migration file strategy (§7), and double-entry accounting conventions (§1.7).
+Mandatory reference: any new table must consult this document before
+the first line of SQL is written.
+
+---
+
+8. Project Structure after S-006
+
 ```
+supabase/
+└── migrations/
+    ├── 20260601000001_fix_existing_schema.sql      ← M-01
+    ├── 20260601000002_add_projects_wbs.sql         ← M-02
+    ├── 20260601000003_add_accounting_core.sql      ← M-03
+    ├── 20260601000004_seed_chart_of_accounts.sql   ← M-04
+    └── 20260601000005_seed_accounting_periods.sql  ← M-05
+
 src/
-├── lib/
-│   ├── supabase.ts              ← UNCHANGED
-│   ├── utils.ts                 ← UNCHANGED (formatCurrency/toUSD coexist;
-│   │                               will be superseded by consuming pages)
-│   └── currency.ts              ← NEW
 └── types/
-    └── index.ts                 ← UPDATED (SupportedCurrency in Transaction + Lease)
+    └── index.ts    ← UPDATED (16 interfaces added, 5 updated)
+
+docs/  (or project root)
+└── STR-002-database-schema.md   ← NEW (v1.3)
 ```
+
+---
+
 9. Commits
+
 ```
-feat(currency): add USD and SYP currency definitions with Dinero.js v2
-feat(currency): implement makeMoney factory and dineroToNumber utility
-feat(currency): add formatCurrency with Arabic locale (ar-SY)
-feat(currency): add toUSD conversion helper
-feat(currency): add addMoney and subtractMoney arithmetic helpers
-feat(currency): add allocateByShares with LCM-based ratio calculation
-feat(currency): add validateShares integer arithmetic check
-feat(currency): add zeroDinero and isZero helpers
-refactor(types): replace inline USD|SYP literals with SupportedCurrency
+feat(db): fix numeric precision, ON DELETE, entity_type CHECK on 15 tables
+feat(db): add journal_entry_id column to 4 source tables
+feat(db): add share-sum triggers for portfolio_members and property_owners
+feat(db): create projects, project_members, wbs_items, project_transactions
+feat(db): add share-sum trigger for project_members (effective dates aware)
+feat(db): create accounting_periods, accounts, journal_entries, journal_entry_lines
+feat(db): wire journal_entry_id FK constraints on 5 source tables
+feat(db): add balance-check trigger on journal_entry_lines
+feat(db): create general_ledger VIEW
+feat(db): seed chart of accounts — 27 rows
+feat(db): seed accounting periods 2026 — 12 rows
+feat(types): add 9 new interfaces for project and accounting tables
+feat(types): add journal_entry_id to 5 existing interfaces
+docs: add STR-002-database-schema.md v1.3
 ```
-Squashed into single commit on `main`:
+
+Squashed into single commit on main:
 ```
-feat(s-005): implement Dinero.js currency layer — USD/SYP formatting, conversion, and allocation — 5c39024
+feat(s-006): apply full database schema migrations with RLS, triggers, and accounting core
 ```
+
+---
+
 Issues Encountered & Resolved
-#	Issue	Resolution
-1	`@dinero.js/currencies` SYP.exponent === 2 (ISO 4217 standard — piastres)	Defined custom `SYP` const with `exponent: 0`; package import not used for SYP
-2	Smoke test case `validateShares mixed denom` had arithmetic error in expected value	1/3 + 2/6 + 1/2 = 7/6, not 1 — corrected test to 1/3 + 1/6 + 1/2 = 1; `currency.ts` was not changed
-3	`allocate()` return type inference — TypeScript strict mode required explicit annotation	Added `const result: Dinero<number>[] = allocate(amount, ratios)` explicit type
-4	`src/lib/utils.ts` exports `formatCurrency` and `toUSD` with same names — import collision risk	`currency.ts` consumers must import from `@/lib/currency`, not `@/lib/utils`; documented in integration surface notes
+
+#   Issue                                                        Resolution
+1   ADD CONSTRAINT IF NOT EXISTS not supported in PostgreSQL     Replaced all 9 occurrences across M-02 and M-03 with
+    (affects self-ref FKs and journal_entry_id FKs)             DO $$ IF NOT EXISTS ... ALTER TABLE ... END $$ pattern
+2   M-01 could not assume auto-generated FK constraint names     Used information_schema.table_constraints with LIKE
+    from original migration                                      pattern inside DO $$ for dynamic constraint discovery
+3   project_members share-sum trigger must ignore closed         Added AND effective_to IS NULL filter to both FOR loops;
+    history rows (effective_to IS NOT NULL)                      added guard: IF total_num > 0 THEN check fires
+4   wbs_items and accounts self-ref FKs require table to        Created tables without the FK column constraint, then
+    exist before the FK can reference itself                     added FK via DO $$ block after CREATE TABLE
+5   journal_entry_id FK on source tables cannot reference       M-01/M-02 add bare UUID columns; M-03 adds FK constraints
+    journal_entries before that table exists                     after journal_entries is created — two-phase pattern
+6   COA seed parent_id cannot use hardcoded UUIDs               Used subquery: (SELECT id FROM accounts WHERE code = 'XXXX')
+    (gen_random_uuid() produces different UUIDs each run)        to resolve parent_id dynamically at INSERT time
+
+---
+
 Final Verification
-Check	Result
-`npx tsc --noEmit`	✅ Zero errors
-`src/lib/currency.ts` exists at correct path	✅
-`src/lib/__currency_test.ts` deleted before commit	✅
-All 14 exports present	✅ USD, SYP, SupportedCurrency, ShareFraction, makeMoney, dineroToNumber, formatCurrency, toUSD, addMoney, subtractMoney, zeroDinero, isZero, validateShares, allocateByShares
-18 JSDoc blocks present	✅
-No `any` types	✅ Verified — only appears in comment text
-`Dinero<number>` throughout (not bigint)	✅
-SYP defined with exponent: 0	✅ Package has 2; custom const overrides
-`types/index.ts` Transaction + Lease use SupportedCurrency	✅ Both lines updated
-All 16 smoke tests passed	✅ (one test had bad expected value — fixed in test, not in currency.ts)
-`src/lib/utils.ts` unmodified	✅
-Squash commit pushed to `main`	✅ 5c39024
+
+Check                              Result
+Total tables in public schema      ✅ 23 / 23
+RLS enabled on all tables          ✅ 23 / 23 (rowsecurity = true)
+Share-sum triggers                 ✅ 3 — portfolio_members, property_owners, project_members
+Balance trigger                    ✅ 1 — journal_entry_lines
+general_ledger VIEW                ✅ present in pg_views
+COA rows                           ✅ 27
+Accounting period rows             ✅ 12
+npx tsc --noEmit                   ✅ Zero errors
+Squash commit pushed to main       ✅
