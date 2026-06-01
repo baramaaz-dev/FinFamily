@@ -18,6 +18,7 @@ const ar = {
     email:              'البريد الإلكتروني',
     password:           'كلمة المرور',
     invalidCredentials: 'بريد إلكتروني أو كلمة مرور غير صحيحة',
+    signOut:            'تسجيل الخروج',
   },
   pages: {
     dashboard:    { title: 'لوحة التحكم' },

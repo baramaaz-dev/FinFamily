@@ -18,6 +18,7 @@ const en = {
     email:              'Email',
     password:           'Password',
     invalidCredentials: 'Invalid email or password',
+    signOut:            'Sign out',
   },
   pages: {
     dashboard:    { title: 'Dashboard' },

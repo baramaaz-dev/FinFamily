@@ -1,19 +1,20 @@
 import { createBrowserRouter } from 'react-router-dom';
-import AppLayout           from '@/layouts/AppLayout';
-import DashboardPage       from '@/pages/DashboardPage';
-import TransactionsPage    from '@/pages/TransactionsPage';
-import PortfoliosPage      from '@/pages/PortfoliosPage';
-import PortfolioDetailPage from '@/pages/PortfolioDetailPage';
-import PropertiesPage      from '@/pages/PropertiesPage';
-import PropertyDetailPage  from '@/pages/PropertyDetailPage';
-import PartnersPage        from '@/pages/PartnersPage';
-import PartnerDetailPage   from '@/pages/PartnerDetailPage';
-import ReportsPage         from '@/pages/ReportsPage';
-import SettingsPage        from '@/pages/SettingsPage';
-import PeoplePage          from '@/pages/PeoplePage';
-import ExchangeRatesPage   from '@/pages/ExchangeRatesPage';
-import LoginPage           from '@/pages/LoginPage';
-import NotFoundPage        from '@/pages/NotFoundPage';
+import ProtectedRoute          from '@/components/auth/ProtectedRoute';
+import AppLayout               from '@/layouts/AppLayout';
+import DashboardPage           from '@/pages/DashboardPage';
+import TransactionsPage        from '@/pages/TransactionsPage';
+import PortfoliosPage          from '@/pages/PortfoliosPage';
+import PortfolioDetailPage     from '@/pages/PortfolioDetailPage';
+import PropertiesPage          from '@/pages/PropertiesPage';
+import PropertyDetailPage      from '@/pages/PropertyDetailPage';
+import PartnersPage            from '@/pages/PartnersPage';
+import PartnerDetailPage       from '@/pages/PartnerDetailPage';
+import ReportsPage             from '@/pages/ReportsPage';
+import SettingsPage            from '@/pages/SettingsPage';
+import PeoplePage              from '@/pages/PeoplePage';
+import ExchangeRatesPage       from '@/pages/ExchangeRatesPage';
+import LoginPage               from '@/pages/LoginPage';
+import NotFoundPage            from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
   {
@@ -22,27 +23,32 @@ export const router = createBrowserRouter([
   },
   {
     path: '/',
-    element: <AppLayout />,
+    element: <ProtectedRoute />,
     children: [
-      { index: true,                element: <DashboardPage /> },
-      { path: 'transactions',       element: <TransactionsPage /> },
-      { path: 'portfolios',         element: <PortfoliosPage /> },
-      { path: 'portfolios/:id',     element: <PortfolioDetailPage /> },
-      { path: 'properties',         element: <PropertiesPage /> },
-      { path: 'properties/:id',     element: <PropertyDetailPage /> },
-      { path: 'partners',           element: <PartnersPage /> },
-      { path: 'partners/:id',       element: <PartnerDetailPage /> },
-      { path: 'reports',            element: <ReportsPage /> },
       {
-        path: 'settings',
-        element: <SettingsPage />,
+        element: <AppLayout />,
         children: [
-          { index: true,            element: <PeoplePage /> },
-          { path: 'people',         element: <PeoplePage /> },
-          { path: 'exchange-rates', element: <ExchangeRatesPage /> },
+          { index: true,                element: <DashboardPage /> },
+          { path: 'transactions',       element: <TransactionsPage /> },
+          { path: 'portfolios',         element: <PortfoliosPage /> },
+          { path: 'portfolios/:id',     element: <PortfolioDetailPage /> },
+          { path: 'properties',         element: <PropertiesPage /> },
+          { path: 'properties/:id',     element: <PropertyDetailPage /> },
+          { path: 'partners',           element: <PartnersPage /> },
+          { path: 'partners/:id',       element: <PartnerDetailPage /> },
+          { path: 'reports',            element: <ReportsPage /> },
+          {
+            path: 'settings',
+            element: <SettingsPage />,
+            children: [
+              { index: true,            element: <PeoplePage /> },
+              { path: 'people',         element: <PeoplePage /> },
+              { path: 'exchange-rates', element: <ExchangeRatesPage /> },
+            ],
+          },
+          { path: '*',                  element: <NotFoundPage /> },
         ],
       },
-      { path: '*',                  element: <NotFoundPage /> },
     ],
   },
 ]);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/authStore';
 import { useDirection } from '@/hooks/useDirection';
@@ -15,6 +15,9 @@ export default function LoginPage() {
   const navigate                = useNavigate();
   const { t }                   = useTranslation();
   const { direction }           = useDirection();
+
+  const { session, loading: authLoading } = useAuthStore();
+  if (!authLoading && session) return <Navigate to={ROUTES.DASHBOARD} replace />;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

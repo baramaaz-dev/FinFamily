@@ -1,7 +1,8 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Menu } from 'lucide-react';
+import { Menu, LogOut } from 'lucide-react';
 import { useDirection } from '@/hooks/useDirection';
+import { useAuthStore } from '@/store/authStore';
 import { ROUTES } from '@/router/routes';
 
 /** Map from route path to i18n title key. */
@@ -31,12 +32,21 @@ interface HeaderProps {
 }
 
 export default function Header({ onMenuClick }: HeaderProps) {
-  const { t }                         = useTranslation();
-  const { pathname }                  = useLocation();
-  const { language, toggleLanguage }  = useDirection();
+  const { t }                   = useTranslation();
+  const { pathname }            = useLocation();
+  const { toggleLanguage }      = useDirection();
+  const { session, logout }     = useAuthStore();
+  const navigate                = useNavigate();
 
   const titleKey  = resolvePageTitleKey(pathname);
   const pageTitle = titleKey ? t(titleKey) : '';
+
+  const handleSignOut = async () => {
+    await logout();
+    navigate(ROUTES.LOGIN, { replace: true });
+  };
+
+  const userInitial = session?.user?.email?.charAt(0).toUpperCase() ?? 'م';
 
   return (
     <header className="sticky top-0 z-10 h-14 bg-background border-b border-[#E2E8F0] flex items-center justify-between px-4">
@@ -63,11 +73,17 @@ export default function Header({ onMenuClick }: HeaderProps) {
           {t('language.toggle')}
         </button>
 
-        {/* Avatar — click handler wired in S-004 */}
-        <div className="w-8 h-8 rounded-full bg-[#E8F0FB] text-[#1E5DC4] flex items-center justify-center text-sm font-medium select-none">
-          م
-        </div>
+        <button
+          onClick={handleSignOut}
+          aria-label={t('auth.signOut')}
+          className="w-8 h-8 rounded-full bg-[#E8F0FB] text-[#1E5DC4] flex items-center
+                     justify-center text-sm font-medium select-none
+                     hover:bg-[#B8CFF5] transition-colors cursor-pointer"
+        >
+          {userInitial}
+        </button>
       </div>
     </header>
   );
 }
+
