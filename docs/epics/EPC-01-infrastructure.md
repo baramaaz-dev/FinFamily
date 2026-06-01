@@ -8,7 +8,7 @@ Story	Title	Status
 S-001	Development Environment & External Tools Setup	✅ Done
 S-002	React Router DOM Setup, Page Structure & i18n Infrastructure	✅ Done
 S-003	Main RTL/LTR Layout (Sidebar + Header + Content)	✅ Done
-S-004	Authentication System (Login + Protected Routes)	⬜ Pending
+S-004	Authentication System (Login + Protected Routes)	✅ Done
 S-005	Dinero.js Setup & Currency Logic (USD/SYP)	⬜ Pending
 ---
 S-001 — Development Environment & External Tools Setup
@@ -474,3 +474,155 @@ No hardcoded `left-*` / `right-*` / `pl-*` / `pr-*` in layout files	✅
 No raw Arabic or English strings in JSX	✅
 `STR-004-brand-strategy.md` committed to `docs/strategy/`	✅
 Pushed to `main` on GitHub	✅ `ed201fc`
+---
+S-004 — Authentication System (Login + Protected Routes)
+Status: ✅ Done
+Closed: Sprint 0
+What Was Built
+1. Auth Store — `src/store/authStore.ts`
+Already existed from pre-sprint work with a complete Zustand implementation
+Interface: `{ session, loading, error, init(), login(), logout() }`
+`init()`: calls `supabaseClient.auth.getSession()`, sets session and loading: false,
+subscribes to `onAuthStateChange` for reactive session updates
+`login(email, password)`: sets loading: true, calls `signIn()`, sets session on
+success, sets error and throws on failure
+`logout()`: calls `signOut()`, sets session: null
+Critical gap resolved: `init()` was never called anywhere — wired in `main.tsx` (Step 3)
+Store path: `src/store/` (singular) — not `src/stores/`
+2. Type Definitions — `src/types/index.ts`
+`AuthUser` interface appended after existing types (line 71):
+```ts
+export interface AuthUser {
+  id: string;
+  email: string;
+  displayName: string | null;
+}
+```
+Decouples UI layer from Supabase's internal `User` type
+`@supabase/supabase-js` `Session` type already in use in authStore — no
+additional package installation required
+3. i18n Updates
+Added `auth.signOut` key to both locale files (line 21 in each):
+- `ar.ts`: `signOut: 'تسجيل الخروج'`
+- `en.ts`: `signOut: 'Sign out'`
+Used as `aria-label` on the Header avatar button
+4. main.tsx — Session Initialization
+`useAuthStore.getState().init()` called as fire-and-forget before `createRoot(...).render(...)`
+Placed after `import '@/i18n'` — i18n initializes first
+Ensures session hydration from Supabase's persisted `localStorage` session
+before first render — prevents ProtectedRoute from hanging in loading state
+5. ProtectedRoute — `src/components/auth/ProtectedRoute.tsx`
+New file; creates `src/components/auth/` directory
+No props — reads `{ session, loading }` from `useAuthStore()` directly
+Three-state guard logic:
+`loading === true` → full-screen centered spinner:
+```tsx
+<div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+  <Loader2 className="h-8 w-8 animate-spin text-[#1E5DC4]" />
+</div>
+```
+`loading === false` + `session === null` → `<Navigate to={ROUTES.LOGIN} replace />`
+`loading === false` + `session !== null` → `<Outlet />`
+STR-004 compliant: `bg-[#F8FAFC]` (slate-50), `text-[#1E5DC4]` (primary-400)
+6. Router — `src/router/index.tsx`
+`'/'` route restructured: `ProtectedRoute` as outer layout route, `AppLayout`
+as inner pathless layout route
+```
+Before:  path:'/'  element:<AppLayout />  children:[all pages]
+After:   path:'/'  element:<ProtectedRoute />  children:[
+           { element:<AppLayout />  children:[all pages] }
+         ]
+```
+`AppLayout` route has NO `path` prop — pathless layout route pattern
+All existing child routes (index, /transactions, /portfolios, /properties,
+/partners, /reports, /settings, *) moved one level deeper, paths unchanged
+`/login` route and `'*'` catch-all route unchanged
+7. LoginPage — `src/pages/LoginPage.tsx`
+Redirect-if-authenticated guard added after all hook calls:
+```tsx
+const { session, loading: authLoading } = useAuthStore();
+if (!authLoading && session) return <Navigate to={ROUTES.DASHBOARD} replace />;
+```
+`authLoading` alias used to avoid shadowing the existing `loading` variable
+`!authLoading` guard prevents flash-of-login-page during session hydration
+No changes to existing form, error display, or button logic — all were already
+STR-004 compliant and fully wired from S-003
+8. Header — `src/layouts/components/Header.tsx`
+Avatar `<div>` (placeholder from S-003) replaced with interactive `<button>`:
+```tsx
+<button
+  onClick={handleSignOut}
+  aria-label={t('auth.signOut')}
+  className="w-8 h-8 rounded-full bg-[#E8F0FB] text-[#1E5DC4] flex items-center
+             justify-center text-sm font-medium select-none
+             hover:bg-[#B8CFF5] transition-colors cursor-pointer"
+>
+  {userInitial}
+</button>
+```
+`handleSignOut`: awaits `logout()` then calls `navigate(ROUTES.LOGIN, { replace: true })`
+`userInitial`: derived from `session?.user?.email?.charAt(0).toUpperCase() ?? 'م'`
+Hover color `#B8CFF5` = `primary-100` from STR-004 §2.1 — compliant
+Unused `language` variable removed from `useDirection()` destructuring (dead code cleanup)
+No dropdown or confirmation dialog — direct sign-out on click
+9. Project Structure after S-004
+```
+src/
+├── components/
+│   └── auth/
+│       └── ProtectedRoute.tsx      ← NEW
+├── store/
+│   └── authStore.ts                ← UNCHANGED (pre-existing)
+├── layouts/
+│   └── components/
+│       └── Header.tsx              ← UPDATED (avatar → sign-out button)
+├── pages/
+│   └── LoginPage.tsx               ← UPDATED (redirect-if-authenticated guard)
+├── router/
+│   └── index.tsx                   ← UPDATED (ProtectedRoute wraps AppLayout)
+├── types/
+│   └── index.ts                    ← UPDATED (AuthUser interface added)
+├── i18n/
+│   └── locales/
+│       ├── ar.ts                   ← UPDATED (auth.signOut added)
+│       └── en.ts                   ← UPDATED (auth.signOut added)
+└── main.tsx                        ← UPDATED (authStore.init() called)
+```
+10. Commits
+```
+feat(types): add AuthUser interface
+feat(i18n): add auth.signOut key to ar and en locales
+feat(main): call authStore.init before first render
+feat(auth): add ProtectedRoute component
+feat(router): wrap AppLayout with ProtectedRoute
+feat(login): add redirect-if-authenticated guard
+feat(header): wire avatar to signOut with dynamic initials
+```
+Squashed into single commit on `main`:
+```
+feat(s-004): implement authentication system and protected routes
+```
+Issues Encountered & Resolved
+#	Issue	Resolution
+1	`init()` never called — `loading` stuck at `true` indefinitely once ProtectedRoute added	Called `useAuthStore.getState().init()` in `main.tsx` before `createRoot`
+2	`loading` variable name conflict in `LoginPage.tsx` — two `loading` values in same scope	Destructured auth store loading as `authLoading` to avoid shadowing
+3	`auth.signOut` i18n key missing from both locale files — Header aria-label would error	Added `signOut` key to `auth` namespace in `ar.ts` and `en.ts`
+4	Avatar element was `<div>` — not keyboard accessible, no click handler	Replaced with `<button>` with `onClick`, `aria-label`, and `hover:bg-[#B8CFF5]`
+5	Unused `language` variable in Header — dead code from S-003 destructuring	Removed from `useDirection()` destructuring
+6	`src/stores/` (plural) path assumed in story — actual path is `src/store/` (singular)	All imports use `@/store/authStore` — no directory created or renamed
+Final Verification
+Check	Result
+`npx tsc --noEmit`	✅ Zero errors after every step
+`src/components/auth/ProtectedRoute.tsx` exists	✅
+`src/store/authStore.ts` unchanged	✅
+`init()` called in `main.tsx` before `createRoot`	✅ Line 25
+Unauthenticated → any protected route	✅ Redirects to `/login`
+Correct credentials → login	✅ Lands on `/` Dashboard
+Page refresh while logged in	✅ Session restored, no redirect
+`/login` while authenticated	✅ Redirects to `/`
+Avatar click → signs out → redirects to `/login`	✅
+Loading spinner visible during session hydration	✅
+No off-brand color names in any modified file	✅ Grep scan clean
+`auth.signOut` key in both `ar.ts` and `en.ts`	✅ Line 21 in each file
+`AuthUser` type in `src/types/index.ts`	✅ Line 71
+Pushed to `main` on GitHub	✅
