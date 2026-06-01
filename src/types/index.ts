@@ -1,3 +1,5 @@
+import type { SupportedCurrency } from '@/lib/currency';
+
 export interface Person {
   id: string
   name: string
@@ -25,7 +27,7 @@ export interface Transaction {
   portfolio_id: string
   type: 'income' | 'expense' | 'transfer'
   amount: number
-  currency: 'USD' | 'SYP'
+  currency: SupportedCurrency
   exchange_rate?: number
   category?: string
   date: string
@@ -55,7 +57,7 @@ export interface Lease {
   property_id: string
   tenant_name: string
   rent_amount: number
-  currency: 'USD' | 'SYP'
+  currency: SupportedCurrency
   frequency: 'monthly' | 'annual'
   start_date: string
   end_date?: string
