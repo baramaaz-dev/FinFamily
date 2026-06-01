@@ -1,0 +1,51 @@
+const ar = {
+  nav: {
+    dashboard:     'لوحة التحكم',
+    transactions:  'المعاملات',
+    portfolios:    'المحافظ والمشاريع',
+    properties:    'العقارات',
+    partners:      'الشركاء',
+    reports:       'التقارير',
+    settings:      'الإعدادات',
+  },
+  settings: {
+    people:        'إدارة الأشخاص',
+    exchangeRates: 'أسعار الصرف',
+  },
+  pages: {
+    dashboard:          'لوحة التحكم',
+    transactions:       'المعاملات',
+    portfolios:         'المحافظ والمشاريع',
+    portfolioDetail:    'تفاصيل المحفظة',
+    properties:         'العقارات',
+    propertyDetail:     'تفاصيل العقار',
+    partners:           'الشركاء',
+    partnerDetail:      'تفاصيل الشريك',
+    reports:            'التقارير',
+    settings:           'الإعدادات',
+    people:             'إدارة الأشخاص',
+    exchangeRates:      'أسعار الصرف',
+    login:              'تسجيل الدخول',
+    notFound:           'الصفحة غير موجودة',
+    notFoundBack:       'العودة إلى لوحة التحكم',
+    underConstruction:  'قيد الإنشاء',
+    id:                 'المعرّف',
+  },
+  common: {
+    loading:  'جارٍ التحميل...',
+    error:    'حدث خطأ',
+    save:     'حفظ',
+    cancel:   'إلغاء',
+    delete:   'حذف',
+    edit:     'تعديل',
+    add:      'إضافة',
+    search:   'بحث',
+    confirm:  'تأكيد',
+  },
+  language: {
+    toggle: 'English',
+    current: 'العربية',
+  },
+} as const;
+
+export default ar;

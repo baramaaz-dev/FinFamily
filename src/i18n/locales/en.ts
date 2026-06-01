@@ -1,0 +1,51 @@
+const en = {
+  nav: {
+    dashboard:     'Dashboard',
+    transactions:  'Transactions',
+    portfolios:    'Portfolios & Projects',
+    properties:    'Properties',
+    partners:      'Partners',
+    reports:       'Reports',
+    settings:      'Settings',
+  },
+  settings: {
+    people:        'People Management',
+    exchangeRates: 'Exchange Rates',
+  },
+  pages: {
+    dashboard:          'Dashboard',
+    transactions:       'Transactions',
+    portfolios:         'Portfolios & Projects',
+    portfolioDetail:    'Portfolio Details',
+    properties:         'Properties',
+    propertyDetail:     'Property Details',
+    partners:           'Partners',
+    partnerDetail:      'Partner Details',
+    reports:            'Reports',
+    settings:           'Settings',
+    people:             'People Management',
+    exchangeRates:      'Exchange Rates',
+    login:              'Login',
+    notFound:           'Page Not Found',
+    notFoundBack:       'Back to Dashboard',
+    underConstruction:  'Under Construction',
+    id:                 'ID',
+  },
+  common: {
+    loading:  'Loading...',
+    error:    'An error occurred',
+    save:     'Save',
+    cancel:   'Cancel',
+    delete:   'Delete',
+    edit:     'Edit',
+    add:      'Add',
+    search:   'Search',
+    confirm:  'Confirm',
+  },
+  language: {
+    toggle: 'العربية',
+    current: 'English',
+  },
+} as const;
+
+export default en;
