@@ -10,8 +10,8 @@
 | Story | Title | Status |
 |-------|-------|--------|
 | S-001 | Development Environment & External Tools Setup | ✅ Done |
-| S-002 | React Router DOM Setup & Page Structure | ⬜ Pending |
-| S-003 | Main RTL Layout (Sidebar + Header + Content) | ⬜ Pending |
+| S-002 | React Router DOM Setup, Page Structure & i18n Infrastructure | ✅ Done |
+| S-003 | Main RTL/LTR Layout (Sidebar + Header + Content) | ⬜ Pending |
 | S-004 | Authentication System (Login + Protected Routes) | ⬜ Pending |
 | S-005 | Dinero.js Setup & Currency Logic (USD/SYP) | ⬜ Pending |
 
@@ -165,3 +165,217 @@ finfamily/
 | RLS on all tables | ✅ Verified via Dashboard |
 | Vercel deployment | ✅ Status: Ready |
 | Production URL accessible | ✅ `fin-family-maaz.vercel.app` |
+
+---
+
+## S-002 — React Router DOM Setup, Page Structure & i18n Infrastructure
+**Status:** ✅ Done
+**Closed:** Sprint 0
+
+### What Was Built
+
+#### 1. Router Configuration — `src/router/index.tsx`
+
+- Built with `createBrowserRouter` (Data API) — not the legacy `<BrowserRouter>`
+- Prepares the project for `loader` and `action` usage in future sprints
+- `/login` is the only public route, outside `AppLayout`
+- All protected routes nested under `AppLayout` as `children`
+- `/settings` has its own `children` with `index: true` pointing to `PeoplePage`
+- Catch-all `path: '*'` renders `NotFoundPage`
+
+Route map:
+
+```
+/login                        → LoginPage              (public)
+/                             → AppLayout              (Outlet)
+  /                           → DashboardPage
+  /transactions               → TransactionsPage
+  /portfolios                 → PortfoliosPage
+  /portfolios/:id             → PortfolioDetailPage
+  /properties                 → PropertiesPage
+  /properties/:id             → PropertyDetailPage
+  /partners                   → PartnersPage
+  /partners/:id               → PartnerDetailPage
+  /reports                    → ReportsPage
+  /settings                   → SettingsPage
+    /settings         (index) → PeoplePage
+    /settings/people          → PeoplePage
+    /settings/exchange-rates  → ExchangeRatesPage
+  *                           → NotFoundPage
+```
+
+#### 2. Route Constants — `src/router/routes.ts`
+
+- Exports a single `ROUTES` object typed `as const`
+- Eliminates magic strings across the entire codebase
+- Dynamic routes (`PORTFOLIO`, `PROPERTY`, `PARTNER`) are arrow functions accepting `id: string`
+
+#### 3. App.tsx — RouterProvider only
+
+- Entire previous content replaced
+- `<RouterProvider router={router} />` is the only JSX
+- Existing auth logic (`useAuthStore`, `ProtectedRoute`, `useEffect`) intentionally removed — reimplemented correctly in S-004 inside `src/components/auth/ProtectedRoute.tsx`
+
+#### 4. Layout — `src/layouts/AppLayout.tsx`
+
+- Pass-through `<Outlet />` with dynamic `dir` attribute driven by i18n state
+- No auth logic (added in S-004)
+- Full Sidebar + Header wired in S-003
+
+```tsx
+const { direction } = useDirection();
+<div className="min-h-screen bg-background" dir={direction}>
+  <Outlet />
+</div>
+```
+
+#### 5. i18n Infrastructure
+
+##### Installed Packages
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `i18next` | latest | Translation engine |
+| `react-i18next` | latest | React bindings |
+| `i18next-browser-languagedetector` | latest | Auto language detection |
+
+##### File Structure
+
+```
+src/
+├── i18n/
+│   ├── index.ts              ← i18next config + type exports
+│   └── locales/
+│       ├── ar.ts             ← Arabic strings
+│       └── en.ts             ← English strings
+└── hooks/
+    └── useDirection.ts       ← direction + language + toggleLanguage()
+```
+
+##### Translation Key Namespaces
+
+| Namespace | Contents |
+|-----------|----------|
+| `nav.*` | Sidebar navigation links (7 items) |
+| `settings.*` | Settings sub-pages |
+| `pages.*` | Page titles + shared states (underConstruction, id) |
+| `common.*` | Shared UI labels (save, cancel, delete, search…) |
+| `language.*` | Language toggle button label |
+
+##### `useDirection` Hook — `src/hooks/useDirection.ts`
+
+Returns `{ direction, language, isRTL, toggleLanguage }`:
+- `direction`: `'rtl' | 'ltr'` derived from active language
+- `toggleLanguage()`: calls `i18n.changeLanguage()` and updates `document.documentElement` attributes (`dir`, `lang`) immediately
+
+##### Persistence
+
+- Language stored in `localStorage` under key `finfamily-lang`
+- `main.tsx` reads the stored value and sets `dir`/`lang` on `<html>` before first render — prevents direction flash on page load
+
+#### 6. Page Structure — `src/pages/`
+
+- **Flattened**: all pages at `src/pages/*.tsx` — zero subdirectories
+- **14 files** total: 8 moved from subdirectories + 6 created new
+- All pages use `useTranslation()` — no hardcoded Arabic or English strings
+- Detail pages (`PortfolioDetailPage`, `PropertyDetailPage`, `PartnerDetailPage`) use `useParams<{ id: string }>()`
+- `NotFoundPage` uses `ROUTES.DASHBOARD` constant for the back link
+
+| File | Type |
+|------|------|
+| `DashboardPage.tsx` | Moved + i18n |
+| `TransactionsPage.tsx` | Moved + i18n |
+| `PortfoliosPage.tsx` | Moved + i18n |
+| `PortfolioDetailPage.tsx` | New — useParams |
+| `PropertiesPage.tsx` | Moved + i18n |
+| `PropertyDetailPage.tsx` | New — useParams |
+| `PartnersPage.tsx` | Moved + i18n |
+| `PartnerDetailPage.tsx` | New — useParams |
+| `ReportsPage.tsx` | Moved + i18n |
+| `SettingsPage.tsx` | Moved + i18n |
+| `PeoplePage.tsx` | New |
+| `ExchangeRatesPage.tsx` | New |
+| `LoginPage.tsx` | Moved + i18n |
+| `NotFoundPage.tsx` | New — Link to ROUTES.DASHBOARD |
+
+#### 7. main.tsx Updates
+
+- `import '@/i18n'` added as first import — initializes i18next before any render
+- `<QueryClientProvider>` wraps `<App />` with `defaultOptions` (`retry: 1`, `staleTime: 5min`)
+- `document.documentElement` `dir` and `lang` set from `localStorage` before `createRoot`
+
+#### 8. Project Structure after S-002
+
+```
+src/
+├── hooks/
+│   └── useDirection.ts         ← NEW
+├── i18n/
+│   ├── index.ts                ← NEW
+│   └── locales/
+│       ├── ar.ts               ← NEW
+│       └── en.ts               ← NEW
+├── layouts/
+│   └── AppLayout.tsx           ← NEW
+├── pages/                      ← RESTRUCTURED — flat, 14 files
+│   ├── DashboardPage.tsx
+│   ├── TransactionsPage.tsx
+│   ├── PortfoliosPage.tsx
+│   ├── PortfolioDetailPage.tsx ← NEW
+│   ├── PropertiesPage.tsx
+│   ├── PropertyDetailPage.tsx  ← NEW
+│   ├── PartnersPage.tsx
+│   ├── PartnerDetailPage.tsx   ← NEW
+│   ├── ReportsPage.tsx
+│   ├── SettingsPage.tsx
+│   ├── PeoplePage.tsx          ← NEW
+│   ├── ExchangeRatesPage.tsx   ← NEW
+│   ├── LoginPage.tsx
+│   └── NotFoundPage.tsx        ← NEW
+├── router/
+│   ├── index.tsx               ← NEW
+│   └── routes.ts               ← NEW
+├── App.tsx                     ← UPDATED
+└── main.tsx                    ← UPDATED
+```
+
+#### 9. Commits
+
+```
+feat(router): add ROUTES constants
+feat(i18n): add i18next infrastructure with Arabic and English locales
+feat(pages): flatten structure, add missing pages, integrate i18n
+feat(layouts): add AppLayout with dynamic RTL/LTR direction
+feat(router): implement createBrowserRouter with all routes
+refactor(app): replace BrowserRouter with RouterProvider — auth deferred to S-004
+feat(main): add QueryClientProvider, initialize i18n and document direction
+```
+
+### Issues Encountered & Resolved
+
+| # | Issue | Resolution |
+|---|-------|------------|
+| 1 | Pages existed in subdirectories (`/pages/dashboard/` etc.) instead of flat structure | Moved all to `src/pages/*.tsx` and deleted empty subdirectories |
+| 2 | `App.tsx` contained `<BrowserRouter>` + S-004 auth logic added prematurely | Removed entirely, replaced with `RouterProvider` only — auth deferred to S-004 |
+| 3 | `AppLayout` existed at wrong path `src/components/layout/` | Created correct `src/layouts/AppLayout.tsx` — old file preserved for S-003 evaluation |
+| 4 | `main.tsx` missing `QueryClientProvider` | Added with `defaultOptions` (retry, staleTime) |
+| 5 | `dir="rtl"` hardcoded in layout breaks English support | Replaced with `dir={direction}` from `useDirection()` |
+| 6 | i18n initialisation after first render caused direction flash | `import '@/i18n'` placed first in `main.tsx` + `documentElement` set before `createRoot` |
+| 7 | LF/CRLF warnings on Windows during `git add` | Added `.gitattributes` with `* text=auto eol=lf` |
+
+### Final Verification
+
+| Check | Result |
+|-------|--------|
+| `npx tsc --noEmit` | ✅ Zero errors |
+| `npm run dev` | ✅ Ready in 2243ms, zero console errors |
+| `src/pages` flat structure (14 files, 0 subdirectories) | ✅ |
+| `src/router/index.tsx` + `routes.ts` present | ✅ |
+| `src/layouts/AppLayout.tsx` present | ✅ |
+| `src/i18n/` (index + ar + en) present | ✅ |
+| `src/hooks/useDirection.ts` present | ✅ |
+| No `BrowserRouter` references in codebase | ✅ |
+| All 14 routes navigable in browser | ✅ |
+| i18n AR ↔ EN switch via localStorage | ✅ |
+| `dir` + `lang` on `<html>` updates at runtime | ✅ |
+| Pushed to `main` on GitHub | ✅ `d85753a..485e780` |
