@@ -5,7 +5,7 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold">{t('pages.settings')}</h1>
+      <h1 className="text-2xl font-bold">{t('pages.settings.title')}</h1>
       <Outlet />
     </div>
   );

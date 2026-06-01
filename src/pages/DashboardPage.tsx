@@ -4,7 +4,7 @@ export default function DashboardPage() {
   const { t } = useTranslation();
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold">{t('pages.dashboard')}</h1>
+      <h1 className="text-2xl font-bold">{t('pages.dashboard.title')}</h1>
       <p className="text-muted-foreground mt-2">{t('pages.underConstruction')}</p>
     </div>
   );
