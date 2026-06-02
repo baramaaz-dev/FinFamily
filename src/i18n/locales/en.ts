@@ -121,6 +121,39 @@ const en = {
       closeButton:        'Close',
     },
   },
+  portfolios: {
+    pageTitle:    'Financial Portfolios',
+    pageSubtitle: 'Manage family financial portfolios and projects',
+    addPortfolio: 'Add Portfolio',
+    columns: {
+      name:        'Portfolio Name',
+      type:        'Type',
+      members:     'Members',
+      description: 'Description',
+      createdAt:   'Created At',
+      actions:     'Actions',
+    },
+    types: {
+      cash_usd: 'Cash (USD)',
+      cash_syp: 'Cash (SYP)',
+      gold:     'Gold',
+      project:  'Project',
+    },
+    actions: {
+      edit:   'Edit',
+      delete: 'Delete',
+    },
+    empty: {
+      title:    'No portfolios registered',
+      subtitle: 'Start by creating the first family portfolio',
+    },
+    error: {
+      title: 'Failed to load portfolios',
+      retry: 'Try Again',
+    },
+    comingSoon:   'Coming soon',
+    memberSuffix: 'partner',
+  },
   language: {
     toggle:  'ع',
     current: 'English',

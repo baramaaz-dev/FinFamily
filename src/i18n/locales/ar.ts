@@ -121,6 +121,39 @@ const ar = {
       closeButton:        'إغلاق',
     },
   },
+  portfolios: {
+    pageTitle:    'المحافظ المالية',
+    pageSubtitle: 'إدارة المحافظ والمشاريع المالية للعائلة',
+    addPortfolio: 'إضافة محفظة',
+    columns: {
+      name:        'اسم المحفظة',
+      type:        'النوع',
+      members:     'المساهمون',
+      description: 'الوصف',
+      createdAt:   'تاريخ الإنشاء',
+      actions:     'الإجراءات',
+    },
+    types: {
+      cash_usd: 'نقد (دولار)',
+      cash_syp: 'نقد (ليرة)',
+      gold:     'ذهب',
+      project:  'مشروع',
+    },
+    actions: {
+      edit:   'تعديل',
+      delete: 'حذف',
+    },
+    empty: {
+      title:    'لا توجد محافظ مسجّلة',
+      subtitle: 'ابدأ بإنشاء أول محفظة مالية للعائلة',
+    },
+    error: {
+      title: 'تعذّر تحميل المحافظ',
+      retry: 'إعادة المحاولة',
+    },
+    comingSoon:   'قريباً',
+    memberSuffix: 'شريك',
+  },
   language: {
     toggle:  'EN',
     current: 'العربية',
