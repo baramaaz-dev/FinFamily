@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
+import { AddPersonDialog } from '@/components/people/AddPersonDialog';
 import {
   Table,
   TableBody,
@@ -46,7 +48,7 @@ function PeopleSkeleton() {
   );
 }
 
-function PeopleEmpty() {
+function PeopleEmpty({ onAdd }: { onAdd: () => void }) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16">
@@ -56,8 +58,8 @@ function PeopleEmpty() {
       </h3>
       <p className="text-sm text-[#475569]">{t('people.empty.subtitle')}</p>
       <Button
-        disabled
         className="mt-2 bg-[#1E5DC4] text-white hover:bg-[#164399]"
+        onClick={onAdd}
       >
         <Plus className="ms-2 h-4 w-4" />
         {t('people.addPerson')}
@@ -83,6 +85,7 @@ function PeopleError({ onRetry, t }: { onRetry: () => void; t: (key: string) => 
 
 export default function PeoplePage() {
   const { t } = useTranslation();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const {
     data: people = [],
@@ -107,8 +110,8 @@ export default function PeoplePage() {
           </p>
         </div>
         <Button
-          disabled
           className="bg-[#1E5DC4] text-white hover:bg-[#164399]"
+          onClick={() => setDialogOpen(true)}
         >
           {t('people.addPerson')}
           <Plus className="ms-2 h-4 w-4" />
@@ -121,7 +124,7 @@ export default function PeoplePage() {
         ) : isError ? (
           <PeopleError onRetry={refetch} t={t} />
         ) : people.length === 0 ? (
-          <PeopleEmpty />
+          <PeopleEmpty onAdd={() => setDialogOpen(true)} />
         ) : (
           <div role="region" aria-label={t('people.pageTitle')}>
             <Table>
@@ -194,6 +197,8 @@ export default function PeoplePage() {
           </div>
         )}
       </div>
+
+      <AddPersonDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }
