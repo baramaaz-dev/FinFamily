@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { Plus, Pencil, Trash2, Wallet } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase';
 import { AddPortfolioDialog } from '@/components/portfolios/AddPortfolioDialog';
+import { EditPortfolioDialog } from '@/components/portfolios/EditPortfolioDialog';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -115,6 +116,8 @@ function PortfoliosError({ onRetry }: { onRetry: () => void }) {
 export default function PortfoliosPage() {
   const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+  const [editDialogOpen,    setEditDialogOpen]    = useState<boolean>(false);
+  const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null);
 
   const {
     data: portfolios = [],
@@ -214,9 +217,8 @@ export default function PortfoliosPage() {
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          disabled
-                          title={t('portfolios.comingSoon')}
-                          className="cursor-not-allowed rounded p-1 text-[#1E5DC4] opacity-40"
+                          onClick={() => { setSelectedPortfolio(portfolio); setEditDialogOpen(true); }}
+                          className="rounded p-1 text-[#1E5DC4] hover:bg-[#E8F0FB] transition-colors"
                           aria-label={t('portfolios.actions.edit')}
                         >
                           <Pencil className="h-4 w-4" />
@@ -240,6 +242,11 @@ export default function PortfoliosPage() {
       </div>
 
       <AddPortfolioDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <EditPortfolioDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        portfolio={selectedPortfolio}
+      />
     </div>
   );
 }
