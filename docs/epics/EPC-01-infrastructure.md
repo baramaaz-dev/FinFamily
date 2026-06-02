@@ -947,3 +947,324 @@ COA rows                           ✅ 27
 Accounting period rows             ✅ 12
 npx tsc --noEmit                   ✅ Zero errors
 Squash commit pushed to main       ✅
+
+EPC-01 — Infrastructure & Setup
+Epic: E1 — البنية التحتية والإعداد
+Sprint: Sprint 1 — Database Schema, RLS & Seed Data
+
+S-006 — Apply Database Migrations for All Tables
+Status: ✅ Done
+Closed: Sprint 1
+
+---
+
+What Was Built
+
+1. Migration M-01 — Fix Existing Schema — `20260601000001_fix_existing_schema.sql`
+
+Corrected 15 tables that existed from the original migration but contained defects discovered during the pre-sprint audit (AUDIT-S006-report.md).
+
+Numeric precision fix — 4 columns upgraded from NUMERIC(12,4) to NUMERIC(18,4)
+per STR-002 §6.2:
+  exchange_rates.rate
+  transactions.exchange_rate
+  lease_payments.exchange_rate
+  property_expenses.exchange_rate
+
+ON DELETE behavior fix — 5 foreign keys corrected from CASCADE to RESTRICT
+to prevent silent data destruction:
+  transactions.portfolio_id
+  lease_payments.lease_id
+  property_expenses.property_id
+  capital_transactions.capital_account_id
+  settlement_shares.partner_id
+Dynamic constraint discovery used information_schema.table_constraints with
+LIKE patterns inside DO $$ blocks — handles any auto-generated constraint names
+from the original migration without assuming exact names.
+
+entity_type CHECK fix — 3 tables had CHECK IN ('portfolio','property') missing
+the 'project' value required by STR-002 §1.5:
+  partner_capital_accounts.entity_type
+  profit_settlements.entity_type
+  distributions.entity_type
+Old CHECK constraints dropped dynamically, new constraints added with the
+correct three-value CHECK IN ('portfolio','property','project').
+
+journal_entry_id column added — 4 existing tables received the bare UUID column
+as preparation for the FK constraint added in M-03 once journal_entries exists:
+  transactions.journal_entry_id
+  lease_payments.journal_entry_id
+  property_expenses.journal_entry_id
+  capital_transactions.journal_entry_id
+
+Share-sum triggers created for the 2 existing join tables:
+  trg_portfolio_share_sum on portfolio_members (AFTER INSERT OR UPDATE)
+  trg_property_share_sum  on property_owners   (AFTER INSERT OR UPDATE)
+Both triggers use PostgreSQL 13+ built-in gcd(bigint, bigint) for pure integer
+LCM arithmetic — zero floating-point rounding risk.
+Both declared DEFERRABLE INITIALLY DEFERRED — allows inserting multiple partners
+in a single transaction before validation fires at COMMIT.
+
+---
+
+2. Migration M-02 — Projects & WBS — `20260601000002_add_projects_wbs.sql`
+
+Created 4 new tables for the v1.1 project management group per STR-002 §2.6:
+
+`projects`
+  Master project record with status lifecycle:
+  planning → active → on_hold → completed → cancelled
+  Optional budget fields (budget_amount + budget_currency) follow STR-002 §6.2
+  financial column pattern.
+
+`project_members`
+  Implements the Effective Dates pattern (STR-002 §1.6) for share history.
+  effective_from / effective_to date pair allows full audit trail of share
+  changes over project lifetime.
+  Current shares query: WHERE effective_to IS NULL
+  UNIQUE (project_id, person_id, effective_from) prevents duplicate rows.
+
+`wbs_items`
+  Self-referencing hierarchy: parent_id FK added via DO $$ block after CREATE
+  TABLE to avoid circular dependency error (STR-002 §4 creation order rule).
+  UNIQUE (project_id, code) enforces WBS code uniqueness per project.
+  PostgreSQL does not support ADD CONSTRAINT IF NOT EXISTS — DO $$ pattern
+  used for all idempotent constraint additions in this migration and all
+  subsequent ones.
+
+`project_transactions`
+  journal_entry_id included at creation time as bare UUID; FK constraint
+  added in M-03 after journal_entries table exists (STR-002 §7.6 two-phase
+  pattern).
+
+Share-sum trigger created for project_members:
+  trg_project_share_sum (AFTER INSERT OR UPDATE, DEFERRABLE INITIALLY DEFERRED)
+  Validates active shares only (effective_to IS NULL).
+  Allows 0-member state (project under construction) — check fires only when
+  total_num > 0.
+
+RLS enabled and authenticated_full_access policy created on all 4 tables.
+
+---
+
+3. Migration M-03 — Accounting Core — `20260601000003_add_accounting_core.sql`
+
+Created 4 new tables for the v1.2 double-entry accounting system per STR-002 §2.7:
+
+`accounting_periods`
+  Fiscal year + month structure with UNIQUE (fiscal_year, period_number).
+  Three-state status: open → closed → locked.
+  Locked periods reject all new journal entry postings.
+
+`accounts`
+  Chart of Accounts with full hierarchy via self-referencing parent_id.
+  is_postable boolean distinguishes control accounts (false) from detail
+  accounts that accept journal lines (true).
+  normal_balance stored explicitly as 'debit' | 'credit' alongside account_class
+  for query performance — derived logically but stored for speed.
+  Self-referencing FK added via DO $$ block after table creation.
+
+`journal_entries`
+  Header record for every accounting entry.
+  source_type + source_id polymorphic pattern links each entry back to its
+  originating document (transaction, lease_payment, property_expense,
+  capital_transaction, project_transaction, or manual).
+  reversal_of self-reference allows chaining of reversal entries.
+  Status lifecycle: draft → posted → reversed.
+  Self-referencing FK on reversal_of added via DO $$ block after table creation.
+
+`journal_entry_lines`
+  Separate debit_amount and credit_amount columns (both DEFAULT 0).
+  CHECK constraint enforces mutual exclusivity:
+    (debit_amount > 0 AND credit_amount = 0) OR
+    (credit_amount > 0 AND debit_amount = 0)
+  No line may carry both a debit and credit amount simultaneously.
+
+FK constraints wired — 7 DO $$ blocks added journal_entry_id FK on all 5 source
+tables (columns existed as bare UUIDs from M-01 and M-02):
+  transactions, lease_payments, property_expenses,
+  capital_transactions, project_transactions
+
+Balance-check trigger created:
+  trg_journal_balance on journal_entry_lines
+  (AFTER INSERT OR UPDATE, DEFERRABLE INITIALLY DEFERRED)
+  Fires only when parent entry status = 'posted'.
+  Rejects posting if Σ debit ≠ Σ credit for the journal_entry_id.
+  DEFERRABLE allows building up all lines within one transaction before the
+  balance check fires at COMMIT.
+
+general_ledger VIEW created:
+  Read-only projection joining journal_entry_lines → journal_entries →
+  accounts → accounting_periods.
+  Filters to posted entries only (je.status = 'posted').
+  Not a table — cannot be out of balance by construction.
+
+RLS enabled and authenticated_full_access policy created on all 4 tables.
+
+---
+
+4. Migration M-04 — Seed: Chart of Accounts — `20260601000004_seed_chart_of_accounts.sql`
+
+Inserted 27 default accounts for a شركة أشخاص (partnership) structure.
+ON CONFLICT (code) DO NOTHING ensures idempotency on re-run.
+Parent UUIDs resolved via subquery JOIN on code — no hardcoded UUIDs required.
+Inserted in parent-before-child order to satisfy the parent_id FK.
+
+Account structure seeded:
+  1000  الأصول           (asset     · debit  · level 1 · not postable)
+  1100  الأصول المتداولة  (asset     · debit  · level 2 · not postable)
+  1110  النقدية USD       (asset     · debit  · level 3 · postable)
+  1120  النقدية SYP       (asset     · debit  · level 3 · postable)
+  1130  الذمم المدينة     (asset     · debit  · level 3 · postable)
+  1200  الأصول الثابتة   (asset     · debit  · level 2 · not postable)
+  1210  العقارات          (asset     · debit  · level 3 · postable)
+  1220  الاستثمارات       (asset     · debit  · level 3 · postable)
+  2000  الخصوم            (liability · credit · level 1 · not postable)
+  2100  الخصوم المتداولة  (liability · credit · level 2 · not postable)
+  2110  الذمم الدائنة     (liability · credit · level 3 · postable)
+  2120  مصروفات مستحقة   (liability · credit · level 3 · postable)
+  3000  حقوق الشركاء      (equity    · credit · level 1 · not postable)
+  3100  رأس المال         (equity    · credit · level 2 · not postable)
+  3110  رأس مال — شريك أ  (equity    · credit · level 3 · postable)
+  3120  رأس مال — شريك ب  (equity    · credit · level 3 · postable)
+  3200  المسحوبات          (equity    · debit  · level 2 · not postable)
+  3210  مسحوبات — شريك أ  (equity    · debit  · level 3 · postable)
+  3220  مسحوبات — شريك ب  (equity    · debit  · level 3 · postable)
+  4000  الإيرادات          (revenue   · credit · level 1 · not postable)
+  4100  إيرادات الإيجار   (revenue   · credit · level 2 · postable)
+  4200  إيرادات المشاريع  (revenue   · credit · level 2 · postable)
+  4300  إيرادات المحافظ   (revenue   · credit · level 2 · postable)
+  5000  المصروفات          (expense   · debit  · level 1 · not postable)
+  5100  مصروفات التشغيل   (expense   · debit  · level 2 · postable)
+  5200  مصروفات العقارات  (expense   · debit  · level 2 · postable)
+  5300  مصروفات المشاريع  (expense   · debit  · level 2 · postable)
+
+---
+
+5. Migration M-05 — Seed: Accounting Periods — `20260601000005_seed_accounting_periods.sql`
+
+Inserted 12 monthly periods for fiscal year 2026.
+ON CONFLICT (fiscal_year, period_number) DO NOTHING ensures idempotency.
+All periods seeded with status = 'open'.
+Period names in Arabic: يناير through ديسمبر.
+
+---
+
+6. TypeScript Types — `src/types/index.ts`
+
+Added 9 new interfaces for the tables introduced in M-02 and M-03:
+  Project
+  ProjectMember
+  WbsItem
+  ProjectTransaction
+  AccountingPeriod
+  Account
+  JournalEntry
+  JournalEntryLine
+  GeneralLedgerRow    (maps to general_ledger VIEW columns)
+
+Updated 5 existing interfaces with journal_entry_id: string | null:
+  Transaction
+  LeasePayment
+  PropertyExpense
+  CapitalTransaction
+
+Updated 7 interfaces that existed without proper typing (discovered during
+audit — not present in original types file):
+  Portfolio, PortfolioMember, Property, PropertyOwner,
+  Lease, ExchangeRate, Distribution
+
+All currency fields use SupportedCurrency from '@/lib/currency'.
+All CHECK IN columns use TypeScript union types matching STR-002 §6.4 exactly.
+Nullable database columns typed as Type | null throughout.
+
+---
+
+7. Strategy Document — `STR-002-database-schema.md`
+
+Created as the canonical database reference for the project (v1.3).
+Covers all 23 tables with full column definitions, FK relationships,
+ON DELETE behavior, creation order, canonical column naming dictionary
+(§6), migration file strategy (§7), and double-entry accounting conventions (§1.7).
+Mandatory reference: any new table must consult this document before
+the first line of SQL is written.
+
+---
+
+8. Project Structure after S-006
+
+```
+supabase/
+└── migrations/
+    ├── 20260601000001_fix_existing_schema.sql      ← M-01
+    ├── 20260601000002_add_projects_wbs.sql         ← M-02
+    ├── 20260601000003_add_accounting_core.sql      ← M-03
+    ├── 20260601000004_seed_chart_of_accounts.sql   ← M-04
+    └── 20260601000005_seed_accounting_periods.sql  ← M-05
+
+src/
+└── types/
+    └── index.ts    ← UPDATED (16 interfaces added, 5 updated)
+
+docs/  (or project root)
+└── STR-002-database-schema.md   ← NEW (v1.3)
+```
+
+---
+
+9. Commits
+
+```
+feat(db): fix numeric precision, ON DELETE, entity_type CHECK on 15 tables
+feat(db): add journal_entry_id column to 4 source tables
+feat(db): add share-sum triggers for portfolio_members and property_owners
+feat(db): create projects, project_members, wbs_items, project_transactions
+feat(db): add share-sum trigger for project_members (effective dates aware)
+feat(db): create accounting_periods, accounts, journal_entries, journal_entry_lines
+feat(db): wire journal_entry_id FK constraints on 5 source tables
+feat(db): add balance-check trigger on journal_entry_lines
+feat(db): create general_ledger VIEW
+feat(db): seed chart of accounts — 27 rows
+feat(db): seed accounting periods 2026 — 12 rows
+feat(types): add 9 new interfaces for project and accounting tables
+feat(types): add journal_entry_id to 5 existing interfaces
+docs: add STR-002-database-schema.md v1.3
+```
+
+Squashed into single commit on main:
+```
+feat(s-006): apply full database schema migrations with RLS, triggers, and accounting core
+```
+
+---
+
+Issues Encountered & Resolved
+
+#   Issue                                                        Resolution
+1   ADD CONSTRAINT IF NOT EXISTS not supported in PostgreSQL     Replaced all 9 occurrences across M-02 and M-03 with
+    (affects self-ref FKs and journal_entry_id FKs)             DO $$ IF NOT EXISTS ... ALTER TABLE ... END $$ pattern
+2   M-01 could not assume auto-generated FK constraint names     Used information_schema.table_constraints with LIKE
+    from original migration                                      pattern inside DO $$ for dynamic constraint discovery
+3   project_members share-sum trigger must ignore closed         Added AND effective_to IS NULL filter to both FOR loops;
+    history rows (effective_to IS NOT NULL)                      added guard: IF total_num > 0 THEN check fires
+4   wbs_items and accounts self-ref FKs require table to        Created tables without the FK column constraint, then
+    exist before the FK can reference itself                     added FK via DO $$ block after CREATE TABLE
+5   journal_entry_id FK on source tables cannot reference       M-01/M-02 add bare UUID columns; M-03 adds FK constraints
+    journal_entries before that table exists                     after journal_entries is created — two-phase pattern
+6   COA seed parent_id cannot use hardcoded UUIDs               Used subquery: (SELECT id FROM accounts WHERE code = 'XXXX')
+    (gen_random_uuid() produces different UUIDs each run)        to resolve parent_id dynamically at INSERT time
+
+---
+
+Final Verification
+
+Check                              Result
+Total tables in public schema      ✅ 23 / 23
+RLS enabled on all tables          ✅ 23 / 23 (rowsecurity = true)
+Share-sum triggers                 ✅ 3 — portfolio_members, property_owners, project_members
+Balance trigger                    ✅ 1 — journal_entry_lines
+general_ledger VIEW                ✅ present in pg_views
+COA rows                           ✅ 27
+Accounting period rows             ✅ 12
+npx tsc --noEmit                   ✅ Zero errors
+Squash commit pushed to main       ✅
