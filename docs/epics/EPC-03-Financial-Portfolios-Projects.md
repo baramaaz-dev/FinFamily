@@ -1,0 +1,473 @@
+EPC-03 — Financial Portfolios & Projects
+Epic: E3 — المحافظ المالية والمشاريع
+Sprint: Sprint 2
+Status: 🔄 In Progress
+---
+Stories Overview
+Story	Title	Status
+S-019	Portfolio List Page				✅ Done
+S-020	Add Portfolio Form (with type selector)		✅ Done
+S-021	Edit Portfolio Form				⏳ Pending
+S-022	Add Portfolio Members				⏳ Pending
+S-023	Set Member Share Fractions			⏳ Pending
+S-024	Validate Total Shares = 1 before Save		⏳ Pending
+S-025	Portfolio Detail View (balance + members + shares)	⏳ Pending
+---
+S-019 — Portfolio List Page
+Status: ✅ Done
+Closed: Sprint 2
+What Was Built
+1. Shadcn Components Installed
+`src/components/ui/badge.tsx` — installed via `npx shadcn@latest add badge`
+Note: badge.tsx was absent from the project despite not being listed as missing in S-001.
+Installed in STEP 1 of this story. The component is available for future use but is NOT
+used for type badges in this story — see section 5 (STR-004 note) for the reason.
+All other required components (table.tsx · button.tsx) were already present from S-015.
+No new npm packages installed.
+2. TypeScript Types — `src/types/index.ts`
+`Portfolio` interface added alongside the existing `Person` interface:
+```ts
+export interface Portfolio {
+  id:            string;
+  name:          string;
+  type:          'cash_usd' | 'cash_syp' | 'gold' | 'project';
+  description:   string | null;
+  created_at:    string;
+  members_count: number;   // derived field — NOT a DB column
+}
+```
+Note: `type` is a strict union — not `string`. Required for `typeBadgeClass()` mapping
+and for exhaustive type checks in future stories.
+`members_count` is injected during `fetchPortfolios()` transformation from the
+`portfolio_members(count)` aggregate — it does not exist in the `portfolios` DB table.
+Pre-existing Portfolio stub (if any) was replaced in full. No partial updates.
+3. i18n — `src/i18n/locales/ar.ts` and `src/i18n/locales/en.ts`
+Added `portfolios` namespace to both locale files. No existing keys modified or removed.
+Sub-namespace	Keys
+`portfolios.pageTitle`		"المحافظ المالية" / "Financial Portfolios"
+`portfolios.pageSubtitle`	"إدارة المحافظ والمشاريع المالية للعائلة" / "Manage family financial portfolios and projects"
+`portfolios.addPortfolio`	"إضافة محفظة" / "Add Portfolio"
+`portfolios.comingSoon`		"قريباً" / "Coming Soon"
+`portfolios.memberSuffix`	"شريك" / "member"
+`portfolios.columns.name`	"اسم المحفظة" / "Portfolio Name"
+`portfolios.columns.type`	"النوع" / "Type"
+`portfolios.columns.members`	"المساهمون" / "Members"
+`portfolios.columns.description`	"الوصف" / "Description"
+`portfolios.columns.createdAt`	"تاريخ الإنشاء" / "Created At"
+`portfolios.columns.actions`	"الإجراءات" / "Actions"
+`portfolios.types.cash_usd`	"نقد (دولار)" / "Cash (USD)"
+`portfolios.types.cash_syp`	"نقد (ليرة)" / "Cash (SYP)"
+`portfolios.types.gold`		"ذهب" / "Gold"
+`portfolios.types.project`	"مشروع" / "Project"
+`portfolios.actions.edit`	"تعديل" / "Edit"
+`portfolios.actions.delete`	"حذف" / "Delete"
+`portfolios.empty.title`	"لا توجد محافظ مسجّلة" / "No portfolios registered"
+`portfolios.empty.subtitle`	"ابدأ بإنشاء أول محفظة مالية للعائلة" / "Start by creating the first family portfolio"
+`portfolios.error.title`	"تعذّر تحميل المحافظ" / "Failed to load portfolios"
+`portfolios.error.retry`	"إعادة المحاولة" / "Try Again"
+4. Portfolio List Page — `src/pages/PortfoliosPage.tsx` (full replacement of stub)
+The stub created in S-002 was replaced with a complete production-ready implementation.
+All logic split into four units: the page component, and three sub-components for
+loading / empty / error states.
+Helper Functions (outside the component)
+`fetchPortfolios()` — standalone async function using Supabase aggregate select
+to avoid N+1 on portfolio_members:
+```ts
+async function fetchPortfolios(): Promise<Portfolio[]> {
+  const { data, error } = await supabaseClient
+    .from('portfolios')
+    .select(`
+      id,
+      name,
+      type,
+      description,
+      created_at,
+      portfolio_members(count)
+    `)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id:            row.id,
+    name:          row.name,
+    type:          row.type as Portfolio['type'],
+    description:   row.description,
+    created_at:    row.created_at,
+    members_count: (row.portfolio_members as { count: number }[])[0]?.count ?? 0,
+  }));
+}
+```
+`typeBadgeClass()` — pure helper mapping portfolio type to STR-004 hex classes:
+```ts
+function typeBadgeClass(type: Portfolio['type']): string {
+  const map: Record<Portfolio['type'], string> = {
+    cash_usd: 'text-[#1A7D4F] bg-[#EBF5F0]',  // success green — stable USD asset
+    cash_syp: 'text-[#B45309] bg-[#FEF7EC]',  // warning amber — SYP volatility
+    gold:     'text-[#B45309] bg-[#FEF7EC]',  // warning amber — commodity asset
+    project:  'text-[#1E5DC4] bg-[#E8F0FB]',  // primary blue  — business entity
+  };
+  return map[type];
+}
+```
+React Query hook:
+`useQuery` with `queryKey: ['portfolios']` and `staleTime: 60_000`
+Default value `data: portfolios = []` prevents undefined access during loading
+Page Header
+Title:    `text-xl font-medium text-[#1E293B]` — from `t('portfolios.pageTitle')`
+Subtitle: `mt-0.5 text-sm text-[#475569]`      — from `t('portfolios.pageSubtitle')`
+"إضافة محفظة" Button: `bg-[#1E5DC4] text-white hover:bg-[#164399]` with Plus icon
+Button is `disabled` with `title={t('portfolios.comingSoon')}` — wired in S-020
+Table (rendered when data exists)
+Wrapped in `<div role="region" aria-label={t('portfolios.pageTitle')}>` for accessibility
+Shadcn `<Table>` component used — not native `<table>`
+Header row: `bg-[#F1F5F9] hover:bg-[#F1F5F9]`
+All `<TableHead>` cells use `text-start` (logical) — never `text-left`
+Actions column uses `text-end` (logical) — never `text-right`
+6 columns: اسم المحفظة · النوع · المساهمون · الوصف · تاريخ الإنشاء · الإجراءات
+Body rows: `text-sm text-[#1E293B] hover:bg-[#F1F5F9]`
+Column details:
+  name:          `text-sm font-medium text-[#1E293B]`
+  type badge:    plain `<span>` with `typeBadgeClass()` — NOT Shadcn Badge (see STR-004 note)
+                 `inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium`
+                 label: `t('portfolios.types.{type}')`
+  members_count: `font-mono tabular-nums text-[#475569]`
+                 `{count.toLocaleString('ar-SA')} {t('portfolios.memberSuffix')}`
+                 0 members → "—" (em dash)
+  description:   `text-sm text-[#475569] truncate max-w-[220px] block`
+                 `title={portfolio.description}` for hover tooltip
+                 null/empty → "—"
+  created_at:    `font-mono tabular-nums text-[#475569]`
+                 `format(new Date(portfolio.created_at), 'dd/MM/yyyy')` via date-fns
+  actions:       Edit button:   `<Pencil h-4 w-4>` `text-[#1E5DC4] opacity-40 cursor-not-allowed`
+                 Delete button: `<Trash2 h-4 w-4>` `text-[#C0392B] opacity-40 cursor-not-allowed`
+                 Both: `disabled={true}` · `title={t('portfolios.comingSoon')}` — wired in S-021
+Card container: `overflow-hidden rounded-lg border border-[#E2E8F0] bg-white`
+`PortfoliosSkeleton` Sub-component
+`aria-busy="true"` on wrapper div
+One header-like row with `bg-[#F1F5F9]` + 5 data rows
+All bars: `animate-pulse rounded bg-[#E2E8F0]` — built inline, no Shadcn Skeleton import
+6 columns matching the live table: proportional widths 1/4 · 1/8 · 1/12 · 1/3 · auto · auto
+`PortfoliosEmpty` Sub-component
+`flex flex-col items-center justify-center gap-3 py-16`
+`<Wallet>` icon from lucide-react: `h-12 w-12 text-[#94A3B8]` (Slate-400)
+Note: Wallet icon used (not Users) — semantically correct for a financial portfolio context
+Heading: `text-base font-medium text-[#1E293B]` — from `t('portfolios.empty.title')`
+Sub-text: `text-sm text-[#475569]`              — from `t('portfolios.empty.subtitle')`
+Props: `{ onAdd: () => void }`
+Disabled "إضافة محفظة" Button — identical styling to header button
+`PortfoliosError` Sub-component
+Props: `{ onRetry: () => void }`
+Error message: `text-sm font-medium text-[#C0392B]` — from `t('portfolios.error.title')`
+Retry Button: `variant="outline"` with `border-[#E2E8F0] text-[#1E5DC4] hover:bg-[#E8F0FB]`
+`onClick` calls `refetch()` from React Query
+5. STR-004 Compliance
+All colors expressed as hex values — no Tailwind color names (gray-*, blue-*, etc.)
+All directional utilities are logical properties: `text-start`, `text-end`, `ms-*`, `ps-*`
+No gradients anywhere in the file
+No hardcoded Arabic or English strings in JSX — all resolved through `t()`
+Card container: `overflow-hidden rounded-lg border border-[#E2E8F0] bg-white`
+Page background handled by AppLayout (`bg-[#F8FAFC]`) — no bg class on page div
+Type badge counts: `font-mono tabular-nums text-[#475569]`
+⚠️ Reference decision: Shadcn `<Badge>` NOT used for portfolio type badges.
+Reason: Shadcn Badge applies variant styles (`default`, `secondary`, `outline`,
+`destructive`) that override inline hex classes — the four portfolio types require
+custom STR-004 colors that conflict with all four built-in variants.
+Solution: plain `<span>` with `typeBadgeClass()` hex classes. This is the canonical
+pattern for all custom-colored badges across the entire codebase going forward.
+6. Router & Sidebar
+`/portfolios` route was already wired to `<PortfoliosPage />` stub in S-002.
+No router changes required — the stub was replaced in-place.
+Sidebar nav link for "المحافظ" was already pointing to `/portfolios` and active.
+No AppLayout changes required.
+7. Project Structure after S-019
+```
+src/
+├── components/
+│   └── ui/
+│       └── badge.tsx            ← NEW (Shadcn Badge — available, not used for type badges)
+├── i18n/
+│   └── locales/
+│       ├── ar.ts                ← UPDATED (portfolios.* namespace added — 22 keys)
+│       └── en.ts                ← UPDATED (same keys in English)
+├── pages/
+│   └── PortfoliosPage.tsx       ← REPLACED (stub → full implementation)
+└── types/
+    └── index.ts                 ← UPDATED (Portfolio interface added)
+```
+No new npm packages. No new Supabase migrations.
+8. Commits
+```
+feat(ui): install Shadcn Badge component
+feat(types): add Portfolio interface to src/types/index.ts
+feat(i18n): add portfolios.* namespace to ar and en locales
+feat(portfolios): implement Portfolios list page — table, skeleton, empty and error states
+```
+Merged via `--no-ff` into `feature/sprint-02`:
+```
+feat(s-019): implement Portfolio list page
+```
+---
+Issues Encountered & Resolved (S-019)
+#	Issue	Resolution
+1	`badge.tsx` missing from `src/components/ui/` — not flagged in any prior story	Installed via `npx shadcn@latest add badge`. Same root cause as S-015 button.tsx gap: `npx shadcn@latest init` does not pre-install components. Component installed but intentionally not used for type badges — see STR-004 note in section 5.
+2	Router and Sidebar were already wired from S-002 — no changes needed	Verified by navigating to /portfolios before implementation. Stub element was replaced in-place without modifying the route definition or the nav link.
+---
+Final Verification (S-019)
+Check	Result
+`npx tsc --noEmit`	✅ Zero errors
+Brand scan clean	✅ `grep -n "text-gray\|text-blue\|text-red\|text-green\|bg-gray\|bg-blue\|text-left\|text-right\|pl-\|pr-\|ml-\|mr-"` src/pages/PortfoliosPage.tsx → empty
+Arabic string scan clean	✅ `grep -n '="[أ-ي]'` src/pages/PortfoliosPage.tsx → empty
+3 seed portfolios render in table	✅ الصندوق النقدي USD · الصندوق النقدي SYP · محفظة الذهب
+Type badges show correct label and color per type	✅ نقد (دولار) green · نقد (ليرة) amber · ذهب amber
+members_count shows correct partner count per portfolio	✅ aggregate join confirmed
+Skeleton visible on Slow 3G (DevTools)	✅
+Error state visible on broken Supabase URL	✅ Retry button functional
+Empty state visible after temp WHERE false filter	✅
+"إضافة محفظة" button rendered as disabled with comingSoon title	✅ header + empty state
+Edit and Delete buttons rendered as disabled on every row	✅ opacity-40 cursor-not-allowed confirmed
+/portfolios route navigable from Sidebar	✅ no 404
+RTL layout intact	✅ text-start headers · text-end actions column
+`feature/sprint-02` up to date	✅
+`feature/s-019-portfolio-list-page` deleted	✅ Local + remote
+
+==================================================================
+
+S-020 — Add Portfolio Form (with type selection)
+نموذج إنشاء محفظة جديدة (مع اختيار النوع)
+Epic: E3 — المحافظ المالية والمشاريع
+Sprint: Sprint 2 — المحافظ المالية
+Status: ✅ Done
+Depends on: S-019 (Portfolios List Page)
+
+---
+
+What Was Built
+
+1. i18n — src/i18n/locales/ar.ts and src/i18n/locales/en.ts
+
+Added 21 new keys inside the existing portfolios namespace.
+No existing keys were modified or removed.
+
+Sub-namespace             Keys added
+portfolios.form.*         14 keys:
+                            dialogTitle · dialogDescription
+                            nameLabel · namePlaceholder
+                            typeLabel
+                            typeCashUsd · typeCashSyp · typeGold · typeProject
+                            descriptionLabel · descriptionPlaceholder
+                            submitButton · cancelButton · submitting
+
+portfolios.validation.*   5 keys:
+                            nameRequired · nameTooShort · nameTooLong
+                            typeRequired · descriptionTooLong
+
+portfolios.toast.*        2 keys:
+                            addSuccess · addError
+
+Arabic values:
+  portfolios.form.dialogTitle              "إضافة محفظة جديدة"
+  portfolios.form.dialogDescription        "أدخل بيانات المحفظة الجديدة"
+  portfolios.form.nameLabel                "اسم المحفظة"
+  portfolios.form.namePlaceholder          "مثال: الصندوق النقدي الرئيسي"
+  portfolios.form.typeLabel                "نوع المحفظة"
+  portfolios.form.typeCashUsd              "نقد دولار"
+  portfolios.form.typeCashSyp              "نقد ليرة سورية"
+  portfolios.form.typeGold                 "ذهب"
+  portfolios.form.typeProject              "مشروع"
+  portfolios.form.descriptionLabel         "الوصف (اختياري)"
+  portfolios.form.descriptionPlaceholder   "وصف مختصر للمحفظة"
+  portfolios.form.submitButton             "إنشاء المحفظة"
+  portfolios.form.cancelButton             "إلغاء"
+  portfolios.form.submitting               "جاري الإنشاء..."
+  portfolios.validation.nameRequired       "اسم المحفظة مطلوب"
+  portfolios.validation.nameTooShort       "الاسم قصير جداً (2 أحرف على الأقل)"
+  portfolios.validation.nameTooLong        "الاسم طويل جداً (100 حرف كحد أقصى)"
+  portfolios.validation.typeRequired       "يجب اختيار نوع المحفظة"
+  portfolios.validation.descriptionTooLong "الوصف طويل جداً (500 حرف كحد أقصى)"
+  portfolios.toast.addSuccess              "تم إنشاء المحفظة بنجاح"
+  portfolios.toast.addError                "تعذّر إنشاء المحفظة"
+
+---
+
+2. AddPortfolioDialog Component — src/components/portfolios/AddPortfolioDialog.tsx (new file)
+
+New directory created: src/components/portfolios/
+
+Props: { open: boolean; onOpenChange: (open: boolean) => void }
+
+Zod Schema
+  Zod v4 used (matches project-installed version).
+  Critical fix discovered during implementation:
+    z.enum() in Zod v4 uses { error: '...' } — NOT { required_error: '...' } as in v3.
+    The original prompt specified required_error; corrected to the v4 API before any code was written.
+  Error message values are i18n key strings (e.g. 'portfolios.validation.nameRequired');
+  resolved with t() in JSX, never rendered as raw strings.
+
+  const addPortfolioSchema = z.object({
+    name: z.string()
+      .min(1, { message: 'portfolios.validation.nameRequired' })
+      .min(2, { message: 'portfolios.validation.nameTooShort' })
+      .max(100, { message: 'portfolios.validation.nameTooLong' }),
+    type: z.enum(['cash_usd', 'cash_syp', 'gold', 'project'], {
+      error: 'portfolios.validation.typeRequired',
+    }),
+    description: z.string()
+      .max(500, { message: 'portfolios.validation.descriptionTooLong' })
+      .optional(),
+  });
+
+React Hook Form
+  useForm with zodResolver(addPortfolioSchema)
+  defaultValues: { name: '', type: undefined, description: '' }
+
+  handleOpenChange wrapper resets form on every close, regardless of trigger
+  (Escape key, X button, or Cancel button):
+    const handleOpenChange = (newOpen: boolean) => {
+      if (!newOpen) reset();
+      onOpenChange(newOpen);
+    };
+
+PORTFOLIO_TYPES Config Array
+  Defined outside the component (not inside JSX) — avoids recreation on every render.
+  Icons from lucide-react, one per type:
+
+    const PORTFOLIO_TYPES = [
+      { value: 'cash_usd', icon: DollarSign, labelKey: 'portfolios.form.typeCashUsd' },
+      { value: 'cash_syp', icon: Banknote,   labelKey: 'portfolios.form.typeCashSyp' },
+      { value: 'gold',     icon: Gem,        labelKey: 'portfolios.form.typeGold'    },
+      { value: 'project',  icon: Briefcase,  labelKey: 'portfolios.form.typeProject' },
+    ] as const;
+
+Type Selector — 2×2 Visual Card Grid
+  Registered with <Controller> from react-hook-form on the 'type' field.
+  Grid layout: <div className="grid grid-cols-2 gap-2">
+  Each card is a <button type="button"> — type="button" prevents accidental form submission.
+
+  Card states (STR-004 compliant):
+    Selected:   bg-[#E8F0FB] border-[#1E5DC4] text-[#1E5DC4]    (primary-50 / primary-400)
+    Unselected: bg-white border-[#E2E8F0] text-[#475569]          (slate-200 / slate-600)
+    Hover:      hover:bg-[#F1F5F9] hover:border-[#B8CFF5]         (slate-100 / primary-100)
+                hover applied on unselected cards only (selected card already highlighted)
+
+  Card content layout: flex flex-col items-center gap-2 p-3 rounded-lg border-2
+  Icon: h-6 w-6 · Label: text-sm font-medium · from t(pt.labelKey)
+
+  Validation error rendered below the grid when fieldState.error is truthy:
+    <p className="text-[#C0392B] text-xs mt-1">{t(fieldState.error.message ?? '')}</p>
+
+Name Field
+  <Label> from Shadcn with required asterisk: <span className="text-[#C0392B] ms-0.5">*</span>
+  <Input> — focus ring: focus-visible:ring-[#1E5DC4]
+  Inline error: text-[#C0392B] text-xs mt-1, message resolved via t()
+
+Description Field
+  <Label> from Shadcn — no required marker (field is optional)
+  <Textarea> — resize-none · rows={3} · focus-visible:ring-[#1E5DC4]
+  No error display (max 500 is generous; error theoretically reachable but not surfaced separately)
+
+onSubmit Handler
+  const onSubmit = async (data: AddPortfolioFormData) => {
+    const { error } = await supabaseClient.from('portfolios').insert({
+      name:        data.name.trim(),
+      type:        data.type,
+      description: data.description?.trim() || null,
+    });
+    if (error) { toast.error(t('portfolios.toast.addError')); return; }
+    await queryClient.invalidateQueries({ queryKey: ['portfolios'] });
+    toast.success(t('portfolios.toast.addSuccess'));
+    handleOpenChange(false);
+  };
+
+Dialog Behaviour
+  Shadcn <Dialog> used.
+  onInteractOutside={(e) => e.preventDefault()} on <DialogContent> blocks overlay-click closure.
+  <DialogDescription className="sr-only"> — visually hidden for accessibility.
+  Submit button: shows <Loader2 className="animate-spin" /> + submitting label while isSubmitting.
+  Cancel button: calls handleOpenChange(false); disabled while isSubmitting.
+
+STR-004 Button Colors
+  Submit: bg-[#1E5DC4] hover:bg-[#164399] text-white
+  Cancel: border-[#E2E8F0] text-[#475569] hover:bg-[#F1F5F9]
+
+---
+
+3. PortfoliosPage.tsx — src/pages/PortfoliosPage.tsx (updated)
+
+State added:
+  const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+
+Header button (was: disabled + title="قريباً"):
+  disabled attribute removed
+  title="قريباً" removed
+  onClick={() => setDialogOpen(true)} added
+  Plus icon and t('portfolios.addPortfolio') label retained
+
+Empty-state button (was: disabled + title="قريباً"):
+  disabled attribute removed
+  title="قريباً" removed
+  onClick wired to the same setDialogOpen(true) handler
+  (Same pattern as S-016: both header and empty-state buttons open the same dialog)
+
+AddPortfolioDialog rendered at bottom of return:
+  <AddPortfolioDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+
+---
+
+4. Project Structure after S-020
+
+src/
+├── components/
+│   └── portfolios/
+│       └── AddPortfolioDialog.tsx    ← NEW
+├── i18n/
+│   └── locales/
+│       ├── ar.ts                     ← UPDATED (portfolios.form.* · portfolios.validation.* · portfolios.toast.*)
+│       └── en.ts                     ← UPDATED (same 21 keys in English)
+└── pages/
+    └── PortfoliosPage.tsx            ← UPDATED (dialogOpen state · header + empty-state buttons enabled · AddPortfolioDialog rendered)
+
+---
+
+5. Commits
+
+feat(i18n): add portfolios.form, portfolios.validation, portfolios.toast keys to ar and en
+feat(portfolios): implement AddPortfolioDialog — 4-type card selector, RHF+Zod v4, Supabase insert
+feat(portfolios): wire AddPortfolioDialog into PortfoliosPage — enable header and empty-state buttons
+
+Merged via --no-ff into feature/sprint-02:
+  feat(s-020): implement Add Portfolio form with type selection
+
+---
+
+Issues Encountered & Resolved
+
+#   Issue                                              Resolution
+1   z.enum() in Zod v4 uses { error: '...' }          Corrected schema from { required_error: '...' }
+    — not { required_error: '...' } as in v3           to { error: '...' } before writing any code.
+    The prompt specified the v3 API                     ⚠️ Reference fix for all future stories using
+                                                        z.enum() with a custom error message in Zod v4.
+
+---
+
+Final Verification
+
+Check                                                      Result
+npx tsc --noEmit                                           ✅ Zero errors
+grep brand scan (text-gray|text-blue|...|pl-|ml-)          ✅ Empty — AddPortfolioDialog.tsx clean
+grep Arabic string scan ('="[أ-ي]')                        ✅ Empty — AddPortfolioDialog.tsx clean
+Dialog opens from PortfoliosPage header button             ✅
+Dialog opens from PortfoliosPage empty-state button        ✅
+All 4 type cards render with correct icons and labels      ✅ DollarSign · Banknote · Gem · Briefcase
+Selecting a card highlights it (primary-50 / primary-400)  ✅
+Selecting a different card deselects the previous one      ✅
+Overlay click does NOT close the dialog                    ✅ onInteractOutside blocked
+Escape / X closes and fully resets form                    ✅ type unselected, name cleared
+name: required error on empty submit                       ✅
+name: min-2 error on single-character submit               ✅
+type: required error when no card selected                 ✅
+Successful INSERT refreshes portfolios list                ✅ React Query ['portfolios'] invalidated
+Success toast shown after insert                           ✅ sonner richColors green
+Error toast on Supabase failure, dialog stays open         ✅ sonner richColors red
+feature/sprint-02 up to date                               ✅
+feature/s-020-add-portfolio-form branch deleted            ✅ local + remote
+
+================================================================================
