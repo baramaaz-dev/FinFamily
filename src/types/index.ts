@@ -22,11 +22,12 @@ export interface Portfolio {
 }
 
 export interface PortfolioMember {
-  portfolio_id: string
-  person_id: string
-  share_numerator: number
-  share_denominator: number
-  joined_date: string                 // NOT NULL in DB — required field
+  portfolio_id:      string;
+  person_id:         string;
+  share_numerator:   number;
+  share_denominator: number;
+  joined_date:       string;
+  person_name:       string;          // derived from people JOIN — not a DB column
 }
 
 // ─── Transactions ────────────────────────────────────────────────────────────
