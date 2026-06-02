@@ -50,6 +50,31 @@ const en = {
     search:   'Search',
     confirm:  'Confirm',
   },
+  people: {
+    pageTitle: 'People',
+    pageSubtitle: 'Manage family members and partners',
+    addPerson: 'Add Person',
+    columns: {
+      name: 'Name',
+      relation: 'Relation',
+      notes: 'Notes',
+      addedAt: 'Date Added',
+      actions: 'Actions',
+    },
+    actions: {
+      edit: 'Edit',
+      delete: 'Delete',
+    },
+    empty: {
+      title: 'No people registered',
+      subtitle: 'Start by adding the first person to the system',
+    },
+    error: {
+      title: 'Failed to load data',
+      retry: 'Try Again',
+    },
+    comingSoon: 'Coming soon',
+  },
   language: {
     toggle:  'ع',
     current: 'English',
