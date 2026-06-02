@@ -86,6 +86,9 @@ const ar = {
       submitButton:        'حفظ',
       cancelButton:        'إلغاء',
       submitting:          'جارٍ الحفظ...',
+      editDialogTitle:       'تعديل بيانات شخص',
+      editDialogDescription: 'تعديل بيانات: {name}',
+      editSubmitButton:      'حفظ التعديلات',
     },
     validation: {
       nameRequired:    'الاسم مطلوب',
@@ -95,8 +98,10 @@ const ar = {
       notesTooLong:    'الملاحظات طويلة جداً (٥٠٠ حرف كحد أقصى)',
     },
     toast: {
-      addSuccess: 'تمت إضافة الشخص بنجاح',
-      addError:   'تعذّرت الإضافة — حاول مرة أخرى',
+      addSuccess:  'تمت إضافة الشخص بنجاح',
+      addError:    'تعذّرت الإضافة — حاول مرة أخرى',
+      editSuccess: 'تم تحديث البيانات بنجاح',
+      editError:   'تعذّر تحديث البيانات',
     },
   },
   language: {

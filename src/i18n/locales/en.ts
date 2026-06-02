@@ -86,6 +86,9 @@ const en = {
       submitButton:        'Save',
       cancelButton:        'Cancel',
       submitting:          'Saving...',
+      editDialogTitle:       'Edit Person',
+      editDialogDescription: 'Editing: {name}',
+      editSubmitButton:      'Save Changes',
     },
     validation: {
       nameRequired:    'Name is required',
@@ -95,8 +98,10 @@ const en = {
       notesTooLong:    'Notes are too long (max 500 characters)',
     },
     toast: {
-      addSuccess: 'Person added successfully',
-      addError:   'Failed to add — please try again',
+      addSuccess:  'Person added successfully',
+      addError:    'Failed to add — please try again',
+      editSuccess: 'Person updated successfully',
+      editError:   'Failed to update person',
     },
   },
   language: {
