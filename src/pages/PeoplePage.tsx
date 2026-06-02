@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { AddPersonDialog } from '@/components/people/AddPersonDialog';
+import { EditPersonDialog } from '@/components/people/EditPersonDialog';
 import {
   Table,
   TableBody,
@@ -86,6 +87,8 @@ function PeopleError({ onRetry, t }: { onRetry: () => void; t: (key: string) => 
 export default function PeoplePage() {
   const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Person | null>(null);
 
   const {
     data: people = [],
@@ -173,10 +176,10 @@ export default function PeoplePage() {
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          disabled
+                          onClick={() => { setEditTarget(person); setEditDialogOpen(true); }}
+                          className="rounded p-1 text-[#1E5DC4] hover:bg-[#E8F0FB] transition-colors"
                           aria-label={t('people.actions.edit')}
-                          title={t('people.comingSoon')}
-                          className="rounded p-1.5 text-[#1E5DC4] opacity-40"
+                          title={t('people.actions.edit')}
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -199,6 +202,11 @@ export default function PeoplePage() {
       </div>
 
       <AddPersonDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <EditPersonDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        person={editTarget}
+      />
     </div>
   );
 }
