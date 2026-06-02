@@ -3,10 +3,11 @@ import type { SupportedCurrency } from '@/lib/currency';
 // ─── People ──────────────────────────────────────────────────────────────────
 
 export interface Person {
-  id: string
-  name: string
-  relation?: string
-  notes?: string
+  id: string;
+  name: string;
+  relation: string | null;
+  notes: string | null;
+  created_at: string;
 }
 
 // ─── Portfolios ───────────────────────────────────────────────────────────────
