@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { Plus, Pencil, Trash2, Wallet } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase';
+import { AddPortfolioDialog } from '@/components/portfolios/AddPortfolioDialog';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -85,8 +87,6 @@ function PortfoliosEmpty({ onAdd }: { onAdd: () => void }) {
       <p className="text-sm text-[#475569]">{t('portfolios.empty.subtitle')}</p>
       <Button
         className="mt-2 bg-[#1E5DC4] text-white hover:bg-[#164399]"
-        disabled
-        title={t('portfolios.addPortfolio')}
         onClick={onAdd}
       >
         <Plus className="ms-2 h-4 w-4" />
@@ -114,6 +114,7 @@ function PortfoliosError({ onRetry }: { onRetry: () => void }) {
 
 export default function PortfoliosPage() {
   const { t } = useTranslation();
+  const [dialogOpen, setDialogOpen] = useState<boolean>(false);
 
   const {
     data: portfolios = [],
@@ -139,8 +140,7 @@ export default function PortfoliosPage() {
         </div>
         <Button
           className="bg-[#1E5DC4] text-white hover:bg-[#164399]"
-          disabled
-          title={t('portfolios.comingSoon')}
+          onClick={() => setDialogOpen(true)}
         >
           {t('portfolios.addPortfolio')}
           <Plus className="ms-2 h-4 w-4" />
@@ -153,7 +153,7 @@ export default function PortfoliosPage() {
         ) : isError ? (
           <PortfoliosError onRetry={refetch} />
         ) : portfolios.length === 0 ? (
-          <PortfoliosEmpty onAdd={() => {}} />
+          <PortfoliosEmpty onAdd={() => setDialogOpen(true)} />
         ) : (
           <div role="region" aria-label={t('portfolios.pageTitle')}>
             <Table>
@@ -238,6 +238,8 @@ export default function PortfoliosPage() {
           </div>
         )}
       </div>
+
+      <AddPortfolioDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }
