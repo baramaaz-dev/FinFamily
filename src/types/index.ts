@@ -13,10 +13,12 @@ export interface Person {
 // ─── Portfolios ───────────────────────────────────────────────────────────────
 
 export interface Portfolio {
-  id: string
-  name: string
-  type: 'cash_usd' | 'cash_syp' | 'gold' | 'project'
-  description?: string
+  id:            string;
+  name:          string;
+  type:          'cash_usd' | 'cash_syp' | 'gold' | 'project';
+  description:   string | null;
+  created_at:    string;
+  members_count: number;
 }
 
 export interface PortfolioMember {
