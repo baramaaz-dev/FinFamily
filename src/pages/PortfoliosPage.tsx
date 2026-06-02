@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { Plus, Pencil, Trash2, Wallet } from 'lucide-react';
+import { Plus, Pencil, Trash2, Wallet, Users } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase';
 import { AddPortfolioDialog } from '@/components/portfolios/AddPortfolioDialog';
 import { EditPortfolioDialog } from '@/components/portfolios/EditPortfolioDialog';
+import { PortfolioMembersSheet } from '@/components/portfolios/PortfolioMembersSheet';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -118,6 +119,8 @@ export default function PortfoliosPage() {
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [editDialogOpen,    setEditDialogOpen]    = useState<boolean>(false);
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null);
+  const [membersSheetOpen,  setMembersSheetOpen]  = useState<boolean>(false);
+  const [membersPortfolio,  setMembersPortfolio]  = useState<Portfolio | null>(null);
 
   const {
     data: portfolios = [],
@@ -224,6 +227,13 @@ export default function PortfoliosPage() {
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button
+                          onClick={() => { setMembersPortfolio(portfolio); setMembersSheetOpen(true); }}
+                          className="rounded p-1 text-[#1A7D4F] hover:bg-[#EBF5F0] transition-colors"
+                          aria-label={t('portfolios.members.sheetTitle')}
+                        >
+                          <Users className="h-4 w-4" />
+                        </button>
+                        <button
                           disabled
                           title={t('portfolios.comingSoon')}
                           className="cursor-not-allowed rounded p-1 text-[#C0392B] opacity-40"
@@ -246,6 +256,11 @@ export default function PortfoliosPage() {
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
         portfolio={selectedPortfolio}
+      />
+      <PortfolioMembersSheet
+        open={membersSheetOpen}
+        onOpenChange={setMembersSheetOpen}
+        portfolio={membersPortfolio}
       />
     </div>
   );
