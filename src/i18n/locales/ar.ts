@@ -168,6 +168,10 @@ const ar = {
       submitButton:           'إنشاء المحفظة',
       cancelButton:           'إلغاء',
       submitting:             'جاري الإنشاء...',
+      editDialogTitle:        'تعديل المحفظة',
+      editDialogDescription:  'تعديل بيانات: {name}',
+      editSubmitButton:       'حفظ التعديلات',
+      editSubmitting:         'جاري الحفظ...',
     },
     validation: {
       nameRequired:       'اسم المحفظة مطلوب',
@@ -177,8 +181,10 @@ const ar = {
       descriptionTooLong: 'الوصف طويل جداً (500 حرف كحد أقصى)',
     },
     toast: {
-      addSuccess: 'تم إنشاء المحفظة بنجاح',
-      addError:   'تعذّر إنشاء المحفظة',
+      addSuccess:  'تم إنشاء المحفظة بنجاح',
+      addError:    'تعذّر إنشاء المحفظة',
+      editSuccess: 'تم تعديل المحفظة بنجاح',
+      editError:   'تعذّر تعديل المحفظة',
     },
   },
   language: {

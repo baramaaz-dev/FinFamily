@@ -168,6 +168,10 @@ const en = {
       submitButton:           'Create Portfolio',
       cancelButton:           'Cancel',
       submitting:             'Creating...',
+      editDialogTitle:        'Edit Portfolio',
+      editDialogDescription:  'Editing: {name}',
+      editSubmitButton:       'Save Changes',
+      editSubmitting:         'Saving...',
     },
     validation: {
       nameRequired:       'Portfolio name is required',
@@ -177,8 +181,10 @@ const en = {
       descriptionTooLong: 'Description is too long (max 500 characters)',
     },
     toast: {
-      addSuccess: 'Portfolio created successfully',
-      addError:   'Failed to create portfolio',
+      addSuccess:  'Portfolio created successfully',
+      addError:    'Failed to create portfolio',
+      editSuccess: 'Portfolio updated successfully',
+      editError:   'Failed to update portfolio',
     },
   },
   language: {
