@@ -50,6 +50,31 @@ const ar = {
     search:   'بحث',
     confirm:  'تأكيد',
   },
+  people: {
+    pageTitle: 'الأشخاص',
+    pageSubtitle: 'إدارة أعضاء العائلة والشركاء',
+    addPerson: 'إضافة شخص',
+    columns: {
+      name: 'الاسم',
+      relation: 'صلة القرابة',
+      notes: 'الملاحظات',
+      addedAt: 'تاريخ الإضافة',
+      actions: 'الإجراءات',
+    },
+    actions: {
+      edit: 'تعديل',
+      delete: 'حذف',
+    },
+    empty: {
+      title: 'لا يوجد أشخاص مسجّلون',
+      subtitle: 'ابدأ بإضافة أول شخص للنظام',
+    },
+    error: {
+      title: 'تعذّر تحميل البيانات',
+      retry: 'إعادة المحاولة',
+    },
+    comingSoon: 'قريباً',
+  },
   language: {
     toggle:  'EN',
     current: 'العربية',
