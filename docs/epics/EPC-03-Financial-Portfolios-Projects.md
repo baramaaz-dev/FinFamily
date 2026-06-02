@@ -7,7 +7,7 @@ Stories Overview
 Story	Title	Status
 S-019	Portfolio List Page				✅ Done
 S-020	Add Portfolio Form (with type selector)		✅ Done
-S-021	Edit Portfolio Form				⏳ Pending
+S-021	Edit Portfolio Form				✅ Done
 S-022	Add Portfolio Members				⏳ Pending
 S-023	Set Member Share Fractions			⏳ Pending
 S-024	Validate Total Shares = 1 before Save		⏳ Pending
@@ -471,3 +471,276 @@ feature/sprint-02 up to date                               ✅
 feature/s-020-add-portfolio-form branch deleted            ✅ local + remote
 
 ================================================================================
+
+S-021 — Edit Portfolio Form
+تعديل بيانات المحفظة
+Epic: E3 — المحافظ المالية والمشاريع
+Sprint: Sprint 2 — المحافظ المالية
+Status: ✅ Done
+Depends on: S-020 (Add Portfolio Form with type selection)
+
+---
+
+What Was Built
+
+1. i18n — src/i18n/locales/ar.ts and src/i18n/locales/en.ts
+
+Added 6 new keys inside the existing portfolios namespace.
+No existing keys were modified or removed.
+
+Sub-namespace             Keys added
+portfolios.form.*         4 keys:
+                            editDialogTitle · editDialogDescription
+                            editSubmitButton · editSubmitting
+
+portfolios.toast.*        2 keys:
+                            editSuccess · editError
+
+Arabic values:
+  portfolios.form.editDialogTitle        "تعديل المحفظة"
+  portfolios.form.editDialogDescription  "تعديل بيانات: {name}"
+  portfolios.form.editSubmitButton       "حفظ التعديلات"
+  portfolios.form.editSubmitting         "جاري الحفظ..."
+  portfolios.toast.editSuccess           "تم تعديل المحفظة بنجاح"
+  portfolios.toast.editError             "تعذّر تعديل المحفظة"
+
+Note: {name} in editDialogDescription is a plain string placeholder resolved at the call
+site via .replace('{name}', portfolio.name). No i18next interpolation syntax used.
+(Same pattern established in S-017 for people.form.editDialogDescription.)
+
+No new validation keys — all five portfolios.validation.* keys from S-020 reused as-is.
+
+---
+
+2. EditPortfolioDialog Component — src/components/portfolios/EditPortfolioDialog.tsx (new file)
+
+Props:
+  interface EditPortfolioDialogProps {
+    open:         boolean;
+    onOpenChange: (open: boolean) => void;
+    portfolio:    Portfolio | null;
+  }
+
+Hooks Order — React Rules Compliance
+  All hooks (useTranslation, useQueryClient, useForm) are called unconditionally
+  at the top of the component, BEFORE the null guard.
+  The null guard `if (!portfolio) return null` is placed after all hook calls.
+  ⚠️ Reference rule for all future Dialog components with a null-guarded target prop:
+  hooks first, null guard second — no exceptions.
+
+Null Guard
+  if (!portfolio) return null;
+  Placed after all hook calls — prevents stale renders while the dialog is closed.
+
+Zod Schema
+  Zod v4 used. z.enum() uses { error: '...' } — NOT { required_error: '...' } (Zod v4 rule).
+  Schema is defined locally in this file — not imported from AddPortfolioDialog.
+  Error message values are i18n key strings resolved via t() in JSX.
+
+  const editPortfolioSchema = z.object({
+    name: z.string()
+      .min(1, { message: 'portfolios.validation.nameRequired' })
+      .min(2, { message: 'portfolios.validation.nameTooShort' })
+      .max(100, { message: 'portfolios.validation.nameTooLong' }),
+    type: z.enum(['cash_usd', 'cash_syp', 'gold', 'project'], {
+      error: 'portfolios.validation.typeRequired',
+    }),
+    description: z.string()
+      .max(500, { message: 'portfolios.validation.descriptionTooLong' })
+      .optional(),
+  });
+
+  type EditPortfolioFormData = z.infer<typeof editPortfolioSchema>;
+
+PORTFOLIO_TYPES Config Array
+  Defined outside the component — identical to AddPortfolioDialog; no shared import:
+
+    const PORTFOLIO_TYPES = [
+      { value: 'cash_usd', icon: DollarSign, labelKey: 'portfolios.form.typeCashUsd' },
+      { value: 'cash_syp', icon: Banknote,   labelKey: 'portfolios.form.typeCashSyp' },
+      { value: 'gold',     icon: Gem,        labelKey: 'portfolios.form.typeGold'    },
+      { value: 'project',  icon: Briefcase,  labelKey: 'portfolios.form.typeProject' },
+    ] as const;
+
+React Hook Form
+  useForm with zodResolver(editPortfolioSchema)
+  defaultValues: { name: '', type: undefined, description: '' }
+
+  useEffect with dependency [portfolio?.id, reset]:
+    Calls reset() with the portfolio's current values whenever the target portfolio
+    changes (i.e., a different row's edit button is clicked).
+
+    useEffect(() => {
+      if (portfolio) {
+        reset({
+          name:        portfolio.name,
+          type:        portfolio.type,
+          description: portfolio.description ?? '',
+        });
+      }
+    }, [portfolio?.id, reset]);
+
+  handleOpenChange wrapper — resets to ORIGINAL portfolio values on close (not to empty defaults),
+  so that re-opening the same row shows the unchanged current values:
+
+    const handleOpenChange = (newOpen: boolean) => {
+      if (!newOpen && portfolio) {
+        reset({
+          name:        portfolio.name,
+          type:        portfolio.type,
+          description: portfolio.description ?? '',
+        });
+      }
+      onOpenChange(newOpen);
+    };
+
+Type Selector — 2×2 Visual Card Grid
+  Registered with <Controller> from react-hook-form on the 'type' field — identical to S-020.
+  Grid layout: <div className="grid grid-cols-2 gap-2">
+  Each card is a <button type="button"> — prevents accidental form submission.
+  Field order: Type → Name → Description (as specified).
+
+  Card states (STR-004 compliant — identical to AddPortfolioDialog):
+    Selected:            bg-[#E8F0FB] border-[#1E5DC4] text-[#1E5DC4]
+    Unselected:          bg-white border-[#E2E8F0] text-[#475569]
+    Hover (unselected):  hover:bg-[#F1F5F9] hover:border-[#B8CFF5]
+
+  Card content layout: flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-colors
+  Icon: h-6 w-6 · Label: text-sm font-medium · from t(pt.labelKey)
+
+  Validation error rendered below the grid when fieldState.error is truthy:
+    <p className="text-[#C0392B] text-xs mt-1">{t(fieldState.error.message ?? '')}</p>
+
+Name Field
+  <Label> with required asterisk: <span className="text-[#C0392B] ms-0.5">*</span>
+  <Input> — focus ring: focus-visible:ring-[#1E5DC4]
+  Inline error: text-[#C0392B] text-xs mt-1, message resolved via t()
+
+Description Field
+  <Label> — no required marker (field is optional)
+  <Textarea> — resize-none · rows={3} · focus-visible:ring-[#1E5DC4]
+
+onSubmit Handler
+  const onSubmit = async (data: EditPortfolioFormData) => {
+    if (!portfolio) return;
+    const { error } = await supabaseClient
+      .from('portfolios')
+      .update({
+        name:        data.name.trim(),
+        type:        data.type,
+        description: data.description?.trim() || null,
+      })
+      .eq('id', portfolio.id);
+    if (error) { toast.error(t('portfolios.toast.editError')); return; }
+    await queryClient.invalidateQueries({ queryKey: ['portfolios'] });
+    toast.success(t('portfolios.toast.editSuccess'));
+    handleOpenChange(false);
+  };
+
+Dialog Behaviour
+  Shadcn <Dialog> used.
+  onInteractOutside={(e) => e.preventDefault()} on <DialogContent> blocks overlay-click closure.
+  <DialogDescription className="sr-only"> — visually hidden; content:
+    t('portfolios.form.editDialogDescription').replace('{name}', portfolio.name)
+  Submit button: shows <Loader2 className="animate-spin" /> + editSubmitting label while isSubmitting.
+    Disabled while isSubmitting.
+  Cancel button: calls handleOpenChange(false); disabled while isSubmitting.
+
+STR-004 Button Colors
+  Submit: bg-[#1E5DC4] hover:bg-[#164399] text-white
+  Cancel: border-[#E2E8F0] text-[#475569] hover:bg-[#F1F5F9]
+
+---
+
+3. PortfoliosPage.tsx — src/pages/PortfoliosPage.tsx (updated)
+
+Import added:
+  import { EditPortfolioDialog } from '@/components/portfolios/EditPortfolioDialog';
+
+State added (alongside existing dialogOpen):
+  const [editDialogOpen,    setEditDialogOpen]    = useState<boolean>(false);
+  const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null);
+
+Edit button (was: disabled · opacity-40 · cursor-not-allowed · title="قريباً"):
+  disabled attribute removed
+  opacity-40 class removed
+  cursor-not-allowed class removed
+  title={t('portfolios.comingSoon')} removed
+  hover:bg-[#E8F0FB] added
+  onClick added: () => { setSelectedPortfolio(portfolio); setEditDialogOpen(true); }
+
+EditPortfolioDialog rendered at the bottom of the return, after AddPortfolioDialog:
+  <EditPortfolioDialog
+    open={editDialogOpen}
+    onOpenChange={setEditDialogOpen}
+    portfolio={selectedPortfolio}
+  />
+
+---
+
+4. Project Structure after S-021
+
+src/
+├── components/
+│   └── portfolios/
+│       ├── AddPortfolioDialog.tsx    ← unchanged
+│       └── EditPortfolioDialog.tsx   ← NEW
+├── i18n/
+│   └── locales/
+│       ├── ar.ts                     ← UPDATED (portfolios.form.edit* · portfolios.toast.edit* — 6 keys)
+│       └── en.ts                     ← UPDATED (same 6 keys in English)
+└── pages/
+    └── PortfoliosPage.tsx            ← UPDATED (editDialogOpen + selectedPortfolio state · edit button enabled · EditPortfolioDialog rendered)
+
+No new Shadcn components installed — dialog.tsx · input.tsx · label.tsx · textarea.tsx · button.tsx
+already present from S-016/S-020.
+No new npm packages.
+No new Supabase migrations.
+
+---
+
+5. Commits
+
+feat(i18n): add portfolios.form.edit* and portfolios.toast.edit* keys to ar and en
+feat(portfolios): implement EditPortfolioDialog — pre-filled type card, RHF+Zod v4, Supabase update
+feat(portfolios): wire EditPortfolioDialog into PortfoliosPage — enable Edit buttons
+
+Merged via --no-ff into feature/sprint-02:
+  feat(s-021): implement Edit Portfolio form
+
+---
+
+Issues Encountered & Resolved (S-021)
+
+#   Issue                                                   Resolution
+1   React hooks must be called unconditionally —            All hooks (useTranslation, useQueryClient,
+    null guard on portfolio prop could violate              useForm) placed before the null guard.
+    Rules of Hooks if hooks were placed after it            if (!portfolio) return null placed after
+                                                            all hook declarations.
+                                                            ⚠️ Canonical rule for all future Dialog
+                                                            components with a nullable target prop.
+
+---
+
+Final Verification (S-021)
+
+Check                                                           Result
+npx tsc --noEmit                                                ✅ Zero errors
+Brand scan (text-gray|text-blue|text-left|pl-|ml-)              ✅ Empty — EditPortfolioDialog.tsx clean
+Arabic string scan ('="[أ-ي]')                                  ✅ Empty — EditPortfolioDialog.tsx clean
+Edit button enabled on every row (no opacity-40)                ✅
+Click Edit row → dialog opens pre-filled (name + type + desc)   ✅
+Pre-selected type card highlighted (primary-50/primary-400)     ✅
+Switching type card deselects the previous one                  ✅
+Overlay click does NOT close the dialog                         ✅ onInteractOutside blocked
+X / Escape / Cancel → dialog closes, form resets to original    ✅
+Re-open same row → original values shown (not empty)            ✅
+Click Edit on a different row → form refreshes to new values    ✅
+name: required error on empty submit                            ✅
+name: min-2 error on single-character submit                    ✅
+Successful UPDATE refreshes portfolios list                     ✅ React Query ['portfolios'] invalidated
+Success toast shown after update                                ✅ sonner richColors green
+Error toast on Supabase failure, dialog stays open              ✅ sonner richColors red
+AddPortfolioDialog still functional after changes               ✅
+feature/sprint-02 up to date                                    ✅
+feature/s-021-edit-portfolio-form branch deleted                ✅ local + remote
