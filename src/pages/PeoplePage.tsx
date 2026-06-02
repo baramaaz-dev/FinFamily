@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { Plus, Pencil, Trash2, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Users } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { AddPersonDialog } from '@/components/people/AddPersonDialog';
 import { EditPersonDialog } from '@/components/people/EditPersonDialog';
+import { DeletePersonDialog, type DependencyMap } from '@/components/people/DeletePersonDialog';
 import {
   Table,
   TableBody,
@@ -24,6 +26,40 @@ async function fetchPeople(): Promise<Person[]> {
     .order('created_at', { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+async function checkDependencies(personId: string): Promise<DependencyMap> {
+  const [pm, po, pca, dist, ss] = await Promise.all([
+    supabaseClient
+      .from('portfolio_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('person_id', personId),
+    supabaseClient
+      .from('property_owners')
+      .select('*', { count: 'exact', head: true })
+      .eq('person_id', personId),
+    supabaseClient
+      .from('partner_capital_accounts')
+      .select('*', { count: 'exact', head: true })
+      .eq('partner_id', personId),
+    supabaseClient
+      .from('distributions')
+      .select('*', { count: 'exact', head: true })
+      .eq('partner_id', personId),
+    supabaseClient
+      .from('settlement_shares')
+      .select('*', { count: 'exact', head: true })
+      .eq('partner_id', personId),
+  ]);
+  const errors = [pm, po, pca, dist, ss].filter(r => r.error);
+  if (errors.length > 0) throw errors[0]!.error;
+  return {
+    portfolios:      pm.count   ?? 0,
+    properties:      po.count   ?? 0,
+    capitalAccounts: pca.count  ?? 0,
+    distributions:   dist.count ?? 0,
+    settlements:     ss.count   ?? 0,
+  };
 }
 
 function PeopleSkeleton() {
@@ -86,9 +122,49 @@ function PeopleError({ onRetry, t }: { onRetry: () => void; t: (key: string) => 
 
 export default function PeoplePage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Person | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget,     setDeleteTarget]     = useState<Person | null>(null);
+  const [deleteMode,       setDeleteMode]       = useState<'confirm' | 'blocked'>('confirm');
+  const [deleteDeps,       setDeleteDeps]       = useState<DependencyMap | undefined>(undefined);
+  const [checkingId,       setCheckingId]       = useState<string | null>(null);
+  const [isDeleting,       setIsDeleting]       = useState(false);
+
+  const handleDeleteClick = async (person: Person) => {
+    setCheckingId(person.id);
+    try {
+      const deps = await checkDependencies(person.id);
+      const hasLinks = Object.values(deps).some(v => v > 0);
+      setDeleteTarget(person);
+      setDeleteDeps(deps);
+      setDeleteMode(hasLinks ? 'blocked' : 'confirm');
+      setDeleteDialogOpen(true);
+    } catch {
+      toast.error(t('people.toast.deleteCheckError'));
+    } finally {
+      setCheckingId(null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    const { error } = await supabaseClient
+      .from('people')
+      .delete()
+      .eq('id', deleteTarget.id);
+    setIsDeleting(false);
+    if (error) {
+      toast.error(t('people.toast.deleteError'));
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ['people'] });
+    toast.success(t('people.toast.deleteSuccess'));
+    setDeleteDialogOpen(false);
+  };
 
   const {
     data: people = [],
@@ -184,12 +260,17 @@ export default function PeoplePage() {
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button
-                          disabled
+                          onClick={() => handleDeleteClick(person)}
+                          disabled={checkingId === person.id}
                           aria-label={t('people.actions.delete')}
-                          title={t('people.comingSoon')}
-                          className="rounded p-1.5 text-[#C0392B] opacity-40"
+                          title={t('people.actions.delete')}
+                          className="rounded p-1 text-[#C0392B] hover:bg-[#FEF0EF] transition-colors disabled:opacity-50"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          {checkingId === person.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </TableCell>
@@ -206,6 +287,15 @@ export default function PeoplePage() {
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
         person={editTarget}
+      />
+      <DeletePersonDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        person={deleteTarget}
+        mode={deleteMode}
+        dependencies={deleteDeps}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
       />
     </div>
   );
