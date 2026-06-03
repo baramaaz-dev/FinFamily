@@ -13,18 +13,32 @@ export interface Person {
 // ─── Portfolios ───────────────────────────────────────────────────────────────
 
 export interface Portfolio {
-  id: string
-  name: string
-  type: 'cash_usd' | 'cash_syp' | 'gold' | 'project'
-  description?: string
+  id:            string;
+  name:          string;
+  type:          'cash_usd' | 'cash_syp' | 'gold' | 'project';
+  description:   string | null;
+  created_at:    string;
+  members_count: number;
 }
 
 export interface PortfolioMember {
-  portfolio_id: string
-  person_id: string
-  share_numerator: number
-  share_denominator: number
-  joined_date: string                 // NOT NULL in DB — required field
+  portfolio_id:      string;
+  person_id:         string;
+  share_numerator:   number;
+  share_denominator: number;
+  joined_date:       string;
+  person_name:       string;          // derived from people JOIN — not a DB column
+}
+
+export interface PortfolioStats {
+  totalIncomeUsd:   number;
+  totalExpensesUsd: number;
+  netBalanceUsd:    number;
+}
+
+export interface PortfolioDetailMember extends PortfolioMember {
+  sharePercent:   string;  // "33.33%"
+  shareAmountUsd: number;  // (numerator / denominator) × netBalanceUsd
 }
 
 // ─── Transactions ────────────────────────────────────────────────────────────

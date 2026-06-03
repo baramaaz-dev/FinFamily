@@ -214,6 +214,33 @@ export function validateShares(shares: ShareFraction[]): boolean {
   return sum === L;
 }
 
+// ─── Share Total Validation (UI) ──────────────────────────────────────────────
+
+export interface SharesValidationResult {
+  total:      number;   // decimal sum e.g. 0.75
+  isValid:    boolean;  // Math.abs(total - 1) < 0.0001
+  percentage: string;   // e.g. "75.00%"
+  members:    number;   // length of input array
+}
+
+export function validateSharesTotal(
+  members: Array<{ share_numerator: number; share_denominator: number }>
+): SharesValidationResult {
+  if (members.length === 0) {
+    return { total: 0, isValid: false, percentage: '0.00%', members: 0 };
+  }
+  const total = members.reduce(
+    (sum, m) => sum + m.share_numerator / m.share_denominator,
+    0
+  );
+  return {
+    total,
+    isValid:    Math.abs(total - 1) < 0.000_1,
+    percentage: `${(total * 100).toFixed(2)}%`,
+    members:    members.length,
+  };
+}
+
 // ─── Share Allocation ─────────────────────────────────────────────────────────
 
 /**
