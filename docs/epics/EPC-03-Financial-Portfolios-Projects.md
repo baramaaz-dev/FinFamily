@@ -8,7 +8,7 @@ Story	Title	Status
 S-019	Portfolio List Page				✅ Done
 S-020	Add Portfolio Form (with type selector)		✅ Done
 S-021	Edit Portfolio Form				✅ Done
-S-022	Add Portfolio Members				⏳ Pending
+S-022	Add Portfolio Members				✅ Done
 S-023	Set Member Share Fractions			⏳ Pending
 S-024	Validate Total Shares = 1 before Save		⏳ Pending
 S-025	Portfolio Detail View (balance + members + shares)	⏳ Pending
@@ -744,3 +744,371 @@ Error toast on Supabase failure, dialog stays open              ✅ sonner richC
 AddPortfolioDialog still functional after changes               ✅
 feature/sprint-02 up to date                                    ✅
 feature/s-021-edit-portfolio-form branch deleted                ✅ local + remote
+
+================================================================================
+
+S-022 — Add Portfolio Members
+إضافة مساهمين للمحفظة
+Epic: E3 — المحافظ المالية والمشاريع
+Sprint: Sprint 2 — المحافظ المالية
+Status: ✅ Done
+Closed: Sprint 2
+Depends on: S-021 (Edit Portfolio Form)
+Blocks: S-023 (Set Member Share Fractions) · S-024 (Validate Total Shares = 1 before Save)
+
+---
+
+What Was Built
+
+1. Shadcn Components Installed
+
+`src/components/ui/select.tsx` — installed via `npx shadcn@latest add select`
+`src/components/ui/sheet.tsx`  — already present; no install required.
+All other required components (table.tsx · input.tsx · label.tsx · button.tsx)
+already present from prior stories.
+No new npm packages installed.
+
+---
+
+2. TypeScript Types — src/types/index.ts
+
+`PortfolioMember` interface added alongside the existing Portfolio interface:
+
+```ts
+export interface PortfolioMember {
+  portfolio_id:      string;
+  person_id:         string;
+  share_numerator:   number;
+  share_denominator: number;
+  joined_date:       string;   // ISO date 'YYYY-MM-DD'
+  person_name:       string;   // derived — joined from people; NOT a DB column
+}
+```
+
+Semicolons aligned to match the Portfolio interface style.
+No other interfaces modified or removed.
+
+---
+
+3. i18n — src/i18n/locales/ar.ts and src/i18n/locales/en.ts
+
+Added 25 new keys. No existing keys modified or removed.
+
+Sub-namespace                       Keys added
+portfolios.members.*                17 keys
+portfolios.validation.*             4 keys  (appended to existing 5 from S-020)
+portfolios.toast.*                  4 keys  (appended to existing 4 from S-020/S-021)
+
+Arabic values:
+  portfolios.members.sheetTitle            "مساهمو المحفظة"
+  portfolios.members.sheetDescription      "إدارة مساهمي: {name}"
+  portfolios.members.currentTitle          "المساهمون الحاليون"
+  portfolios.members.columns.name          "الاسم"
+  portfolios.members.columns.share         "الحصة"
+  portfolios.members.columns.joinedDate    "تاريخ الانضمام"
+  portfolios.members.columns.actions       "الإجراءات"
+  portfolios.members.empty.title           "لا يوجد مساهمون بعد"
+  portfolios.members.empty.subtitle        "أضف أول مساهم لهذه المحفظة"
+  portfolios.members.error.title           "تعذّر تحميل المساهمين"
+  portfolios.members.error.retry           "إعادة المحاولة"
+  portfolios.members.addTitle              "إضافة مساهم جديد"
+  portfolios.members.personLabel           "الشخص"
+  portfolios.members.shareLabel            "الحصة (بسط / مقام)"
+  portfolios.members.joinedDateLabel       "تاريخ الانضمام"
+  portfolios.members.addButton             "إضافة"
+  portfolios.members.adding                "جاري الإضافة..."
+  portfolios.members.noAvailablePeople     "جميع الأشخاص مساهمون بالفعل"
+  portfolios.validation.personRequired     "يجب اختيار شخص"
+  portfolios.validation.shareNumeratorMin  "البسط يجب أن يكون أكبر من صفر"
+  portfolios.validation.shareDenominatorMin "المقام يجب أن يكون أكبر من صفر"
+  portfolios.validation.joinedDateRequired "تاريخ الانضمام مطلوب"
+  portfolios.toast.memberAddSuccess        "تمت إضافة المساهم بنجاح"
+  portfolios.toast.memberAddError          "تعذّرت إضافة المساهم"
+  portfolios.toast.memberRemoveSuccess     "تمت إزالة المساهم بنجاح"
+  portfolios.toast.memberRemoveError       "تعذّرت إزالة المساهم"
+
+Note on key name deviations from spec:
+  Spec proposed `listTitle` → implemented as `currentTitle` (more accurate label in context).
+  Spec proposed separate `numeratorLabel` + `denominatorLabel` → implemented as single
+  `shareLabel` ("الحصة (بسط / مقام)") — reduces form height and groups related fields visually.
+  Spec proposed `numeratorMin` + `denominatorMin` → implemented as `shareNumeratorMin` +
+  `shareDenominatorMin` for unambiguous key naming across the validation namespace.
+  Spec proposed flat `noMembers` → implemented as `empty.title + empty.subtitle + error.title +
+  error.retry` to match the established empty/error sub-namespace pattern from S-019/S-015.
+
+---
+
+4. PortfolioMembersSheet Component
+File: src/components/portfolios/PortfolioMembersSheet.tsx (NEW)
+
+Props:
+  interface PortfolioMembersSheetProps {
+    open:         boolean;
+    onOpenChange: (open: boolean) => void;
+    portfolio:    Portfolio | null;
+  }
+
+Hooks Order — canonical rule from S-021 strictly followed:
+  All hooks declared unconditionally before null guard:
+    useTranslation · useQueryClient · useQuery(members) · useQuery(people-slim) ·
+    useForm · useState(removingId)
+  Null guard `if (!portfolio) return null` placed AFTER all hook declarations.
+
+fetchPortfolioMembers() — standalone function outside the component:
+  Selects from portfolio_members with a Supabase embed on people(name).
+  Supabase returns the embed as an array — cast required:
+    (row.people as unknown as { name: string }).name
+  Maps result to PortfolioMember[].
+
+fetchPeople() — redeclared inline (self-contained component pattern):
+  Selects `id, name` only from people — intentionally minimal for the person picker.
+  ⚠️ Uses queryKey: ['people-slim'] — NOT ['people'] — to prevent cache collision
+  with PeoplePage which selects `*` and uses `created_at` for date formatting.
+  See Issues section #1 for full details.
+
+React Query — members:
+  queryKey: ['portfolio-members', portfolio?.id ?? '']
+  enabled:  !!portfolio?.id
+  staleTime: 30_000
+
+React Query — people picker:
+  queryKey: ['people-slim']
+  staleTime: 60_000
+
+Derived (inside component, after null guard):
+  const memberIds        = new Set(members.map((m) => m.person_id));
+  const availablePeople  = allPeople.filter((p) => !memberIds.has(p.id));
+
+Zod Schema — Zod v4 with z.coerce.number() for numeric inputs:
+  const addMemberSchema = z.object({
+    person_id: z.string().min(1, { message: 'portfolios.validation.personRequired' }),
+    share_numerator: z.coerce
+      .number({ invalid_type_error: 'portfolios.validation.shareNumeratorMin' })
+      .int()
+      .min(1, { message: 'portfolios.validation.shareNumeratorMin' }),
+    share_denominator: z.coerce
+      .number({ invalid_type_error: 'portfolios.validation.shareDenominatorMin' })
+      .int()
+      .min(1, { message: 'portfolios.validation.shareDenominatorMin' }),
+    joined_date: z.string().min(1, { message: 'portfolios.validation.joinedDateRequired' }),
+  });
+
+  ⚠️ z.coerce.number() breaks zodResolver's type inference with RHF.
+  Resolver cast required: `resolver: zodResolver(addMemberSchema) as unknown as Resolver<AddMemberFormData>`
+  See Issues section #2 for full details.
+
+React Hook Form:
+  defaultValues: {
+    person_id: '', share_numerator: 1, share_denominator: 1,
+    joined_date: new Date().toISOString().split('T')[0],  // today YYYY-MM-DD
+  }
+  Form resets to these defaults after successful add.
+
+  useEffect([portfolio?.id, reset]):
+    Resets form when a different portfolio's Sheet is opened — prevents stale
+    person_id value carrying over from a previously opened Sheet.
+
+removingId state: useState<string | null>(null)
+  Set to the target person_id before DELETE; cleared in finally block.
+  Only the row being deleted shows Loader2 spinner — other rows remain interactive.
+
+handleRemove:
+  setRemovingId(personId) → try { DELETE } finally { setRemovingId(null) }
+  Invalidates ['portfolio-members', portfolio.id] and ['portfolios'] on success.
+
+handleAdd (onSubmit):
+  INSERT into portfolio_members (portfolio_id, person_id, share_numerator,
+                                 share_denominator, joined_date).
+  On success: invalidate both query keys · toast success · reset form to defaults.
+  On error: toast error · form stays open.
+
+Sheet Layout:
+  side="left" — renders panel on the left viewport edge, away from the RTL sidebar
+  which occupies the right edge. Prevents visual overlap.
+  Width: w-[480px] sm:w-[540px]
+  SheetContent: p-0, flex flex-col, overflow-hidden
+  SheetHeader: px-6 py-4, border-b border-[#E2E8F0], shrink-0 (sticky)
+  Content area: flex-1 overflow-y-auto px-6 py-5
+  Two <section> blocks separated by <hr className="border-[#E2E8F0]">
+
+Members Table (inside Section 1):
+  Shadcn <Table>
+  Header: bg-[#F1F5F9] hover:bg-[#F1F5F9]
+  4 columns: الاسم · الحصة · تاريخ الانضمام · الإجراءات
+  share cell:       font-mono tabular-nums text-sm text-[#1E293B]
+                    rendered as "{numerator}/{denominator}"
+  joined_date cell: font-mono tabular-nums text-sm text-[#475569]
+                    formatted: format(new Date(member.joined_date), 'dd/MM/yyyy') via date-fns
+  Remove button:    <Trash2 h-4 w-4 text-[#C0392B]>
+                    hover:bg-[#FEF0EF] rounded p-1
+                    disabled when removingId === member.person_id
+                    shows <Loader2 h-4 w-4 animate-spin> while removing
+  Card wrapper:     overflow-hidden rounded-lg border border-[#E2E8F0] bg-white
+
+Add Member Form (inside Section 2):
+  Person Selector: Shadcn <Select> via <Controller>
+    Disabled + noAvailablePeople placeholder when availablePeople.length === 0
+  Share fields: side-by-side <Input type="number" min="1"> for numerator and denominator
+  Joined date:  <Input type="date"> defaulting to today
+  Submit button: w-full · bg-[#1E5DC4] hover:bg-[#164399] text-white
+                 disabled when isSubmitting or availablePeople.length === 0
+                 Loading: <Loader2 animate-spin> + t('portfolios.members.adding')
+
+STR-004 Compliance:
+  All colors as hex literals — zero Tailwind named colors
+  All directional CSS: text-start · text-end · ms-* · ps-* — never text-left/right · pl-/pr-/ml-/mr-
+  No gradients
+  No hardcoded Arabic/English strings — all via t()
+  Share fractions: font-mono tabular-nums
+
+---
+
+5. PortfoliosPage.tsx — src/pages/PortfoliosPage.tsx (updated)
+
+Imports added:
+  import { PortfolioMembersSheet } from '@/components/portfolios/PortfolioMembersSheet';
+  import { Users } from 'lucide-react';
+
+State added:
+  const [membersSheetOpen,  setMembersSheetOpen]  = useState<boolean>(false);
+  const [membersPortfolio,  setMembersPortfolio]  = useState<Portfolio | null>(null);
+
+Actions column — third button inserted between Edit and Delete:
+  <Users h-4 w-4>
+  text-[#1A7D4F] hover:bg-[#EBF5F0]  (success green — constructive/people action)
+  onClick: () => { setMembersPortfolio(portfolio); setMembersSheetOpen(true); }
+  title={t('portfolios.members.sheetTitle')}
+
+  Color rationale (STR-004):
+    Edit    = text-[#1E5DC4]  primary blue   — modification
+    Members = text-[#1A7D4F]  success green  — constructive / people
+    Delete  = text-[#C0392B]  danger red     — destructive (still disabled)
+
+PortfolioMembersSheet rendered at bottom of return after EditPortfolioDialog:
+  <PortfolioMembersSheet
+    open={membersSheetOpen}
+    onOpenChange={setMembersSheetOpen}
+    portfolio={membersPortfolio}
+  />
+
+---
+
+6. Project Structure after S-022
+
+src/
+├── components/
+│   ├── portfolios/
+│   │   ├── AddPortfolioDialog.tsx        ← unchanged
+│   │   ├── EditPortfolioDialog.tsx       ← unchanged
+│   │   └── PortfolioMembersSheet.tsx     ← NEW
+│   └── ui/
+│       └── select.tsx                    ← NEW (npx shadcn@latest add select)
+├── i18n/
+│   └── locales/
+│       ├── ar.ts                         ← UPDATED (portfolios.members.* — 17 keys;
+│       │                                            portfolios.validation.* — 4 keys appended;
+│       │                                            portfolios.toast.* — 4 keys appended)
+│       └── en.ts                         ← UPDATED (same 25 keys in English)
+├── pages/
+│   └── PortfoliosPage.tsx                ← UPDATED (membersSheetOpen + membersPortfolio state;
+│                                                     Users button in actions column;
+│                                                     PortfolioMembersSheet rendered)
+└── types/
+    └── index.ts                          ← UPDATED (PortfolioMember interface added)
+
+No new npm packages.
+No new Supabase migrations for application code.
+One DB fix migration added — see Issues section #3.
+
+---
+
+7. Commits
+
+feat(ui): install Shadcn Select component
+feat(types): add PortfolioMember interface to src/types/index.ts
+feat(i18n): add portfolios.members.* namespace; extend portfolios.validation.* and portfolios.toast.* in ar and en
+feat(portfolios): implement PortfolioMembersSheet — members list, add-member form, remove-member action
+feat(portfolios): wire PortfolioMembersSheet into PortfoliosPage — Users button in actions column
+fix(portfolios): use isolated ['people-slim'] query key in PortfolioMembersSheet to prevent cache collision with PeoplePage
+fix(db): drop premature share_sum constraint trigger from portfolio_members
+
+Merged via --no-ff into feature/sprint-02:
+  feat(s-022): implement Add Portfolio Members sheet
+
+---
+
+Issues Encountered & Resolved (S-022)
+
+#   Issue                                                      Resolution
+1   RangeError: Invalid time value in PeoplePage after         fetchPeople() in PortfolioMembersSheet
+    opening PortfolioMembersSheet.                             selected id + name only (no created_at)
+    Root cause: PortfolioMembersSheet's fetchPeople()          but shared queryKey ['people'] with
+    polluted the ['people'] React Query cache with             PeoplePage — whose format() call crashed
+    objects missing created_at, which PeoplePage's            on the missing field.
+    date-fns format() call then received as invalid date.      Fix: renamed query key to ['people-slim'].
+                                                               ⚠️ Canonical rule: any fetchPeople()
+                                                               variant that selects fewer columns than
+                                                               * MUST use a distinct query key.
+
+2   z.coerce.number() breaks zodResolver type inference        Cast resolver:
+    with React Hook Form — TypeScript error on useForm.        zodResolver(schema) as unknown as
+                                                               Resolver<AddMemberFormData>
+                                                               ⚠️ Reference fix for all future schemas
+                                                               using z.coerce on numeric fields with RHF.
+
+3   trg_portfolio_share_sum constraint trigger on              Dropped trigger and function via migration
+    portfolio_members blocked incremental member               run in Supabase SQL Editor:
+    addition. Trigger enforced SUM(share_numerator /             ALTER TABLE portfolio_members
+    share_denominator) = 1 after every individual INSERT,        DROP CONSTRAINT trg_portfolio_share_sum;
+    making it impossible to add more than one member             DROP FUNCTION IF EXISTS
+    with shares summing to less than 1.                          check_share_sum_portfolio();
+    The trigger was a DEFERRABLE INITIALLY DEFERRED            App-level validation (sum = 1) deferred
+    constraint trigger — still fires per-transaction           to S-024 per project scope.
+    since each Supabase INSERT is its own transaction.         ⚠️ S-024 will enforce this rule at the
+                                                               UI level before final confirmation.
+
+4   Supabase embed people(name) returns an array in            Cast via `as unknown as { name: string }`
+    TypeScript inference, not a single object —                instead of direct `as { name: string }`.
+    direct cast causes a TS error.                             Required for any single-row embed from
+                                                               Supabase's generated types.
+
+---
+
+Final Verification (S-022)
+
+Check                                                                         Result
+npx tsc --noEmit                                                              ✅ Zero errors
+Brand scan: grep -n "text-gray\|text-blue\|text-red\|text-green\|            ✅ Empty
+  bg-gray\|bg-blue\|text-left\|text-right\|pl-\|pr-\|ml-\|mr-"
+  src/components/portfolios/PortfolioMembersSheet.tsx
+Arabic string scan: grep -n '="[أ-ي]'                                        ✅ Empty
+  src/components/portfolios/PortfolioMembersSheet.tsx
+Shadcn Select installed in src/components/ui/                                 ✅
+PortfolioMembersSheet opens from Users button on each portfolio row            ✅
+Sheet appears on left edge (side="left") without overlapping sidebar          ✅
+Members list shows correct members for selected portfolio (seed data)         ✅
+Opening Sheet for Portfolio A then Portfolio B shows B's members              ✅
+Empty state shown for portfolio with zero members                             ✅
+Skeleton visible during members fetch (Slow 3G DevTools)                      ✅
+Person Select lists only people NOT already in the portfolio                  ✅
+Person Select disabled + noAvailablePeople label when all are members         ✅
+Share fraction renders as font-mono tabular-nums (e.g. "1/4")                 ✅
+joined_date field defaults to today (YYYY-MM-DD)                              ✅
+Validation: person_id required error on submit without selection              ✅
+Validation: share_numerator min(1) error                                      ✅
+Validation: share_denominator min(1) error                                    ✅
+Validation: joined_date required error                                        ✅
+Successful INSERT refreshes members list and portfolios members_count         ✅
+Success toast after add member                                                ✅ sonner richColors green
+Error toast on Supabase INSERT failure, form stays open                       ✅ sonner richColors red
+Remove button shows Loader2 spinner for the specific row being deleted        ✅
+Other rows remain interactive while one row is being removed                  ✅
+Successful DELETE refreshes members list and members_count decrements         ✅
+Success toast after remove                                                    ✅ sonner richColors green
+Error toast on Supabase DELETE failure                                        ✅ sonner richColors red
+Form resets to defaults after successful add (person_id cleared, shares = 1) ✅
+PeoplePage unaffected — no RangeError after ['people-slim'] fix               ✅
+AddPortfolioDialog still functional                                           ✅
+EditPortfolioDialog still functional                                          ✅
+feature/sprint-02 up to date                                                  ✅
+feature/s-022-add-portfolio-members branch deleted (local + remote)           ✅
