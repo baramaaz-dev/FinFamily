@@ -10,7 +10,7 @@ S-020	Add Portfolio Form (with type selector)		✅ Done
 S-021	Edit Portfolio Form				✅ Done
 S-022	Add Portfolio Members				✅ Done
 S-023	Set Member Share Fractions			✅ Done
-S-024	Validate Total Shares = 1 before Save		⏳ Pending
+S-024	Validate Total Shares = 1 before Save		✅ Done
 S-025	Portfolio Detail View (balance + members + shares)	⏳ Pending
 ---
 S-019 — Portfolio List Page
@@ -1017,8 +1017,7 @@ src/
     └── index.ts                          ← UPDATED (PortfolioMember interface added)
 
 No new npm packages.
-No new Supabase migrations for application code.
-One DB fix migration added — see Issues section #3.
+No Supabase migrations — see Issue #3 below.
 
 ---
 
@@ -1030,7 +1029,6 @@ feat(i18n): add portfolios.members.* namespace; extend portfolios.validation.* a
 feat(portfolios): implement PortfolioMembersSheet — members list, add-member form, remove-member action
 feat(portfolios): wire PortfolioMembersSheet into PortfoliosPage — Users button in actions column
 fix(portfolios): use isolated ['people-slim'] query key in PortfolioMembersSheet to prevent cache collision with PeoplePage
-fix(db): drop premature share_sum constraint trigger from portfolio_members
 
 Merged via --no-ff into feature/sprint-02:
   feat(s-022): implement Add Portfolio Members sheet
@@ -1056,16 +1054,14 @@ Issues Encountered & Resolved (S-022)
                                                                ⚠️ Reference fix for all future schemas
                                                                using z.coerce on numeric fields with RHF.
 
-3   trg_portfolio_share_sum constraint trigger on              Dropped trigger and function via migration
-    portfolio_members blocked incremental member               run in Supabase SQL Editor:
-    addition. Trigger enforced SUM(share_numerator /             ALTER TABLE portfolio_members
-    share_denominator) = 1 after every individual INSERT,        DROP CONSTRAINT trg_portfolio_share_sum;
-    making it impossible to add more than one member             DROP FUNCTION IF EXISTS
-    with shares summing to less than 1.                          check_share_sum_portfolio();
-    The trigger was a DEFERRABLE INITIALLY DEFERRED            App-level validation (sum = 1) deferred
-    constraint trigger — still fires per-transaction           to S-024 per project scope.
-    since each Supabase INSERT is its own transaction.         ⚠️ S-024 will enforce this rule at the
-                                                               UI level before final confirmation.
+3   trg_portfolio_share_sum constraint trigger on              Trigger identified during S-022
+    portfolio_members blocks incremental member                implementation. Drop was NOT executed
+    addition. Trigger enforces SUM(share_numerator /           at this stage — deferred to the S-024
+    share_denominator) = 1 after every INSERT,                 testing session to avoid premature
+    making it impossible to add more than one member           migration.
+    with shares summing to less than 1.                        ⚠️ Actual DROP executed in S-024 —
+                                                               see S-024 Issue #2 for the exact SQL
+                                                               and the circumstances of discovery.
 
 4   Supabase embed people(name) returns an array in            Cast via `as unknown as { name: string }`
     TypeScript inference, not a single object —                instead of direct `as { name: string }`.
@@ -1342,3 +1338,285 @@ EditPortfolioDialog still functional                                          �
 Total shares NOT validated (correctly deferred to S-024)                      ✅
 feature/sprint-02 up to date                                                  ✅
 feature/s-023-set-member-share-fractions branch deleted (local + remote)      ✅
+
+================================================================================
+
+S-024 — Validate Total Shares = 1 before Save
+التحقق من أن مجموع الحصص = 1 قبل الحفظ
+Epic: E3 — المحافظ المالية والمشاريع
+Sprint: Sprint 2 — المحافظ المالية
+Status: ✅ Done
+Closed: Sprint 2
+Depends on: S-023 (Set Member Share Fractions)
+Blocks: S-025 (Portfolio Detail View)
+
+---
+
+Overview
+
+When a user finishes configuring portfolio members and their share fractions
+inside PortfolioMembersSheet, the system must verify that the sum of all
+members' shares equals exactly 1 (i.e., 100%) before the user proceeds.
+
+This story adds three deliverables:
+
+  1. validateSharesTotal() utility function in src/lib/currency.ts
+  2. A live "Shares Total" summary bar in PortfolioMembersSheet showing the
+     running total with color-coded feedback (green = valid, amber = incomplete)
+  3. A non-blocking warning toast when the Sheet is closed with a total ≠ 1
+
+Background
+
+A DB-level trigger (trg_portfolio_share_sum) enforced SUM(share_numerator /
+share_denominator) = 1 on every INSERT into portfolio_members, making incremental
+member addition impossible. This trigger was identified in S-022 Issue #3 but was
+NOT dropped at that time — the drop was deferred and executed during manual testing
+of this story (see Issue #2 below).
+
+S-024 replaces the DB constraint with app-level validation surfaced as real-time
+UI feedback. STR-005 §5.3 designates the currency.ts lib as the canonical home
+for share-sum logic.
+
+---
+
+What Was Built
+
+1. Utility Function — src/lib/currency.ts (updated)
+
+SharesValidationResult interface added above validateSharesTotal():
+
+  export interface SharesValidationResult {
+    total:      number;  // decimal sum, e.g. 0.75
+    isValid:    boolean; // Math.abs(total - 1) < 0.0001
+    percentage: string;  // e.g. "75.00%"
+    members:    number;  // count of members passed in
+  }
+
+validateSharesTotal() function added at the end of the file:
+
+  export function validateSharesTotal(
+    members: Array<{ share_numerator: number; share_denominator: number }>
+  ): SharesValidationResult {
+    if (members.length === 0) {
+      return { total: 0, isValid: false, percentage: '0.00%', members: 0 };
+    }
+    const total = members.reduce(
+      (sum, m) => sum + m.share_numerator / m.share_denominator,
+      0
+    );
+    return {
+      total,
+      isValid:    Math.abs(total - 1) < 0.000_1,
+      percentage: `${(total * 100).toFixed(2)}%`,
+      members:    members.length,
+    };
+  }
+
+Floating-point tolerance of 0.0001 chosen to handle edge cases such as
+1/3 + 1/3 + 1/3 = 0.9999... without false negatives.
+
+No existing functions in currency.ts modified or removed.
+
+---
+
+2. i18n — src/i18n/locales/ar.ts and src/i18n/locales/en.ts
+
+Added 5 new keys. No existing keys modified or removed.
+
+Sub-namespace                       Keys added
+portfolios.members.*                4 keys  (appended to existing 22 from S-022/S-023)
+portfolios.toast.*                  1 key   (appended to existing 10 from S-020/S-021/S-022/S-023)
+
+Arabic values:
+  portfolios.members.sharesTotalLabel   "مجموع الحصص"
+  portfolios.members.sharesValid        "مجموع الحصص يساوي الواحد الصحيح"
+  portfolios.members.sharesInvalid      "مجموع الحصص لا يساوي 1"
+  portfolios.members.sharesHint         "يجب أن تساوي مجموع حصص جميع المساهمين الواحد الصحيح (100%)"
+  portfolios.toast.sharesWarning        "تحذير: مجموع الحصص ({percent}) لا يساوي 1. راجع حصص المساهمين."
+
+English values:
+  portfolios.members.sharesTotalLabel   "Total Shares"
+  portfolios.members.sharesValid        "Total shares equal 1"
+  portfolios.members.sharesInvalid      "Total shares do not equal 1"
+  portfolios.members.sharesHint         "All member shares must sum to exactly 1 (100%)"
+  portfolios.toast.sharesWarning        "Warning: Total shares ({percent}) do not equal 1. Please review member shares."
+
+Note on {percent} interpolation:
+  Plain string replacement used at the call site:
+    t('portfolios.toast.sharesWarning').replace('{percent}', sharesValidation.percentage)
+  Same pattern as editDialogDescription in S-021. No i18next interpolation syntax.
+
+---
+
+3. PortfolioMembersSheet.tsx — src/components/portfolios/PortfolioMembersSheet.tsx (updated)
+
+A. New Imports
+
+  validateSharesTotal, type SharesValidationResult added:
+    import { validateSharesTotal } from '@/lib/currency';
+    import type { SharesValidationResult } from '@/lib/currency';
+
+  New lucide-react icons added to existing import:
+    CheckCircle2, AlertTriangle
+  (alongside existing Pencil · Check · X · Trash2 · Loader2)
+
+  cn utility added:
+    import { cn } from '@/lib/utils';
+
+B. New Derived Value (after null guard, alongside memberIds / availablePeople / isAnyRowEditing)
+
+  const sharesValidation: SharesValidationResult = validateSharesTotal(members);
+
+  Uses members (default []) from React Query — never undefined at this point.
+  Recomputed on every render; no useMemo needed (validateSharesTotal is O(n), n ≤ ~10).
+
+C. handleOpenChange — Warning on Close
+
+  When the Sheet is closed (newOpen === false) and members.length > 0 and
+  !sharesValidation.isValid, a warning toast fires before the close proceeds.
+  Close is NOT blocked — the warning is informational only.
+
+  Updated handler:
+
+    const handleOpenChange = (newOpen: boolean) => {
+      if (!newOpen && portfolio) {
+        if (members.length > 0 && !sharesValidation.isValid) {
+          toast.warning(
+            t('portfolios.toast.sharesWarning')
+              .replace('{percent}', sharesValidation.percentage)
+          );
+        }
+        reset();
+        setEditingMemberId(null);
+      }
+      onOpenChange(newOpen);
+    };
+
+  toast.warning() uses Sonner's built-in warning variant (amber icon).
+
+D. Shares Summary Bar (new JSX, placed between Section 1 and Section 2)
+
+  Rendered only when !membersLoading and members.length > 0.
+  Placed inside the scrollable content area, between the <hr> separator and
+  Section 2's addTitle heading.
+
+  Color rationale (STR-004):
+    Valid   → success green  bg-[#EBF5F0] border-[#A3D4BC] text-[#1A7D4F]
+    Invalid → warning amber  bg-[#FEF7EC] border-[#F5CC8A] text-[#B45309]
+    Hint text follows warning amber text-[#B45309] (pending/due convention)
+
+E. STR-004 Compliance
+
+  All colors as hex literals — zero Tailwind named colors
+  All directional CSS: text-start · text-end — never text-left/right
+  No gradients
+  No hardcoded Arabic/English strings — all via t()
+  Percentage display: font-mono tabular-nums
+
+---
+
+4. Project Structure after S-024
+
+src/
+├── components/
+│   └── portfolios/
+│       ├── AddPortfolioDialog.tsx       ← unchanged
+│       ├── EditPortfolioDialog.tsx      ← unchanged
+│       └── PortfolioMembersSheet.tsx    ← UPDATED (validateSharesTotal · summary bar · close warning)
+├── i18n/
+│   └── locales/
+│       ├── ar.ts                        ← UPDATED (5 new keys)
+│       └── en.ts                        ← UPDATED (same 5 keys in English)
+└── lib/
+    └── currency.ts                      ← UPDATED (SharesValidationResult interface · validateSharesTotal())
+
+No new Shadcn components installed.
+No new npm packages.
+DB change: DROP TRIGGER trg_portfolio_share_sum + DROP FUNCTION check_share_sum_portfolio()
+  — executed via Supabase SQL Editor during manual testing (deferred from S-022 Issue #3).
+
+---
+
+5. Commits
+
+feat(lib): add SharesValidationResult interface and validateSharesTotal() to src/lib/currency.ts
+feat(i18n): add portfolios.members.sharesTotal* and portfolios.toast.sharesWarning keys to ar and en
+feat(portfolios): add live shares-total summary bar to PortfolioMembersSheet
+feat(portfolios): add close-guard warning toast to PortfolioMembersSheet when total shares ≠ 1
+
+Merged via --no-ff into feature/sprint-02:
+  feat(s-024): validate total portfolio shares = 1 with live summary bar
+
+---
+
+Issues Encountered & Resolved (S-024)
+
+#   Issue                                                   Resolution
+1   Duplicate identifier conflict in currency.ts —          Function renamed from validateShares()
+    a validateShares(ShareFraction[]): boolean function     to validateSharesTotal() to avoid the
+    already existed and was used by allocateByShares().     collision without modifying the existing
+    Naming the new function validateShares() would have     function or its callers.
+    caused a TypeScript duplicate identifier error.         ⚠️ All future callers of the share-sum
+                                                            validation must use validateSharesTotal()
+                                                            — not validateShares() which remains a
+                                                            separate boolean-returning utility.
+
+2   trg_portfolio_share_sum was NOT dropped in S-022 —      Dropped via Supabase SQL Editor during
+    discovered during manual testing when every             this story's testing session.
+    Add Member attempt returned HTTP 400 P0001:             Trigger appeared twice in
+    "Portfolio {id} share sum != 1 (got 1/2)"              information_schema.triggers (INSERT +
+    The trigger fires on both INSERT and UPDATE.            UPDATE events):
+                                                              DROP TRIGGER IF EXISTS
+                                                                trg_portfolio_share_sum
+                                                                ON portfolio_members;
+                                                              DROP FUNCTION IF EXISTS
+                                                                check_share_sum_portfolio();
+                                                            No migration file created — change applied
+                                                            directly in Supabase SQL Editor (solo dev,
+                                                            single environment).
+                                                            ⚠️ S-022 Issue #3 should be read as
+                                                            "identified and deferred" — the actual
+                                                            DB fix belongs to this story.
+
+---
+
+Final Verification (S-024)
+
+Check                                                                          Result
+npx tsc --noEmit                                                               ✅ Zero errors
+Brand scan: grep -n "text-gray|text-blue|text-red|text-green|                 ✅ Empty
+  bg-gray|bg-blue|text-left|text-right|pl-|pr-|ml-|mr-"
+  src/components/portfolios/PortfolioMembersSheet.tsx
+Arabic string scan: grep -n '="[أ-ي]'                                         ✅ Empty
+  src/components/portfolios/PortfolioMembersSheet.tsx
+validateSharesTotal([]) → { isValid: false, percentage: '0.00%' }             ✅
+validateSharesTotal([{n:1,d:2},{n:1,d:2}]) → { isValid: true }                ✅
+validateSharesTotal([{n:1,d:3},{n:1,d:3},{n:1,d:3}]) → isValid true (float)  ✅
+Summary bar NOT shown when members list is empty                               ✅
+Summary bar NOT shown while members query is loading                           ✅
+Summary bar shown when portfolio has ≥1 member                                 ✅
+Bar is amber (bg-[#FEF7EC]) when total < 1                                    ✅
+Bar is amber when total > 1                                                    ✅
+Bar is green (bg-[#EBF5F0]) when total = 1                                    ✅
+CheckCircle2 icon shown when valid                                             ✅
+AlertTriangle icon shown when invalid                                          ✅
+Hint text visible in amber bar, hidden in green bar                            ✅
+Percentage shown as font-mono tabular-nums                                     ✅
+Bar updates live after adding a new member                                     ✅
+Bar updates live after editing a share fraction                                ✅
+Bar updates live after removing a member                                       ✅
+toast.warning shown on Sheet close when total ≠ 1 and members.length > 0     ✅
+warning toast message contains the computed percentage (e.g. "75.00%")        ✅
+No warning toast when Sheet closes with total = 1                             ✅
+No warning toast when Sheet closes with zero members                          ✅
+Sheet DOES close even when total ≠ 1 (non-blocking)                          ✅
+allocateByShares() unaffected — existing validateShares() unchanged           ✅
+Seed portfolio members (1/2 + 1/2) → green bar 100.00%                       ✅
+Manually added members with partial shares → amber bar with correct %         ✅
+Add-member form still functional                                               ✅
+Inline share edit still functional                                             ✅
+Remove member still functional                                                 ✅
+AddPortfolioDialog still functional                                            ✅
+EditPortfolioDialog still functional                                           ✅
+feature/sprint-02 up to date                                                  ✅
+feature/s-024-validate-total-shares branch deleted (local + remote)           ✅
