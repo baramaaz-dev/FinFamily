@@ -30,6 +30,17 @@ export interface PortfolioMember {
   person_name:       string;          // derived from people JOIN — not a DB column
 }
 
+export interface PortfolioStats {
+  totalIncomeUsd:   number;
+  totalExpensesUsd: number;
+  netBalanceUsd:    number;
+}
+
+export interface PortfolioDetailMember extends PortfolioMember {
+  sharePercent:   string;  // "33.33%"
+  shareAmountUsd: number;  // (numerator / denominator) × netBalanceUsd
+}
+
 // ─── Transactions ────────────────────────────────────────────────────────────
 
 export interface Transaction {

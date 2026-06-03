@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
@@ -16,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ROUTES } from '@/router/routes';
 import type { Portfolio } from '@/types';
 
 async function fetchPortfolios(): Promise<Portfolio[]> {
@@ -192,7 +194,12 @@ export default function PortfoliosPage() {
                     className="text-sm text-[#1E293B] hover:bg-[#F1F5F9]"
                   >
                     <TableCell className="text-sm font-medium text-[#1E293B]">
-                      {portfolio.name}
+                      <Link
+                        to={ROUTES.PORTFOLIO(portfolio.id)}
+                        className="text-sm font-medium text-[#1E5DC4] hover:underline"
+                      >
+                        {portfolio.name}
+                      </Link>
                     </TableCell>
                     <TableCell>
                       <span

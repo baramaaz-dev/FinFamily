@@ -11,7 +11,7 @@ S-021	Edit Portfolio Form				✅ Done
 S-022	Add Portfolio Members				✅ Done
 S-023	Set Member Share Fractions			✅ Done
 S-024	Validate Total Shares = 1 before Save		✅ Done
-S-025	Portfolio Detail View (balance + members + shares)	⏳ Pending
+S-025	Portfolio Detail View (balance + members + shares)	✅ Done
 ---
 S-019 — Portfolio List Page
 Status: ✅ Done
@@ -1620,3 +1620,292 @@ AddPortfolioDialog still functional                                            �
 EditPortfolioDialog still functional                                           ✅
 feature/sprint-02 up to date                                                  ✅
 feature/s-024-validate-total-shares branch deleted (local + remote)           ✅
+================================================================================
+
+S-025 — Portfolio Detail View (Balance + Members + Shares)
+عرض تفاصيل المحفظة (الرصيد + المساهمون + الحصص)
+Epic: E3 — المحافظ المالية والمشاريع
+Sprint: Sprint 2 — المحافظ المالية
+Status: ✅ Done
+Closed: Sprint 2
+Depends on: S-024 (Validate Total Shares = 1 before Save)
+
+---
+
+What Was Built
+
+1. TypeScript Types — src/types/index.ts
+
+Two interfaces appended after the existing PortfolioMember interface.
+No existing interfaces modified or removed.
+
+  export interface PortfolioStats {
+    totalIncomeUsd:   number;
+    totalExpensesUsd: number;
+    netBalanceUsd:    number;
+  }
+
+  export interface PortfolioDetailMember extends PortfolioMember {
+    sharePercent:   string;  // e.g. "33.33%"
+    shareAmountUsd: number;  // (share_numerator / share_denominator) × netBalanceUsd
+  }
+
+PortfolioDetailMember extends PortfolioMember — all base fields (portfolio_id,
+person_id, share_numerator, share_denominator, joined_date, person_name) are
+inherited. Only the two derived display fields are added.
+
+---
+
+2. i18n — src/i18n/locales/ar.ts and src/i18n/locales/en.ts
+
+Added a `detail` sub-object inside the existing `portfolios` object.
+Appended after the last key in the portfolios namespace. No existing keys modified.
+
+13 keys added:
+
+Key                                 Arabic                               English
+portfolios.detail.backButton        "العودة إلى المحافظ"                 "Back to Portfolios"
+portfolios.detail.statsIncome       "إجمالي الدخل"                      "Total Income"
+portfolios.detail.statsExpenses     "إجمالي المصروفات"                  "Total Expenses"
+portfolios.detail.statsNetBalance   "صافي الرصيد"                       "Net Balance"
+portfolios.detail.membersTitle      "المساهمون والحصص"                  "Members & Shares"
+portfolios.detail.colName           "الاسم"                              "Name"
+portfolios.detail.colShare          "الحصة"                              "Share"
+portfolios.detail.colPercent        "النسبة"                             "Percentage"
+portfolios.detail.colAmount         "النصيب (دولار)"                     "Share (USD)"
+portfolios.detail.noMembers         "لا يوجد مساهمون في هذه المحفظة"    "No members in this portfolio"
+portfolios.detail.errorLoad         "تعذّر تحميل بيانات المحفظة"         "Failed to load portfolio data"
+portfolios.detail.errorRetry        "إعادة المحاولة"                     "Try Again"
+portfolios.detail.notFound          "المحفظة غير موجودة"                 "Portfolio not found"
+
+---
+
+3. Navigation Change — src/pages/PortfoliosPage.tsx (updated)
+
+Single change only: the portfolio name <span> in the table was converted to a
+React Router <Link> pointing to ROUTES.PORTFOLIO(portfolio.id).
+
+Before:
+  <span className="text-sm font-medium text-[#1E293B]">{portfolio.name}</span>
+
+After:
+  <Link
+    to={ROUTES.PORTFOLIO(portfolio.id)}
+    className="text-sm font-medium text-[#1E5DC4] hover:underline"
+  >
+    {portfolio.name}
+  </Link>
+
+No other changes to PortfoliosPage.tsx. All existing dialogs, the Members Sheet,
+and the actions column are unaffected.
+
+---
+
+4. PortfolioDetailPage — src/pages/PortfolioDetailPage.tsx (full replacement of stub)
+
+The stub created in S-002 was replaced with a complete production-ready implementation.
+Route: /portfolios/:id — already wired in src/router/index.tsx since S-002.
+No router modifications required.
+
+Helper functions (outside the component — same standalone-async pattern as all prior stories):
+
+fetchPortfolioById(id: string): Promise<Portfolio>
+  SELECT id, name, type, description, created_at FROM portfolios WHERE id = :id
+  Uses .single() — throws if not found. members_count set to 0 (not needed on detail page).
+
+fetchPortfolioMembersDetail(portfolioId: string): Promise<PortfolioMember[]>
+  Selects portfolio_members with people(name) embed.
+  Same data shape as PortfolioMembersSheet.
+  queryKey: ['portfolio-members', portfolioId]
+  ⚠️ Intentionally shares the same cache key used by PortfolioMembersSheet (S-022).
+  Both views display identical members data — cache sharing is correct here.
+
+fetchPortfolioStats(portfolioId: string): Promise<PortfolioStats>
+  SELECT type, amount, currency, exchange_rate FROM transactions WHERE portfolio_id = :id
+  Client-side aggregation (row count is small for a family portfolio):
+    totalIncomeUsd   = Σ toUSD(amount, currency, exchange_rate ?? 1) for type = 'income'
+    totalExpensesUsd = Σ toUSD(amount, currency, exchange_rate ?? 1) for type = 'expense'
+    transfer rows are excluded from balance calculation
+    netBalanceUsd    = totalIncomeUsd − totalExpensesUsd
+  queryKey: ['portfolio-stats', portfolioId]
+  staleTime: 30_000
+
+React Query hooks (all three called unconditionally — hooks-before-null-guard rule):
+  ['portfolio', id]             → fetchPortfolioById      staleTime: 60_000
+  ['portfolio-members', id]     → fetchPortfolioMembersDetail  staleTime: 30_000
+  ['portfolio-stats', id]       → fetchPortfolioStats     staleTime: 30_000
+
+All three queries gated with enabled: !!id.
+
+Derived value (after null guard):
+  const detailMembers: PortfolioDetailMember[] = members.map((m) => {
+    const ratio = m.share_numerator / m.share_denominator;
+    return {
+      ...m,
+      sharePercent:   `${(ratio * 100).toFixed(2)}%`,
+      shareAmountUsd: stats.netBalanceUsd * ratio,
+    };
+  });
+
+Inline helpers (defined outside the component, top of file):
+
+typeBadgeClass(type: Portfolio['type']): string
+  Exact copy of the function from PortfoliosPage.tsx (S-019).
+  Not imported — file is self-contained per the established pattern.
+
+signColor(v: number): string
+  v >= 0 → 'text-[#1A7D4F]'   (success green)
+  v < 0  → 'text-[#C0392B]'   (danger red)
+  STR-004 §5.3 canonical implementation.
+
+Sub-components (defined in the same file):
+
+PortfolioDetailSkeleton
+  aria-busy="true" on wrapper div
+  Back button placeholder: w-24 h-4 animate-pulse rounded bg-[#E2E8F0]
+  Title row: w-1/3 h-7 + w-16 h-5 — name + badge placeholders
+  3 stat card skeletons: rounded-lg border border-[#E2E8F0] bg-white p-4,
+                         w-1/2 h-3 label + w-2/3 h-8 amount
+  Members table skeleton: header row + 3 data rows, 4 proportional columns
+
+PortfolioDetailError
+  Props: { onRetry: () => void }
+  Error text:   text-sm font-medium text-[#C0392B]   t('portfolios.detail.errorLoad')
+  Retry button: border-[#E2E8F0] text-[#1E5DC4] hover:bg-[#E8F0FB]
+
+Page sections:
+
+SECTION — Back button
+  ChevronRight (RTL) / ChevronLeft (LTR) via isRTL from useDirection()
+  onClick: navigate(ROUTES.PORTFOLIOS) — constant used, not hardcoded path
+  Styling: text-sm text-[#475569] hover:text-[#1E293B] transition-colors mb-4
+
+SECTION — Portfolio header
+  Portfolio name:    text-2xl font-medium text-[#1E293B]
+  Type badge:        same <span> + typeBadgeClass() pattern from S-019 (px-2.5 py-0.5 text-xs)
+                     label: t(`portfolios.types.${portfolio.type}`)
+  Description:       text-sm text-[#475569] mt-1 — only rendered when not null
+
+SECTION — Balance summary (3 stat cards)
+  Layout: grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6
+  Card container: rounded-lg border border-[#E2E8F0] bg-white p-4
+
+  Card 1 — Total Income
+    Label:  text-sm text-[#475569]   t('portfolios.detail.statsIncome')
+    Amount: text-2xl font-mono tabular-nums font-medium text-[#1A7D4F]
+            ← hardcoded success green (income is always positive by definition)
+
+  Card 2 — Total Expenses
+    Label:  text-sm text-[#475569]   t('portfolios.detail.statsExpenses')
+    Amount: text-2xl font-mono tabular-nums font-medium text-[#C0392B]
+            ← hardcoded danger red (expenses are always a cost by definition;
+               zero expenses shows red $0.00 — correct: the slot is structurally negative)
+
+  Card 3 — Net Balance
+    Label:  text-sm text-[#475569]   t('portfolios.detail.statsNetBalance')
+    Amount: text-2xl font-mono tabular-nums font-medium {signColor(stats.netBalanceUsd)}
+            ← sign-dependent: green if ≥ 0, red if < 0
+
+SECTION — Members & Shares table
+  Section title: text-lg font-medium text-[#1E293B] mb-3
+  Card wrapper:  overflow-hidden rounded-lg border border-[#E2E8F0] bg-white
+  Shadcn <Table> used
+  Header row: bg-[#F1F5F9] hover:bg-[#F1F5F9]
+  Body rows:  hover:bg-[#F1F5F9]
+
+  4 columns:
+    الاسم         text-start  text-sm text-[#1E293B]
+    الحصة         text-start  font-mono tabular-nums text-sm text-[#1E293B]
+                               rendered as "{numerator}/{denominator}"
+    النسبة        text-start  font-mono tabular-nums text-sm text-[#475569]
+    النصيب (دولار) text-end   font-mono tabular-nums text-sm {signColor(shareAmountUsd)}
+                               value: formatCurrency(shareAmountUsd, 'USD')
+
+  Empty state (members.length === 0):
+    Users icon h-10 w-10 text-[#94A3B8]
+    Text: text-sm text-[#475569]  t('portfolios.detail.noMembers')
+
+---
+
+5. STR-004 Compliance
+
+All colors expressed as hex literals — no Tailwind color names
+All directional utilities: text-start · text-end · ms-* — never text-left/right · pl-/pr-/ml-/mr-
+No gradients
+No hardcoded Arabic or English strings — all via t()
+All monetary amounts: font-mono tabular-nums
+Income amounts: text-[#1A7D4F] (hardcoded — income is structurally positive)
+Expense amounts: text-[#C0392B] (hardcoded — expenses are structurally negative)
+Net balance / share amounts: signColor() helper
+Type badge: typeBadgeClass() inline function — same pattern as PortfoliosPage
+Page background: inherited from AppLayout bg-[#F8FAFC] — no bg on page div
+
+---
+
+6. Project Structure after S-025
+
+src/
+├── pages/
+│   ├── PortfoliosPage.tsx       ← UPDATED (portfolio name → <Link> to detail page)
+│   └── PortfolioDetailPage.tsx  ← REPLACED (stub → full implementation)
+├── types/
+│   └── index.ts                 ← UPDATED (PortfolioStats · PortfolioDetailMember)
+└── i18n/
+    └── locales/
+        ├── ar.ts                ← UPDATED (portfolios.detail.* — 13 keys)
+        └── en.ts                ← UPDATED (same 13 keys in English)
+
+No new Shadcn components installed.
+No new npm packages.
+No Supabase migrations.
+
+---
+
+7. Commits
+
+feat(types): add PortfolioStats and PortfolioDetailMember interfaces
+feat(i18n): add portfolios.detail.* namespace to ar and en locales
+feat(portfolios): implement PortfolioDetailPage — header, balance cards, members table
+feat(portfolios): make portfolio name a link to detail page in PortfoliosPage
+
+Merged via --no-ff into feature/sprint-02:
+  feat(s-025): implement Portfolio Detail View — balance, members, and shares
+
+---
+
+Issues Encountered & Resolved (S-025)
+
+#   Issue                                                  Resolution
+1   format imported from date-fns in the spec's            Correctly omitted during implementation.
+    import list but not used in the component —            Detail page displays no dates. Dead
+    no date columns on the detail page.                    imports removed before commit.
+                                                           No impact on functionality.
+
+---
+
+Final Verification (S-025)
+
+Check                                                                         Result
+npx tsc --noEmit                                                              ✅ Zero errors
+Brand scan: grep -n "text-gray\|text-blue\|text-red\|text-green\|            ✅ Empty
+  bg-gray\|bg-blue\|text-left\|text-right\|pl-\|pr-\|ml-\|mr-"
+  src/pages/PortfolioDetailPage.tsx
+Arabic string scan: grep -n '="[أ-ي]'                                        ✅ Empty
+  src/pages/PortfolioDetailPage.tsx
+Brand scan clean — PortfoliosPage.tsx (unchanged areas)                       ✅ Empty
+5 portfolio names rendered as blue <Link> elements                            ✅ href="/portfolios/:id" confirmed via Playwright
+Clicking portfolio name → URL changes to /portfolios/:id, page renders        ✅ no blank, no 404
+Header: <h1> with portfolio name · type badge correct color                   ✅ cash_usd badge text-[#1A7D4F] bg-[#EBF5F0]
+Stat card — Income: ٢٬٧٠٠٫٠٠ US$ in text-[#1A7D4F]                          ✅ success green
+Stat card — Expenses: ٢٣٠٫٠٠ US$ in text-[#C0392B]                          ✅ danger red
+Stat card — Net Balance: ٢٬٤٧٠٫٠٠ US$ in text-[#1A7D4F] (positive)          ✅ signColor confirmed
+All stat amounts use font-mono tabular-nums                                    ✅
+Members table: 3 rows with name · fraction · percentage · USD share           ✅ amount cells text-end font-mono
+Empty portfolio: all 3 cards show ٠٫٠٠ US$ · Users icon + noMembers text      ✅
+Expenses card red even when $0.00                                              ✅ intentional — structurally negative slot
+Back button "العودة إلى المحافظ" → navigates to /portfolios                   ✅
+RTL: ChevronRight used for back button (→ correct for RTL)                    ✅ document dir="rtl" confirmed
+PortfoliosPage: Add dialog · Edit dialog · Members sheet all still functional  ✅
+People page /settings/people: 5 rows, no errors                               ✅ no regression
+feature/sprint-02 up to date                                                  ✅
+feature/s-025-portfolio-detail-view branch deleted                            ✅ local + remote
