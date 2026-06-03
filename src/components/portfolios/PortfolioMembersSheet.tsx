@@ -291,6 +291,22 @@ export function PortfolioMembersSheet({
 
   const sharesValidation: SharesValidationResult = validateSharesTotal(members);
 
+  // ── Sheet open/close handler ───────────────────────────────────────────────
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      if (members.length > 0 && !sharesValidation.isValid) {
+        toast.warning(
+          t('portfolios.toast.sharesWarning')
+            .replace('{percent}', sharesValidation.percentage)
+        );
+      }
+      reset();
+      setEditingMemberId(null);
+    }
+    onOpenChange(newOpen);
+  };
+
   // ── Share-edit handlers ────────────────────────────────────────────────────
 
   const handleEditShare = (member: PortfolioMember) => {
@@ -340,7 +356,7 @@ export function PortfolioMembersSheet({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="left" className="flex w-[480px] flex-col p-0 sm:w-[540px]">
 
         {/* Sticky header */}
