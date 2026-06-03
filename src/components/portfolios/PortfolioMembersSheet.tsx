@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, Pencil, Check, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabaseClient } from '@/lib/supabase';
 import {
@@ -51,6 +51,18 @@ const addMemberSchema = z.object({
 });
 
 type AddMemberFormData = z.infer<typeof addMemberSchema>;
+
+const editShareSchema = z.object({
+  share_numerator: z.coerce
+    .number({ error: 'portfolios.validation.shareNumeratorInvalid' })
+    .int()
+    .positive({ message: 'portfolios.validation.shareNumeratorInvalid' }),
+  share_denominator: z.coerce
+    .number({ error: 'portfolios.validation.shareDenominatorInvalid' })
+    .int()
+    .min(1, { message: 'portfolios.validation.shareDenominatorInvalid' }),
+});
+type EditShareData = z.infer<typeof editShareSchema>;
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -159,7 +171,11 @@ export function PortfolioMembersSheet({
 }: PortfolioMembersSheetProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removingId,       setRemovingId]       = useState<string | null>(null);
+  const [editingMemberId, setEditingMemberId]   = useState<string | null>(null);
+  const [editNumerator,   setEditNumerator]     = useState<number>(1);
+  const [editDenominator, setEditDenominator]   = useState<number>(1);
+  const [savingShareId,   setSavingShareId]     = useState<string | null>(null);
 
   // ── Queries ────────────────────────────────────────────────────────────────
 
@@ -199,7 +215,7 @@ export function PortfolioMembersSheet({
     },
   });
 
-  // Reset form when a different portfolio is opened
+  // Reset form and edit state when a different portfolio is opened
   useEffect(() => {
     if (portfolio) {
       reset({
@@ -208,6 +224,7 @@ export function PortfolioMembersSheet({
         share_denominator: 1,
         joined_date:       format(new Date(), 'yyyy-MM-dd'),
       });
+      setEditingMemberId(null);
     }
   }, [portfolio?.id, reset]);
 
@@ -267,6 +284,52 @@ export function PortfolioMembersSheet({
 
   if (!portfolio) return null;
 
+  // ── Share-edit handlers ────────────────────────────────────────────────────
+
+  const handleEditShare = (member: PortfolioMember) => {
+    setEditingMemberId(member.person_id);
+    setEditNumerator(member.share_numerator);
+    setEditDenominator(member.share_denominator);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMemberId(null);
+  };
+
+  const handleSaveShare = async (member: PortfolioMember) => {
+    const result = editShareSchema.safeParse({
+      share_numerator:   editNumerator,
+      share_denominator: editDenominator,
+    });
+    if (!result.success) {
+      const firstMsg = result.error.issues[0]?.message ?? 'portfolios.toast.shareUpdateError';
+      toast.error(t(firstMsg));
+      return;
+    }
+    setSavingShareId(member.person_id);
+    try {
+      const { error } = await supabaseClient
+        .from('portfolio_members')
+        .update({
+          share_numerator:   result.data.share_numerator,
+          share_denominator: result.data.share_denominator,
+        })
+        .eq('portfolio_id', portfolio.id)
+        .eq('person_id', member.person_id);
+      if (error) {
+        toast.error(t('portfolios.toast.shareUpdateError'));
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ['portfolio-members', portfolio.id] });
+      toast.success(t('portfolios.toast.shareUpdateSuccess'));
+      setEditingMemberId(null);
+    } finally {
+      setSavingShareId(null);
+    }
+  };
+
+  const isAnyRowEditing = editingMemberId !== null;
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -321,29 +384,109 @@ export function PortfolioMembersSheet({
                         key={member.person_id}
                         className="text-sm text-[#1E293B] hover:bg-[#F1F5F9]"
                       >
-                        <TableCell className="font-medium">{member.person_name}</TableCell>
-                        <TableCell className="font-mono tabular-nums text-[#475569]">
-                          {member.share_numerator}/{member.share_denominator}
+                        {/* Name cell — unchanged in both modes */}
+                        <TableCell className="text-sm font-medium text-[#1E293B] text-start">
+                          {member.person_name}
                         </TableCell>
-                        <TableCell className="font-mono tabular-nums text-[#475569]">
+
+                        {/* Share cell — conditional */}
+                        {editingMemberId === member.person_id ? (
+                          <TableCell className="text-start">
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={1}
+                                value={editNumerator}
+                                onChange={(e) => setEditNumerator(Number(e.target.value))}
+                                aria-label={t('portfolios.members.numeratorLabel')}
+                                className="w-16 rounded-md border border-[#E2E8F0] bg-white px-2 py-1 h-8
+                                           text-center font-mono tabular-nums text-sm text-[#1E293B]
+                                           focus:outline-none focus:ring-1 focus:ring-[#1E5DC4]"
+                              />
+                              <span className="font-mono text-[#94A3B8]">/</span>
+                              <input
+                                type="number"
+                                min={1}
+                                value={editDenominator}
+                                onChange={(e) => setEditDenominator(Number(e.target.value))}
+                                aria-label={t('portfolios.members.denominatorLabel')}
+                                className="w-16 rounded-md border border-[#E2E8F0] bg-white px-2 py-1 h-8
+                                           text-center font-mono tabular-nums text-sm text-[#1E293B]
+                                           focus:outline-none focus:ring-1 focus:ring-[#1E5DC4]"
+                              />
+                            </div>
+                          </TableCell>
+                        ) : (
+                          <TableCell className="font-mono tabular-nums text-sm text-[#1E293B] text-start">
+                            {member.share_numerator}/{member.share_denominator}
+                          </TableCell>
+                        )}
+
+                        {/* Joined date cell — unchanged in both modes */}
+                        <TableCell className="font-mono tabular-nums text-sm text-[#475569] text-start">
                           {format(new Date(member.joined_date), 'dd/MM/yyyy')}
                         </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end">
-                            <button
-                              onClick={() => handleRemove(member.person_id)}
-                              disabled={removingId === member.person_id}
-                              className="rounded p-1 text-[#C0392B] transition-colors hover:bg-[#FEF0EF] disabled:opacity-50"
-                              aria-label={t('portfolios.actions.delete')}
-                            >
-                              {removingId === member.person_id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </button>
-                          </div>
-                        </TableCell>
+
+                        {/* Actions cell — conditional */}
+                        {editingMemberId === member.person_id ? (
+                          <TableCell className="text-end">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveShare(member)}
+                                disabled={savingShareId === member.person_id}
+                                title={t('portfolios.members.saveShare')}
+                                className="rounded p-1 text-[#1A7D4F] hover:bg-[#EBF5F0]
+                                           disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                {savingShareId === member.person_id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Check className="h-4 w-4" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelEdit}
+                                disabled={savingShareId === member.person_id}
+                                title={t('portfolios.members.cancelEdit')}
+                                className="rounded p-1 text-[#475569] hover:bg-[#F1F5F9]
+                                           disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </TableCell>
+                        ) : (
+                          <TableCell className="text-end">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleEditShare(member)}
+                                disabled={isAnyRowEditing}
+                                title={t('portfolios.members.editShare')}
+                                className="rounded p-1 text-[#1E5DC4] hover:bg-[#E8F0FB]
+                                           disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemove(member.person_id)}
+                                disabled={removingId === member.person_id || isAnyRowEditing}
+                                title={t('portfolios.actions.delete')}
+                                className="rounded p-1 text-[#C0392B] hover:bg-[#FEF0EF]
+                                           disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                {removingId === member.person_id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
