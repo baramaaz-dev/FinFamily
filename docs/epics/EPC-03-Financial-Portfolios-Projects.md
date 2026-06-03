@@ -9,7 +9,7 @@ S-019	Portfolio List Page				✅ Done
 S-020	Add Portfolio Form (with type selector)		✅ Done
 S-021	Edit Portfolio Form				✅ Done
 S-022	Add Portfolio Members				✅ Done
-S-023	Set Member Share Fractions			⏳ Pending
+S-023	Set Member Share Fractions			✅ Done
 S-024	Validate Total Shares = 1 before Save		⏳ Pending
 S-025	Portfolio Detail View (balance + members + shares)	⏳ Pending
 ---
@@ -1112,3 +1112,233 @@ AddPortfolioDialog still functional                                           �
 EditPortfolioDialog still functional                                          ✅
 feature/sprint-02 up to date                                                  ✅
 feature/s-022-add-portfolio-members branch deleted (local + remote)           ✅
+
+================================================================================
+
+S-023 — Set Member Share Fractions
+تعديل حصص المساهمين في المحفظة
+Epic: E3 — المحافظ المالية والمشاريع
+Sprint: Sprint 2 — المحافظ المالية
+Status: ✅ Done
+Closed: Sprint 2
+Depends on: S-022 (Add Portfolio Members)
+Blocks: S-024 (Validate Total Shares = 1 before Save)
+
+---
+
+What Was Built
+
+1. i18n — src/i18n/locales/ar.ts and src/i18n/locales/en.ts
+
+Added 9 new keys. No existing keys modified or removed.
+
+Sub-namespace                            Keys added
+portfolios.members.*                     5 keys  (appended to existing 17 from S-022)
+portfolios.toast.*                       2 keys  (appended to existing 8 from S-020/S-021/S-022)
+portfolios.validation.*                  2 keys  (appended to existing 9 from S-020/S-022)
+
+Arabic values:
+  portfolios.members.editShare              "تعديل الحصة"
+  portfolios.members.saveShare              "حفظ"
+  portfolios.members.cancelEdit             "إلغاء"
+  portfolios.members.numeratorLabel         "البسط"
+  portfolios.members.denominatorLabel       "المقام"
+  portfolios.toast.shareUpdateSuccess       "تم تعديل الحصة بنجاح"
+  portfolios.toast.shareUpdateError         "تعذّر تعديل الحصة"
+  portfolios.validation.shareNumeratorInvalid   "البسط يجب أن يكون عدداً صحيحاً موجباً"
+  portfolios.validation.shareDenominatorInvalid "المقام يجب أن يكون عدداً صحيحاً أكبر من صفر"
+
+---
+
+2. PortfolioMembersSheet.tsx — src/components/portfolios/PortfolioMembersSheet.tsx (updated)
+
+Zod Schema (defined OUTSIDE component, at the top of the file — after imports):
+  const editShareSchema = z.object({
+    share_numerator: z.coerce
+      .number({ invalid_type_error: 'portfolios.validation.shareNumeratorInvalid' })
+      .int()
+      .positive({ message: 'portfolios.validation.shareNumeratorInvalid' }),
+    share_denominator: z.coerce
+      .number({ invalid_type_error: 'portfolios.validation.shareDenominatorInvalid' })
+      .int()
+      .min(1, { message: 'portfolios.validation.shareDenominatorInvalid' }),
+  });
+  type EditShareData = z.infer<typeof editShareSchema>;
+
+  Design decision: editShareSchema.safeParse() is used directly in handleSaveShare
+  rather than React Hook Form. For a 2-field inline table row, RHF adds complexity
+  with no benefit. safeParse() is the approved lightweight Zod usage per STR-005
+  for cases outside full dialog forms.
+
+New State (declared unconditionally BEFORE null guard — canonical hook-order rule from S-021):
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editNumerator,   setEditNumerator]   = useState<number>(1);
+  const [editDenominator, setEditDenominator] = useState<number>(1);
+  const [savingShareId,   setSavingShareId]   = useState<string | null>(null);
+
+New Icon Imports:
+  Pencil, Check, X  added to existing lucide-react import (alongside Trash2 · Loader2).
+
+useEffect update:
+  The existing useEffect([portfolio?.id, reset]) was extended to also call
+  setEditingMemberId(null) on portfolio switch, preventing a stale edit mode
+  from carrying over when a different portfolio's Sheet is opened.
+
+New Handlers (defined inside component, AFTER null guard):
+
+  handleEditShare(member: PortfolioMember):
+    setEditingMemberId(member.person_id)
+    setEditNumerator(member.share_numerator)
+    setEditDenominator(member.share_denominator)
+    If another row is in edit mode its unsaved changes are silently discarded
+    (only one row can be in edit mode at a time).
+
+  handleCancelEdit():
+    setEditingMemberId(null)
+    No Supabase call.
+
+  handleSaveShare(member: PortfolioMember):
+    Validates with editShareSchema.safeParse({ share_numerator: editNumerator,
+                                               share_denominator: editDenominator })
+    If invalid: toast.error(t(firstErrorMessageKey)); return — NO Supabase call.
+    If valid:
+      setSavingShareId(member.person_id)
+      try {
+        UPDATE portfolio_members
+          SET share_numerator = result.data.share_numerator,
+              share_denominator = result.data.share_denominator
+          WHERE portfolio_id = portfolio.id AND person_id = member.person_id
+        On error: toast.error(t('portfolios.toast.shareUpdateError')); return
+        invalidateQueries(['portfolio-members', portfolio.id])
+        toast.success(t('portfolios.toast.shareUpdateSuccess'))
+        setEditingMemberId(null)
+      } finally { setSavingShareId(null) }
+
+  Total-shares validation NOT included — deferred to S-024 per project scope.
+
+Derived helper (inside component, after null guard):
+  const isAnyRowEditing = editingMemberId !== null;
+  Used to disable Pencil and Trash buttons on non-editing rows.
+
+Table Row Rendering — updated (two modes per row):
+
+  READ MODE (editingMemberId !== member.person_id):
+    Share cell:   unchanged — font-mono tabular-nums "numerator/denominator"
+    Actions cell:
+      Pencil button  <Pencil h-4 w-4>
+        text-[#1E5DC4] hover:bg-[#E8F0FB]         (primary blue — modification)
+        disabled={isAnyRowEditing}
+        opacity-40 cursor-not-allowed when disabled
+        onClick: handleEditShare(member)
+        title: t('portfolios.members.editShare')
+      Trash button   <Trash2 h-4 w-4>              — unchanged styling
+        disabled={removingId === member.person_id || isAnyRowEditing}
+        opacity-40 cursor-not-allowed when disabled
+
+  EDIT MODE (editingMemberId === member.person_id):
+    Share cell:   two <input type="number" min={1}> inputs side by side
+      Numerator input:
+        w-16 · value={editNumerator} · onChange: setEditNumerator(Number(e.target.value))
+        font-mono tabular-nums text-sm text-center text-[#1E293B]
+        border border-[#E2E8F0] rounded-md px-2 py-1 h-8
+        focus:outline-none focus:ring-1 focus:ring-[#1E5DC4]
+        aria-label: t('portfolios.members.numeratorLabel')
+      Divider: <span className="font-mono text-[#94A3B8]">/</span>
+      Denominator input: identical className · value={editDenominator}
+        aria-label: t('portfolios.members.denominatorLabel')
+    Actions cell:
+      Check button  <Check h-4 w-4>
+        text-[#1A7D4F] hover:bg-[#EBF5F0]         (success green — confirm save)
+        disabled={savingShareId === member.person_id}
+        shows <Loader2 h-4 w-4 animate-spin> while savingShareId is set
+        onClick: handleSaveShare(member)
+        title: t('portfolios.members.saveShare')
+      X button      <X h-4 w-4>
+        text-[#475569] hover:bg-[#F1F5F9]          (slate — neutral cancel)
+        disabled={savingShareId === member.person_id}
+        onClick: handleCancelEdit()
+        title: t('portfolios.members.cancelEdit')
+
+STR-004 Compliance:
+  All new colors as hex literals — zero Tailwind named colors
+  All directional CSS: text-start · text-end · ms-* · ps-*
+  No gradients · No hardcoded Arabic/English strings — all via t()
+  Number inputs: font-mono tabular-nums
+  Button color rationale:
+    Pencil  = text-[#1E5DC4] hover:bg-[#E8F0FB]  — primary blue, modification
+    Check   = text-[#1A7D4F] hover:bg-[#EBF5F0]  — success green, confirm
+    X       = text-[#475569] hover:bg-[#F1F5F9]  — slate, neutral cancel
+    Divider = text-[#94A3B8]                      — Slate-400, visual separator
+
+---
+
+3. Project Structure after S-023
+
+src/
+├── components/
+│   └── portfolios/
+│       ├── AddPortfolioDialog.tsx        ← unchanged
+│       ├── EditPortfolioDialog.tsx       ← unchanged
+│       └── PortfolioMembersSheet.tsx     ← UPDATED (inline share editing)
+├── i18n/
+│   └── locales/
+│       ├── ar.ts                         ← UPDATED (9 new keys across members.* / toast.* / validation.*)
+│       └── en.ts                         ← UPDATED (same 9 keys in English)
+
+No new Shadcn components installed.
+No new npm packages.
+No Supabase migrations.
+
+---
+
+4. Commits
+
+feat(i18n): add portfolios.members.editShare and portfolios.toast.shareUpdate* keys to ar and en
+feat(portfolios): add inline share-fraction editing to PortfolioMembersSheet
+
+Merged via --no-ff into feature/sprint-02:
+  feat(s-023): implement Set Member Share Fractions — inline edit in PortfolioMembersSheet
+
+---
+
+Issues Encountered & Resolved (S-023)
+
+No issues encountered. Implementation followed the story spec without deviation.
+All canonical rules from S-021 (hooks-before-null-guard) and S-022
+(z.coerce.number() + safeParse pattern) applied without incident.
+
+---
+
+Final Verification (S-023)
+
+Check                                                                         Result
+npx tsc --noEmit                                                              ✅ Zero errors
+Brand scan: grep -n "text-gray\|text-blue\|text-red\|text-green\|            ✅ Empty
+  bg-gray\|bg-blue\|text-left\|text-right\|pl-\|pr-\|ml-\|mr-"
+  src/components/portfolios/PortfolioMembersSheet.tsx
+Arabic string scan: grep -n '="[أ-ي]'                                        ✅ Empty
+  src/components/portfolios/PortfolioMembersSheet.tsx
+Each member row shows Pencil button (text-[#1E5DC4]) left of Trash button     ✅
+Clicking Pencil → share cell becomes two number inputs pre-filled with        ✅
+  current numerator and denominator values
+While one row is in edit mode, all other Pencil and Trash buttons             ✅
+  are opacity-40 / disabled (isAnyRowEditing)
+Only one row in edit mode at a time — clicking Pencil on another row          ✅
+  discards unsaved changes and switches to the new row
+Cancel → row restores to read-only display, no Supabase call                  ✅
+Save with numerator = 0 → toast.error shown, no Supabase call                 ✅ Zod safeParse catches
+Save with non-integer value → toast.error shown, no Supabase call             ✅
+Save with valid values → Supabase UPDATE fires, members list refreshes,       ✅
+  success toast, row returns to read-only with new fraction
+Loader2 spinner in Check button while savingShareId is set                    ✅
+Both Check and X buttons disabled while saving                                ✅
+Supabase UPDATE error → toast.error, row stays in edit mode                   ✅
+Opening Sheet for Portfolio B after Portfolio A → editingMemberId reset       ✅
+  to null (no stale edit mode carries over)
+Add-member form (Section 2) still functional                                  ✅
+Remove (Trash) still functional on non-editing rows                           ✅
+AddPortfolioDialog still functional                                           ✅
+EditPortfolioDialog still functional                                          ✅
+Total shares NOT validated (correctly deferred to S-024)                      ✅
+feature/sprint-02 up to date                                                  ✅
+feature/s-023-set-member-share-fractions branch deleted (local + remote)      ✅
