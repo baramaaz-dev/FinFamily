@@ -1,32 +1,33 @@
-EPC-05 — Properties & Real Estate
-Epic: E5 — العقارات وإدارة الأصول العقارية
-Sprint: Sprint 3
+EPC-04 — Properties & Real Estate
+Epic: E4 — العقارات وإدارة الأصول العقارية
+Sprint: Sprint 4
 Status: 🔄 In Progress
 ---
 Stories Overview
 Story	Title	Status
-S-026	Properties List Page				✅ Done
-S-027	Add Property Form				✅ Done
-S-028	Edit Property Form				📋 Planned
-S-029	Property Ownership Sheet (Owners + Basis)	📋 Planned
-S-030	Set Ownership Fractions & Basis			📋 Planned
-S-031	Validate Ownership Total = 1 before Save	📋 Planned
-S-032	Lease Management (Add / Edit / List)		📋 Planned
-S-033	Record Lease Payment				📋 Planned
-S-034	Property Expenses (Add / List)			📋 Planned
-S-035	Property Detail View				📋 Planned
+S-033	Properties List Page				✅ Done
+S-034	Add Property Form				✅ Done
+S-035	Add Property Owners — Shares & Ownership Basis				📋 Planned
+S-036	Validate Ownership Total = 1 before Save	📋 Planned
+S-037	Property Ownership Statement View			📋 Planned
+S-038	Add Lease Contract	📋 Planned
+S-039	Lease Payments Log		📋 Planned
+S-040	Record Lease Payment				📋 Planned
+S-041	Add Property Expense			📋 Planned
+S-042	Property Expenses List with Filters				📋 Planned
+S-043	Property Upcoming Obligations View				📋 Planned
 ---
 
 ================================================================================
 
-S-026 — Properties List Page
+S-033 — Properties List Page
 قائمة العقارات
 Epic: E5 — العقارات وإدارة الأصول العقارية
 Sprint: Sprint 3
 Status: ✅ Done
 Closed: Sprint 3
 Depends on: S-025 (Portfolio Detail View)
-Blocks: S-027 (Add Property Form)
+Blocks: S-034 (Add Property Form)
 
 ---
 
@@ -39,7 +40,7 @@ structural pattern of S-019 (Portfolio List Page) exactly.
 
 No forms, no detail navigation, no ownership management in this story.
 All action buttons (Edit · Owners · Delete) are rendered as disabled with
-title={t('properties.comingSoon')} and wired in S-027, S-028, S-029.
+title={t('properties.comingSoon')} and wired in S-034, S-035, S-036.
 
 ---
 
@@ -47,7 +48,7 @@ What Was Built
 
 1. Audit Findings (Phase 0)
 
-  - Branch feature/s-026-properties-list-page already existed and was clean
+  - Branch feature/s-033-properties-list-page already existed and was clean
   - PropertiesPage.tsx stub existed (12-line placeholder from S-002)
   - /properties route already wired at src/router/index.tsx:35
   - Property interface already existed at types/index.ts:48 — was missing only
@@ -91,10 +92,10 @@ Added `properties` top-level namespace after the existing `portfolios` object.
 
 Note on key count: specification called for 24 keys; implementation added 38.
 The extra 14 keys were described as pre-emptive stubs for properties.form.*,
-properties.validation.*, and properties.toast.* — needed in S-027+.
-⚠️ Correction (discovered in S-027 Phase 0): these 14 keys were NOT actually
-present when S-027 audit ran. All form/validation/toast keys were added fresh
-in S-027. The 38-key count in S-026 reflects only the core page keys listed below.
+properties.validation.*, and properties.toast.* — needed in S-034+.
+⚠️ Correction (discovered in S-034 Phase 0): these 14 keys were NOT actually
+present when S-034 audit ran. All form/validation/toast keys were added fresh
+in S-034. The 38-key count in S-033 reflects only the core page keys listed below.
 
 Sub-namespace               Keys
 properties.*                5 root keys
@@ -106,7 +107,7 @@ properties.empty.*          2 keys
 properties.error.*          2 keys
 Total (confirmed present)   24 keys
 
-Arabic values (core keys used in S-026):
+Arabic values (core keys used in S-033):
 
   properties.pageTitle         'العقارات'
   properties.pageSubtitle      'إدارة أصول العقارات والعقود للعائلة'
@@ -221,7 +222,7 @@ Page Header:
   Title:    text-xl font-medium text-[#1E293B] — t('properties.pageTitle')
   Subtitle: mt-0.5 text-sm text-[#475569]     — t('properties.pageSubtitle')
   "إضافة عقار" Button: bg-[#1E5DC4] text-white hover:bg-[#164399] with Plus icon
-  Button is disabled={true} with title={t('properties.comingSoon')} — wired in S-027
+  Button is disabled={true} with title={t('properties.comingSoon')} — wired in S-034
 
 Table (rendered when data exists):
   Wrapped in <div role="region" aria-label={t('properties.pageTitle')}> for accessibility
@@ -311,7 +312,7 @@ Table (rendered when data exists):
   Sidebar nav link for "العقارات" was already pointing to /properties and active.
   No AppLayout changes required.
 
-7. Project Structure after S-026
+7. Project Structure after S-033
 
 ```
 src/
@@ -339,12 +340,12 @@ feat(properties): implement Properties list page — table, skeleton, empty and 
 
 Merged via --no-ff into feature/sprint-03:
 ```
-feat(s-026): implement Properties list page
+feat(s-033): implement Properties list page
 ```
 
 ---
 
-Issues Encountered & Resolved (S-026)
+Issues Encountered & Resolved (S-033)
 
 #   Issue                                                   Resolution
 1   Property interface already existed in                   Only owners_count was appended to the
@@ -352,15 +353,15 @@ Issues Encountered & Resolved (S-026)
     missing only the derived owners_count field.            needed. Audit (Phase 0) caught this before
                                                             any code was written.
 
-2   i18n keys count: spec called for 24 keys;               ⚠️ Correction applied (S-027 audit):
+2   i18n keys count: spec called for 24 keys;               ⚠️ Correction applied (S-034 audit):
     documentation stated 38 keys were added,               The 14 "pre-emptive" form/validation/toast
-    including 14 pre-emptive stubs for S-027+.              keys were not present when S-027 ran.
-                                                            Confirmed key count for S-026 is 24 —
+    including 14 pre-emptive stubs for S-034+.              keys were not present when S-034 ran.
+                                                            Confirmed key count for S-033 is 24 —
                                                             the 7 core sub-namespaces only.
                                                             All 35 form/validation/toast keys were
-                                                            added fresh in S-027.
+                                                            added fresh in S-034.
 
-3   Sprint 3 branch was created from main before            Executed after S-026 was merged:
+3   Sprint 3 branch was created from main before            Executed after S-033 was merged:
     Sprint 2 (feature/sprint-02) was merged into            1. Merged feature/sprint-02 → main
     main. This caused PortfoliosPage and all                 2. Merged main → feature/sprint-03
     Sprint 2 components to revert to stubs on               3. Resolved i18n conflict (ar.ts / en.ts)
@@ -373,7 +374,7 @@ Issues Encountered & Resolved (S-026)
 
 ---
 
-Final Verification (S-026)
+Final Verification (S-033)
 
 Check                                                                         Result
 npx tsc --noEmit                                                              ✅ Zero errors
@@ -399,19 +400,19 @@ Error sub-component: danger text + outline retry button                       �
 /properties route reachable from Sidebar nav link — no 404                    ✅
 RTL layout intact: text-start headers · text-end actions column               ✅
 feature/sprint-03 synced with main (Sprint 2 work visible)                   ✅
-feature/s-026-properties-list-page branch deleted (local + remote)           ✅
+feature/s-033-properties-list-page branch deleted (local + remote)           ✅
 
 
 ================================================================================
 
-S-027 — Add Property Form
+S-034 — Add Property Form
 نموذج إضافة عقار جديد
 Epic: E5 — العقارات وإدارة الأصول العقارية
 Sprint: Sprint 3
 Status: ✅ Done
 Closed: Sprint 3
-Depends on: S-026 (Properties List Page)
-Blocks: S-028 (Edit Property Form)
+Depends on: S-033 (Properties List Page)
+Blocks: S-035 (Edit Property Form)
 
 ---
 
@@ -425,7 +426,7 @@ Follows the established pattern of S-020 (AddPortfolioDialog) — same Dialog
 shell, same visual card-grid type selector, same onSubmit → Supabase →
 invalidateQueries → toast flow.
 
-No ownership assignment in this story. Ownership is scoped to S-029 / S-030.
+No ownership assignment in this story. Ownership is scoped to S-036 / S-037.
 
 ---
 
@@ -435,7 +436,7 @@ What Was Built
 
   - Baseline npx tsc --noEmit: 0 errors
   - No pre-emptive form/validation/toast keys existed under properties.* in
-    ar.ts / en.ts — contrary to what S-026 documentation stated. All 35 keys
+    ar.ts / en.ts — contrary to what S-033 documentation stated. All 35 keys
     added fresh in this story.
   - Required Shadcn components (Dialog · Input · Label · Button) confirmed present
   - src/components/properties/ directory did not exist — created in this story
@@ -452,7 +453,7 @@ Sub-namespace                 Keys added
 properties.form.*             19 keys
 properties.validation.*        8 keys
 properties.toast.*             2 keys
-Total added in S-027          35 keys (all fresh — none were pre-existing stubs)
+Total added in S-034          35 keys (all fresh — none were pre-existing stubs)
 
 Arabic values:
 
@@ -646,11 +647,11 @@ Three targeted changes — file not rewritten:
   No gradients anywhere in the file
   No hardcoded Arabic or English strings in JSX — all resolved through t()
   estimated_value input: font-mono class applied (financial value rule)
-  No Shadcn Badge used — type/status display remains plain <span> pattern from S-026
+  No Shadcn Badge used — type/status display remains plain <span> pattern from S-033
 
 ---
 
-6. Project Structure after S-027
+6. Project Structure after S-034
 
 ```
 src/
@@ -681,17 +682,17 @@ feat(properties): wire AddPropertyDialog into PropertiesPage — enable add butt
 
 Merged via --no-ff into feature/sprint-03:
 ```
-feat(s-027): implement Add Property Form
+feat(s-034): implement Add Property Form
 ```
 
 ---
 
-Issues Encountered & Resolved (S-027)
+Issues Encountered & Resolved (S-034)
 
 #   Issue                                                   Resolution
 1   EPC-05 documented 14 pre-emptive i18n keys              All 35 form/validation/toast keys added
-    added in S-026 for form/validation/toast.               fresh in S-027. S-026 documentation
-    Phase 0 audit found none of these keys                  corrected (see Issue #2 in S-026 section).
+    added in S-033 for form/validation/toast.               fresh in S-034. S-033 documentation
+    Phase 0 audit found none of these keys                  corrected (see Issue #2 in S-033 section).
     existed.                                                ⚠️ Canonical rule: never trust pre-emptive
                                                             key claims in documentation — always run
                                                             grep audit in Phase 0 before writing code.
@@ -705,7 +706,7 @@ Issues Encountered & Resolved (S-027)
 
 ---
 
-Final Verification (S-027)
+Final Verification (S-034)
 
 Check                                                                         Result
 npx tsc --noEmit                                                              ✅ Zero errors
@@ -732,7 +733,7 @@ purchase_date empty → no error → saves as NULL                              
 Successful INSERT refreshes properties list                                   ✅ ['properties'] invalidated
 Success toast shown (green)                                                   ✅
 Error toast on Supabase failure, dialog stays open                            ✅
-feature/s-027-add-property-form branch deleted (local + remote)              ✅
+feature/s-034-add-property-form branch deleted (local + remote)              ✅
 
 
 ================================================================================
@@ -741,7 +742,7 @@ E5 — Deferred Items (Post-MVP Backlog)
 
 The following items were identified during Sprint 3 and deliberately deferred
 to after the first successful MVP deployment. They do not block any story in
-the current sprint plan (S-026 → S-035).
+the current sprint plan (S-033 → S-035).
 
 ---
 
