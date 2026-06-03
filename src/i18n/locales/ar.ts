@@ -197,6 +197,7 @@ const ar = {
       memberRemoveError:   'تعذّر حذف المساهم',
       shareUpdateSuccess:  'تم تعديل الحصة بنجاح',
       shareUpdateError:    'تعذّر تعديل الحصة',
+      sharesWarning:       'تحذير: مجموع الحصص ({percent}) لا يساوي 1. راجع حصص المساهمين.',
     },
     members: {
       sheetTitle:    'أعضاء المحفظة',
@@ -227,6 +228,10 @@ const ar = {
       cancelEdit:        'إلغاء',
       numeratorLabel:    'البسط',
       denominatorLabel:  'المقام',
+      sharesTotalLabel:  'مجموع الحصص',
+      sharesValid:       'مجموع الحصص يساوي الواحد الصحيح',
+      sharesInvalid:     'مجموع الحصص لا يساوي 1',
+      sharesHint:        'يجب أن تساوي مجموع حصص جميع المساهمين الواحد الصحيح (100%)',
     },
   },
   language: {

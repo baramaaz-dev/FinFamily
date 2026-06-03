@@ -5,9 +5,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Loader2, Trash2, Pencil, Check, X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabaseClient } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
+import { validateSharesTotal } from '@/lib/currency';
+import type { SharesValidationResult } from '@/lib/currency';
 import {
   Sheet,
   SheetContent,
@@ -284,6 +287,26 @@ export function PortfolioMembersSheet({
 
   if (!portfolio) return null;
 
+  // ── Shares validation (derived) ────────────────────────────────────────────
+
+  const sharesValidation: SharesValidationResult = validateSharesTotal(members);
+
+  // ── Sheet open/close handler ───────────────────────────────────────────────
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      if (members.length > 0 && !sharesValidation.isValid) {
+        toast.warning(
+          t('portfolios.toast.sharesWarning')
+            .replace('{percent}', sharesValidation.percentage)
+        );
+      }
+      reset();
+      setEditingMemberId(null);
+    }
+    onOpenChange(newOpen);
+  };
+
   // ── Share-edit handlers ────────────────────────────────────────────────────
 
   const handleEditShare = (member: PortfolioMember) => {
@@ -333,7 +356,7 @@ export function PortfolioMembersSheet({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="left" className="flex w-[480px] flex-col p-0 sm:w-[540px]">
 
         {/* Sticky header */}
@@ -496,6 +519,44 @@ export function PortfolioMembersSheet({
           </section>
 
           <hr className="border-[#E2E8F0]" />
+
+          {/* Shares summary bar — visible only when members are loaded and exist */}
+          {!membersLoading && members.length > 0 && (
+            <div
+              className={cn(
+                'flex items-center justify-between rounded-lg border px-4 py-3',
+                sharesValidation.isValid
+                  ? 'border-[#A3D4BC] bg-[#EBF5F0]'
+                  : 'border-[#F5CC8A] bg-[#FEF7EC]'
+              )}
+            >
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium text-[#1E293B]">
+                  {t('portfolios.members.sharesTotalLabel')}
+                </span>
+                {!sharesValidation.isValid && (
+                  <span className="text-xs text-[#B45309]">
+                    {t('portfolios.members.sharesHint')}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    'font-mono tabular-nums text-sm font-semibold',
+                    sharesValidation.isValid ? 'text-[#1A7D4F]' : 'text-[#B45309]'
+                  )}
+                >
+                  {sharesValidation.percentage}
+                </span>
+                {sharesValidation.isValid ? (
+                  <CheckCircle2 className="h-4 w-4 text-[#1A7D4F]" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-[#B45309]" />
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Section 2 — Add member form */}
           <section>
