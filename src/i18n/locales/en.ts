@@ -197,6 +197,7 @@ const en = {
       memberRemoveError:   'Failed to remove member',
       shareUpdateSuccess:  'Share updated successfully',
       shareUpdateError:    'Failed to update share',
+      sharesWarning:       'Warning: Total shares ({percent}) do not equal 1. Please review member shares.',
     },
     members: {
       sheetTitle:    'Portfolio Members',
@@ -227,6 +228,10 @@ const en = {
       cancelEdit:        'Cancel',
       numeratorLabel:    'Numerator',
       denominatorLabel:  'Denominator',
+      sharesTotalLabel:  'Total Shares',
+      sharesValid:       'Total shares equal 1',
+      sharesInvalid:     'Total shares do not equal 1',
+      sharesHint:        'All member shares must sum to exactly 1 (100%)',
     },
   },
   language: {
