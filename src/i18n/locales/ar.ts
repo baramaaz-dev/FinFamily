@@ -121,6 +121,44 @@ const ar = {
       closeButton:        'إغلاق',
     },
   },
+  properties: {
+    pageTitle:    'العقارات',
+    pageSubtitle: 'إدارة أصول العقارات والعقود للعائلة',
+    addProperty:  'إضافة عقار',
+    comingSoon:   'قريباً',
+    ownerSuffix:  'مالك',
+    columns: {
+      name:           'اسم العقار',
+      type:           'النوع',
+      location:       'الموقع',
+      status:         'الحالة',
+      estimatedValue: 'القيمة التقديرية',
+      owners:         'الملاّك',
+      actions:        'الإجراءات',
+    },
+    types: {
+      residential: 'سكني',
+      commercial:  'تجاري',
+      land:        'أرض',
+    },
+    status: {
+      rented: 'مؤجّر',
+      vacant: 'شاغر',
+    },
+    actions: {
+      edit:   'تعديل',
+      delete: 'حذف',
+      owners: 'الملاّك',
+    },
+    empty: {
+      title:    'لا توجد عقارات مسجّلة',
+      subtitle: 'ابدأ بإضافة أول عقار للعائلة',
+    },
+    error: {
+      title: 'تعذّر تحميل العقارات',
+      retry: 'إعادة المحاولة',
+    },
+  },
   language: {
     toggle:  'EN',
     current: 'العربية',
