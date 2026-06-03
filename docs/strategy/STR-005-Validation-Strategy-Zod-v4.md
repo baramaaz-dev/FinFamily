@@ -1,8 +1,8 @@
 # FinFamily — Validation Strategy (Zod v4)
 **Document:** STR-005
-**Version:** 1.0
+**Version:** 1.1
 **Status:** ✅ Adopted
-**Last updated:** 2026-06-03
+**Last updated:** 2026-06-04
 
 > **قاعدة إلزامية:** أي نموذج إدخال (form) أو معالجة بيانات خارجية في المشروع
 > يجب أن يستخدم Zod schema موثّق في هذا الملف أو متوافق مع أنماطه.
@@ -114,14 +114,14 @@ z.string()
 ### 5.2 الأرقام المالية — Financial Amounts
 
 ```ts
-// مبلغ مالي موجب
+// مبلغ مالي موجب — حقل مطلوب
 z.number({
   required_error: 'ns.validation.amountRequired',
   invalid_type_error: 'ns.validation.amountInvalid',
 })
 .positive({ message: 'ns.validation.amountPositive' })
 
-// مع coerce للقادم من input[type=text]
+// مع coerce للقادم من input[type=text] — حقل مطلوب
 z.coerce.number()
   .positive({ message: 'ns.validation.amountPositive' })
 ```
@@ -129,6 +129,68 @@ z.coerce.number()
 > **ملاحظة:** حقول الأرقام في HTML تُرجع string من `event.target.value`.
 > استخدم `z.coerce.number()` دائماً مع `<Input type="number">` لتجنب
 > أخطاء النوع.
+
+---
+
+#### 5.2.1 الأرقام المالية الاختيارية — Optional Financial Amounts
+
+> ⚠️ **تحذير S-027:** `z.preprocess()` يكسر `zodResolver` في Zod v4 عند
+> استخدامه مع حقول رقمية اختيارية (`<Input type="number">`).
+> الأعراض: resolver يُرجع أخطاء validation غير متوقعة أو يتجاهل الإدخال كلياً.
+
+**النمط الصحيح الوحيد للأرقام الاختيارية في هذا المشروع:**
+
+```ts
+// ✅ حقل رقمي اختياري — يبقى string في الـ schema
+// التحويل إلى number يتم يدوياً في onSubmit فقط
+estimated_value: z.string()
+  .refine(
+    (v) => v === '' || v === undefined || !isNaN(parseFloat(v)),
+    { message: 'ns.validation.estimatedValueInvalid' }
+  )
+  .refine(
+    (v) => v === '' || v === undefined || parseFloat(v) > 0,
+    { message: 'ns.validation.estimatedValuePositive' }
+  )
+  .optional(),
+```
+
+التحويل في `onSubmit`:
+```ts
+const onSubmit = async (data: MyFormData) => {
+  await supabaseClient.from('table').insert({
+    // ...
+    estimated_value: data.estimated_value
+      ? parseFloat(data.estimated_value)
+      : null,
+  });
+};
+```
+
+`defaultValues` المناسب للحقل:
+```ts
+defaultValues: {
+  estimated_value: '',   // string فارغة — ليس undefined ولا null
+}
+```
+
+المبدأ: **الـ schema يتحقق من الصيغة فقط. التحويل إلى الـ type الهدف يتم
+في onSubmit قبل الإرسال لـ Supabase.**
+
+---
+
+```ts
+// ❌ ممنوع — يكسر zodResolver في Zod v4
+estimated_value: z.preprocess(
+  (v) => (v === '' ? undefined : Number(v)),
+  z.number().positive().optional()
+),
+
+// ❌ ممنوع — نفس المشكلة
+estimated_value: z.coerce.number().positive().optional(),
+```
+
+---
 
 ### 5.3 الكسور — Share Fractions
 
@@ -159,6 +221,19 @@ z.coerce.date({
 // تاريخ اختياري
 z.coerce.date().optional()
 ```
+
+**تاريخ اختياري من `<Input type="date">`** — يُعامَل كـ string اختيارية:
+```ts
+// ✅ يحافظ على سلوك input[type=date] الذي يُرجع '' عند الترك فارغاً
+purchase_date: z.preprocess(
+  (v) => (v === '' || v === null || v === undefined ? undefined : v),
+  z.string().optional()
+),
+// في onSubmit: purchase_date: data.purchase_date || null
+```
+
+> ملاحظة: `z.preprocess()` مقبول للتواريخ النصية لأن الـ output يبقى string
+> ولا يُغير نوع الحقل — خلافاً للأرقام حيث يتحول النوع من string إلى number.
 
 ### 5.5 القوائم المحددة — Enums
 
@@ -259,6 +334,52 @@ z.object({
 })
 ```
 
+### 6.7 Properties (S-027)
+```ts
+// src/components/properties/AddPropertyDialog.tsx
+z.object({
+  name: z.string()
+    .min(1, { message: 'properties.validation.nameRequired' })
+    .min(2, { message: 'properties.validation.nameTooShort' })
+    .max(200, { message: 'properties.validation.nameTooLong' }),
+
+  type: z.enum(['residential', 'commercial', 'land'], {
+    error: 'properties.validation.typeRequired',
+  }),
+
+  status: z.enum(['rented', 'vacant'], {
+    error: 'properties.validation.statusRequired',
+  }),
+
+  location: z.string()
+    .max(500, { message: 'properties.validation.locationTooLong' })
+    .optional(),
+
+  // تاريخ اختياري — يُحفظ كـ string؛ z.preprocess مقبول هنا (output يبقى string)
+  purchase_date: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+    z.string().optional()
+  ),
+
+  // رقم اختياري — z.string().refine() لتجنب كسر zodResolver (§5.2.1)
+  // التحويل إلى number يتم بـ parseFloat() في onSubmit
+  estimated_value: z.string()
+    .refine(
+      (v) => v === '' || v === undefined || !isNaN(parseFloat(v)),
+      { message: 'properties.validation.estimatedValueInvalid' }
+    )
+    .refine(
+      (v) => v === '' || v === undefined || parseFloat(v) > 0,
+      { message: 'properties.validation.estimatedValuePositive' }
+    )
+    .optional(),
+})
+
+// في onSubmit:
+// estimated_value: data.estimated_value ? parseFloat(data.estimated_value) : null
+// purchase_date:   data.purchase_date || null
+```
+
 ---
 
 ## 7. قواعد تسمية الـ Schemas
@@ -281,6 +402,8 @@ z.object({
 | `required_error` في `z.enum()` | `error` (v4 API) |
 | `.optional().or(z.literal(''))` | `.optional()` فقط (v4) |
 | `z.number()` مع `<Input type="number">` | `z.coerce.number()` |
+| `z.preprocess()` لحقول الأرقام الاختيارية | `z.string().refine()` + `parseFloat()` في `onSubmit` (§5.2.1) |
+| `z.coerce.number().optional()` مع input فارغ | `z.string().refine()` + `parseFloat()` في `onSubmit` (§5.2.1) |
 | تحقق مجموع الحصص داخل الـ schema | `validateShares()` من `@/lib/currency` |
 | تعريف الـ schema داخل الـ component | خارج الـ component دائماً |
 | `any` type في FormData | `z.infer<typeof schema>` |
@@ -294,5 +417,6 @@ z.object({
 | 2026-06-01 | اعتماد Zod v4 | مثبّت مع المشروع منذ S-016 |
 | 2026-06-01 | رسائل الخطأ كمفاتيح i18n | توافق مع نظام الترجمة AR/EN |
 | 2026-06-03 | توثيق فرق `z.enum()` v3→v4 | اكتُشف في S-020؛ مرجع دائم لجميع القصص |
-| 2026-06-03 | اعتماد `z.coerce.number()` للمبالغ | HTML inputs تُرجع string دائماً |
+| 2026-06-03 | اعتماد `z.coerce.number()` للمبالغ المطلوبة | HTML inputs تُرجع string دائماً |
 | 2026-06-03 | مجموع الحصص خارج Zod | المنطق معقد ويعتمد على جميع الحصص معاً |
+| 2026-06-04 | حظر `z.preprocess()` و`z.coerce.number().optional()` للأرقام الاختيارية | اكتُشف في S-027: يكسر `zodResolver` في Zod v4؛ البديل `z.string().refine()` + `parseFloat()` في `onSubmit` |

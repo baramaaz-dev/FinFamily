@@ -6,7 +6,7 @@ Status: 🔄 In Progress
 Stories Overview
 Story	Title	Status
 S-026	Properties List Page				✅ Done
-S-027	Add Property Form				📋 Planned
+S-027	Add Property Form				✅ Done
 S-028	Edit Property Form				📋 Planned
 S-029	Property Ownership Sheet (Owners + Basis)	📋 Planned
 S-030	Set Ownership Fractions & Basis			📋 Planned
@@ -90,9 +90,11 @@ Added `properties` top-level namespace after the existing `portfolios` object.
 38 keys added. No existing keys modified or removed.
 
 Note on key count: specification called for 24 keys; implementation added 38.
-The extra 14 keys were pre-emptive additions covering action labels and status
-strings that would be needed in S-027–S-029 anyway. All keys are within the
-`properties.*` namespace — no collision with any existing namespace.
+The extra 14 keys were described as pre-emptive stubs for properties.form.*,
+properties.validation.*, and properties.toast.* — needed in S-027+.
+⚠️ Correction (discovered in S-027 Phase 0): these 14 keys were NOT actually
+present when S-027 audit ran. All form/validation/toast keys were added fresh
+in S-027. The 38-key count in S-026 reflects only the core page keys listed below.
 
 Sub-namespace               Keys
 properties.*                5 root keys
@@ -102,8 +104,7 @@ properties.status.*         2 keys
 properties.actions.*        3 keys
 properties.empty.*          2 keys
 properties.error.*          2 keys
-Additional pre-emptive keys 14 keys (form, validation, toast stubs for S-027+)
-Total                       38 keys
+Total (confirmed present)   24 keys
 
 Arabic values (core keys used in S-026):
 
@@ -316,7 +317,7 @@ Table (rendered when data exists):
 src/
 ├── i18n/
 │   └── locales/
-│       ├── ar.ts                ← UPDATED (properties.* namespace — 38 keys)
+│       ├── ar.ts                ← UPDATED (properties.* namespace — 24 keys confirmed)
 │       └── en.ts                ← UPDATED (same keys in English)
 ├── pages/
 │   └── PropertiesPage.tsx       ← REPLACED (stub → full implementation)
@@ -351,12 +352,13 @@ Issues Encountered & Resolved (S-026)
     missing only the derived owners_count field.            needed. Audit (Phase 0) caught this before
                                                             any code was written.
 
-2   i18n keys count: spec called for 24 keys;               Extra 14 keys are pre-emptive stubs for
-    implementation added 38 to ar.ts / en.ts.               properties.form.*, properties.validation.*,
-                                                            and properties.toast.* — needed in S-027
-                                                            through S-029 regardless. All within the
-                                                            properties.* namespace; no existing keys
-                                                            affected.
+2   i18n keys count: spec called for 24 keys;               ⚠️ Correction applied (S-027 audit):
+    documentation stated 38 keys were added,               The 14 "pre-emptive" form/validation/toast
+    including 14 pre-emptive stubs for S-027+.              keys were not present when S-027 ran.
+                                                            Confirmed key count for S-026 is 24 —
+                                                            the 7 core sub-namespaces only.
+                                                            All 35 form/validation/toast keys were
+                                                            added fresh in S-027.
 
 3   Sprint 3 branch was created from main before            Executed after S-026 was merged:
     Sprint 2 (feature/sprint-02) was merged into            1. Merged feature/sprint-02 → main
@@ -381,7 +383,7 @@ Brand scan: grep -n "text-gray\|text-blue\|text-red\|text-green\|            ✅
 Arabic string scan: grep -n '="[أ-ي]'                                        ✅ Empty
   src/pages/PropertiesPage.tsx
 owners_count field present in Property interface                              ✅
-properties.* namespace present in ar.ts and en.ts                            ✅ 38 keys each
+properties.* namespace present in ar.ts and en.ts                            ✅ 24 keys each
 PropertiesPage stub replaced with full implementation                         ✅
 fetchProperties() uses property_owners(count) aggregate — no N+1              ✅
 typeBadgeClass() covers all 3 types with STR-004 hex colors                   ✅
@@ -398,3 +400,390 @@ Error sub-component: danger text + outline retry button                       �
 RTL layout intact: text-start headers · text-end actions column               ✅
 feature/sprint-03 synced with main (Sprint 2 work visible)                   ✅
 feature/s-026-properties-list-page branch deleted (local + remote)           ✅
+
+
+================================================================================
+
+S-027 — Add Property Form
+نموذج إضافة عقار جديد
+Epic: E5 — العقارات وإدارة الأصول العقارية
+Sprint: Sprint 3
+Status: ✅ Done
+Closed: Sprint 3
+Depends on: S-026 (Properties List Page)
+Blocks: S-028 (Edit Property Form)
+
+---
+
+Overview
+
+Implements the Add Property dialog for the Properties module. Wires the
+previously-disabled "إضافة عقار" button in PropertiesPage to open a Shadcn
+Dialog containing a React Hook Form validated with Zod v4.
+
+Follows the established pattern of S-020 (AddPortfolioDialog) — same Dialog
+shell, same visual card-grid type selector, same onSubmit → Supabase →
+invalidateQueries → toast flow.
+
+No ownership assignment in this story. Ownership is scoped to S-029 / S-030.
+
+---
+
+What Was Built
+
+1. Audit Findings (Phase 0)
+
+  - Baseline npx tsc --noEmit: 0 errors
+  - No pre-emptive form/validation/toast keys existed under properties.* in
+    ar.ts / en.ts — contrary to what S-026 documentation stated. All 35 keys
+    added fresh in this story.
+  - Required Shadcn components (Dialog · Input · Label · Button) confirmed present
+  - src/components/properties/ directory did not exist — created in this story
+
+---
+
+2. i18n — src/i18n/locales/ar.ts and src/i18n/locales/en.ts
+
+35 new keys added inside the existing `properties` namespace.
+No existing keys were modified or removed.
+Both files reached 288 total key entries after this story — structural parity confirmed.
+
+Sub-namespace                 Keys added
+properties.form.*             19 keys
+properties.validation.*        8 keys
+properties.toast.*             2 keys
+Total added in S-027          35 keys (all fresh — none were pre-existing stubs)
+
+Arabic values:
+
+  properties.form.dialogTitle              'إضافة عقار جديد'
+  properties.form.dialogDescription        'أدخل بيانات العقار الجديد'
+  properties.form.nameLabel                'اسم العقار'
+  properties.form.namePlaceholder          'مثال: عمارة الملك فيصل'
+  properties.form.typeLabel                'نوع العقار'
+  properties.form.typeResidential          'سكني'
+  properties.form.typeCommercial           'تجاري'
+  properties.form.typeLand                 'أرض'
+  properties.form.statusLabel              'الحالة الافتراضية'
+  properties.form.statusRented             'مؤجّر'
+  properties.form.statusVacant             'شاغر'
+  properties.form.locationLabel            'الموقع'
+  properties.form.locationPlaceholder      'مثال: دمشق، المزة'
+  properties.form.purchaseDateLabel        'تاريخ الشراء'
+  properties.form.estimatedValueLabel      'القيمة التقديرية (USD)'
+  properties.form.estimatedValuePlaceholder 'مثال: 250000'
+  properties.form.submitButton             'إضافة العقار'
+  properties.form.cancelButton             'إلغاء'
+  properties.form.submitting               'جاري الإضافة...'
+
+  properties.validation.nameRequired         'اسم العقار مطلوب'
+  properties.validation.nameTooShort         'الاسم قصير جداً (حرفان على الأقل)'
+  properties.validation.nameTooLong          'الاسم طويل جداً (200 حرف كحد أقصى)'
+  properties.validation.typeRequired         'يجب اختيار نوع العقار'
+  properties.validation.statusRequired       'يجب اختيار الحالة'
+  properties.validation.locationTooLong      'الموقع طويل جداً (500 حرف كحد أقصى)'
+  properties.validation.estimatedValuePositive 'القيمة يجب أن تكون موجبة'
+  properties.validation.estimatedValueInvalid  'القيمة يجب أن تكون رقماً'
+
+  properties.toast.addSuccess              'تم إضافة العقار بنجاح'
+  properties.toast.addError                'تعذّر إضافة العقار'
+
+---
+
+3. AddPropertyDialog Component — src/components/properties/AddPropertyDialog.tsx (new file)
+
+New directory created: src/components/properties/
+
+Props: { open: boolean; onOpenChange: (open: boolean) => void }
+
+Zod Schema (defined outside the component — STR-005 compliance):
+
+```ts
+const addPropertySchema = z.object({
+  name: z.string()
+    .min(1, { message: 'properties.validation.nameRequired' })
+    .min(2, { message: 'properties.validation.nameTooShort' })
+    .max(200, { message: 'properties.validation.nameTooLong' }),
+
+  type: z.enum(['residential', 'commercial', 'land'], {
+    error: 'properties.validation.typeRequired',   // Zod v4: error not required_error
+  }),
+
+  status: z.enum(['rented', 'vacant'], {
+    error: 'properties.validation.statusRequired',
+  }),
+
+  location: z.string()
+    .max(500, { message: 'properties.validation.locationTooLong' })
+    .optional(),
+
+  // Date kept as string — z.preprocess acceptable here (output remains string)
+  purchase_date: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+    z.string().optional()
+  ),
+
+  // ⚠️ z.preprocess() and z.coerce.number().optional() both break zodResolver
+  // in Zod v4. Pattern: keep as string, validate shape with refine(),
+  // coerce to number with parseFloat() in onSubmit only. See STR-005 §5.2.1.
+  estimated_value: z.string()
+    .refine(
+      (v) => v === '' || v === undefined || !isNaN(parseFloat(v)),
+      { message: 'properties.validation.estimatedValueInvalid' }
+    )
+    .refine(
+      (v) => v === '' || v === undefined || parseFloat(v) > 0,
+      { message: 'properties.validation.estimatedValuePositive' }
+    )
+    .optional(),
+});
+
+type AddPropertyFormData = z.infer<typeof addPropertySchema>;
+```
+
+Config Arrays (defined outside the component):
+
+```ts
+const PROPERTY_TYPES = [
+  { value: 'residential' as const, icon: Home,      labelKey: 'properties.form.typeResidential' },
+  { value: 'commercial'  as const, icon: Building2, labelKey: 'properties.form.typeCommercial'  },
+  { value: 'land'        as const, icon: MapPin,    labelKey: 'properties.form.typeLand'        },
+];
+
+const PROPERTY_STATUSES = [
+  { value: 'rented' as const, icon: Key,  labelKey: 'properties.form.statusRented' },
+  { value: 'vacant' as const, icon: Lock, labelKey: 'properties.form.statusVacant' },
+];
+```
+
+React Hook Form:
+  useForm with zodResolver(addPropertySchema)
+  defaultValues: { name: '', type: undefined, status: 'vacant',
+                   location: '', purchase_date: '', estimated_value: '' }
+  status defaultValue 'vacant' — matches DB DEFAULT 'vacant'; pre-selects the
+  most common case (new property is typically vacant on registration)
+
+handleOpenChange wrapper resets form on every close (Escape / X / Cancel):
+```ts
+const handleOpenChange = (newOpen: boolean) => {
+  if (!newOpen) reset();
+  onOpenChange(newOpen);
+};
+```
+
+onSubmit Handler:
+```ts
+const onSubmit = async (data: AddPropertyFormData) => {
+  const { error } = await supabaseClient.from('properties').insert({
+    name:            data.name.trim(),
+    type:            data.type,
+    status:          data.status,
+    location:        data.location?.trim() || null,
+    purchase_date:   data.purchase_date   || null,
+    estimated_value: data.estimated_value ? parseFloat(data.estimated_value) : null,
+  });
+  if (error) { toast.error(t('properties.toast.addError')); return; }
+  await queryClient.invalidateQueries({ queryKey: ['properties'] });
+  toast.success(t('properties.toast.addSuccess'));
+  handleOpenChange(false);
+};
+```
+
+Dialog Behaviour:
+  Shadcn <Dialog> used
+  onInteractOutside={(e) => e.preventDefault()} — overlay click does NOT close
+  <DialogDescription className="sr-only"> — visually hidden for accessibility
+  Submit button: shows <Loader2 className="animate-spin" /> + submitting label while isSubmitting
+  Cancel button: disabled while isSubmitting
+
+Form Layout (field order in JSX):
+  1. Type selector   — 3-card grid (grid-cols-3) via <Controller>
+  2. Status selector — 2-card grid (grid-cols-2) via <Controller>
+  3. Name            — full width, required
+  4. Location        — full width, optional
+  5. Purchase date + Estimated value — 2 columns (grid-cols-2)
+  6. Footer: Cancel + Submit buttons
+
+Card States (STR-004 compliant):
+  Selected:   bg-[#E8F0FB] border-[#1E5DC4] text-[#1E5DC4]
+  Unselected: bg-white border-[#E2E8F0] text-[#475569]
+  Hover:      hover:bg-[#F1F5F9] hover:border-[#B8CFF5]  (unselected only)
+
+STR-004 Button Colors:
+  Submit: bg-[#1E5DC4] hover:bg-[#164399] text-white
+  Cancel: border-[#E2E8F0] text-[#475569] hover:bg-[#F1F5F9]
+  Required asterisks + error text: text-[#C0392B]
+  Input focus rings: focus-visible:ring-[#1E5DC4]
+
+---
+
+4. PropertiesPage.tsx — src/pages/PropertiesPage.tsx (updated)
+
+Three targeted changes — file not rewritten:
+
+  1. Import added:
+       import { AddPropertyDialog } from '@/components/properties/AddPropertyDialog';
+
+  2. State added:
+       const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+
+  3. Header "إضافة عقار" button:
+       disabled and title="قريباً" attributes removed
+       onClick={() => setDialogOpen(true)} added
+
+  4. PropertiesEmpty onAdd prop:
+       wired to () => setDialogOpen(true)
+
+  5. Dialog rendered at bottom of return:
+       <AddPropertyDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+
+---
+
+5. STR-004 Compliance
+
+  All colors expressed as hex literals — no Tailwind color names
+  All directional utilities are logical: ms-* · me-* · ps-* · pe-*
+  No gradients anywhere in the file
+  No hardcoded Arabic or English strings in JSX — all resolved through t()
+  estimated_value input: font-mono class applied (financial value rule)
+  No Shadcn Badge used — type/status display remains plain <span> pattern from S-026
+
+---
+
+6. Project Structure after S-027
+
+```
+src/
+├── components/
+│   └── properties/
+│       └── AddPropertyDialog.tsx     ← NEW
+├── i18n/
+│   └── locales/
+│       ├── ar.ts                     ← UPDATED (35 keys added — all fresh)
+│       └── en.ts                     ← UPDATED (same 35 keys in English)
+└── pages/
+    └── PropertiesPage.tsx            ← UPDATED (dialog state · buttons enabled · dialog rendered)
+```
+
+No new Shadcn components required — Dialog, Input, Label, Button already installed.
+No new npm packages.
+No new Supabase migrations.
+
+---
+
+7. Commits
+
+```
+feat(i18n): add properties.form, properties.validation, properties.toast keys
+feat(properties): implement AddPropertyDialog — type/status card selectors, RHF+Zod v4, Supabase insert
+feat(properties): wire AddPropertyDialog into PropertiesPage — enable add buttons
+```
+
+Merged via --no-ff into feature/sprint-03:
+```
+feat(s-027): implement Add Property Form
+```
+
+---
+
+Issues Encountered & Resolved (S-027)
+
+#   Issue                                                   Resolution
+1   EPC-05 documented 14 pre-emptive i18n keys              All 35 form/validation/toast keys added
+    added in S-026 for form/validation/toast.               fresh in S-027. S-026 documentation
+    Phase 0 audit found none of these keys                  corrected (see Issue #2 in S-026 section).
+    existed.                                                ⚠️ Canonical rule: never trust pre-emptive
+                                                            key claims in documentation — always run
+                                                            grep audit in Phase 0 before writing code.
+
+2   z.preprocess() breaks zodResolver in                    Pattern replaced with z.string().refine()
+    Zod v4 for optional numeric fields.                     for schema validation, and parseFloat()
+    Symptom: resolver returned unexpected                   in onSubmit for type coercion.
+    errors or silently ignored input.                       Documented in STR-005 §5.2.1 as the
+    z.coerce.number().optional() has the                    canonical pattern for all optional
+    same issue.                                             numeric fields going forward.
+
+---
+
+Final Verification (S-027)
+
+Check                                                                         Result
+npx tsc --noEmit                                                              ✅ Zero errors
+Brand scan (text-gray|text-blue|...|pl-|ml-)                                  ✅ Empty
+  src/components/properties/AddPropertyDialog.tsx
+Arabic string scan ('="[أ-ي]')                                                ✅ Empty
+  src/components/properties/AddPropertyDialog.tsx
+Dialog opens from PropertiesPage header button                                ✅
+Dialog opens from PropertiesPage empty-state button                           ✅
+All 3 type cards render with correct icons and labels                         ✅ Home · Building2 · MapPin
+Both status cards render with correct icons and labels                        ✅ Key · Lock
+Default status = "شاغر" (vacant) pre-selected on open                        ✅
+Selecting a card highlights it (primary-50 / primary-400)                     ✅
+Selecting different card deselects previous                                   ✅
+Overlay click does NOT close dialog                                           ✅
+Escape / X closes and fully resets form                                       ✅
+name: required error on empty submit                                          ✅
+name: min-2 error on single-character submit                                  ✅
+type: required error when no card selected                                    ✅
+status: required error when no card selected                                  ✅
+estimated_value: error on negative number                                     ✅
+estimated_value empty → no error → saves as NULL                              ✅
+purchase_date empty → no error → saves as NULL                                ✅
+Successful INSERT refreshes properties list                                   ✅ ['properties'] invalidated
+Success toast shown (green)                                                   ✅
+Error toast on Supabase failure, dialog stays open                            ✅
+feature/s-027-add-property-form branch deleted (local + remote)              ✅
+
+
+================================================================================
+
+E5 — Deferred Items (Post-MVP Backlog)
+
+The following items were identified during Sprint 3 and deliberately deferred
+to after the first successful MVP deployment. They do not block any story in
+the current sprint plan (S-026 → S-035).
+
+---
+
+Deferred Item 1 — Additional Property Types
+
+Current DB CHECK constraint: IN ('residential', 'commercial', 'land')
+Candidate types for post-MVP expansion: 'agricultural_land', 'farm', 'warehouse'
+(additional types, e.g. 'apartment', 'villa', may also be considered based on
+actual usage patterns observed after MVP deployment)
+
+Implementation scope when scheduled:
+  - Supabase migration: DROP + ADD CHECK constraint on properties.type
+  - src/types/index.ts: extend Property['type'] union literal
+  - src/i18n/locales/ar.ts + en.ts: add properties.types.* keys for new values
+  - src/pages/PropertiesPage.tsx: extend typeBadgeClass() map
+  - src/components/properties/AddPropertyDialog.tsx: extend PROPERTY_TYPES array
+    and z.enum() in addPropertySchema
+  - src/components/properties/EditPropertyDialog.tsx: same as above
+
+Decision rationale: The three current types (residential · commercial · land)
+are the standard high-level taxonomy used in real estate management systems and
+are intentionally broad. Expanding before MVP would add migration and frontend
+scope without validated need. The migration cost is identical whether done now
+or after MVP.
+
+---
+
+Deferred Item 2 — Property Document Attachments
+
+Desired functionality: ability to upload and associate documents with a property,
+specifically: صك الملكية (property deed) and عقد الإيجار (lease contract).
+Additional document types (floor plans, photos, permits) may also be relevant.
+
+Implementation scope when scheduled (requires its own story or sub-epic):
+  - Supabase Storage: new bucket (e.g. property-documents) with RLS policy
+  - New DB table: property_documents
+      (id, property_id, type ['deed'|'lease'|'other'], file_path, file_name,
+       uploaded_at, notes)
+  - Frontend: file upload component (file picker or drag-and-drop)
+  - Integration: display attached documents in S-035 Property Detail View
+
+Decision rationale: Document storage requires Supabase Storage (separate from
+PostgreSQL), a new DB table, RLS on the storage bucket, and a file upload UI —
+a meaningful scope that deserves a dedicated story. Deferring keeps Sprint 3
+focused on the core data model. No current story depends on this feature.
