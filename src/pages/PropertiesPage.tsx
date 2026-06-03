@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { AddPropertyDialog } from '@/components/properties/AddPropertyDialog';
 import { Plus, Pencil, Trash2, Users, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -103,8 +105,6 @@ function PropertiesEmpty({ onAdd }: PropertiesEmptyProps) {
         {t('properties.empty.subtitle')}
       </p>
       <Button
-        disabled
-        title={t('properties.comingSoon')}
         className="mt-2 bg-[#1E5DC4] text-white hover:bg-[#164399]"
         onClick={onAdd}
       >
@@ -139,6 +139,7 @@ function PropertiesError({ onRetry }: PropertiesErrorProps) {
 
 export function PropertiesPage() {
   const { t } = useTranslation();
+  const [dialogOpen, setDialogOpen] = useState<boolean>(false);
 
   const {
     data: properties = [],
@@ -163,9 +164,8 @@ export function PropertiesPage() {
           </p>
         </div>
         <Button
-          disabled
-          title={t('properties.comingSoon')}
           className="bg-[#1E5DC4] text-white hover:bg-[#164399]"
+          onClick={() => setDialogOpen(true)}
         >
           <Plus className="me-2 h-4 w-4" />
           {t('properties.addProperty')}
@@ -177,7 +177,7 @@ export function PropertiesPage() {
       ) : isError ? (
         <PropertiesError onRetry={refetch} />
       ) : properties.length === 0 ? (
-        <PropertiesEmpty onAdd={() => {}} />
+        <PropertiesEmpty onAdd={() => setDialogOpen(true)} />
       ) : (
         <div
           role="region"
@@ -297,6 +297,7 @@ export function PropertiesPage() {
           </Table>
         </div>
       )}
+      <AddPropertyDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }
