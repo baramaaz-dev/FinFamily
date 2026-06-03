@@ -121,6 +121,44 @@ const en = {
       closeButton:        'Close',
     },
   },
+  properties: {
+    pageTitle:    'Properties',
+    pageSubtitle: 'Manage the family real estate assets and leases',
+    addProperty:  'Add Property',
+    comingSoon:   'Coming Soon',
+    ownerSuffix:  'owner',
+    columns: {
+      name:           'Property Name',
+      type:           'Type',
+      location:       'Location',
+      status:         'Status',
+      estimatedValue: 'Estimated Value',
+      owners:         'Owners',
+      actions:        'Actions',
+    },
+    types: {
+      residential: 'Residential',
+      commercial:  'Commercial',
+      land:        'Land',
+    },
+    status: {
+      rented: 'Rented',
+      vacant: 'Vacant',
+    },
+    actions: {
+      edit:   'Edit',
+      delete: 'Delete',
+      owners: 'Owners',
+    },
+    empty: {
+      title:    'No properties registered',
+      subtitle: 'Start by adding the first family property',
+    },
+    error: {
+      title: 'Failed to load properties',
+      retry: 'Try Again',
+    },
+  },
   language: {
     toggle:  'ع',
     current: 'English',
