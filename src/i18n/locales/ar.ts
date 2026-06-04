@@ -346,6 +346,10 @@ const ar = {
       submitting:       'جاري الإضافة...',
       closeButton:      'إغلاق',
       removeTooltip:    'إزالة المالك',
+      totalLabel:       'مجموع الحصص',
+      totalComplete:    'مجموع الحصص مكتمل ✓',
+      totalExceeds:     'الحصص تتجاوز 100% ✗',
+      sharesComplete:   'الحصص مكتملة — لا يمكن إضافة مالك جديد',
       toast: {
         addSuccess:    'تمت إضافة المالك بنجاح',
         addError:      'تعذّر إضافة المالك',
@@ -362,6 +366,7 @@ const ar = {
         denominatorInteger:  'المقام يجب أن يكون عدداً صحيحاً',
         denominatorMin:      'المقام يجب أن يكون 1 على الأقل',
         basisRequired:       'يجب اختيار علة التملك',
+        sharesExceed:        'الحصة المضافة ستتجاوز المجموع المسموح (100%)',
       },
     },
   },
