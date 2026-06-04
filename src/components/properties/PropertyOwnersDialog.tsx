@@ -122,6 +122,14 @@ export function PropertyOwnersDialog({
     (p) => !owners.some((o) => o.person_id === p.id)
   );
 
+  const totalShare   = owners.reduce(
+    (sum, o) => sum + o.share_numerator / o.share_denominator,
+    0
+  );
+  const totalPercent = (totalShare * 100).toFixed(2);
+  const isComplete   = Math.abs(totalShare - 1) < 0.000001;
+  const isExceeding  = totalShare > 1 + 0.000001;
+
   const {
     register,
     handleSubmit,
@@ -158,6 +166,11 @@ export function PropertyOwnersDialog({
   const onSubmit = async (data: AddPropertyOwnerFormData) => {
     if (owners.some((o) => o.person_id === data.person_id)) {
       toast.error(t('properties.owners.validation.personAlreadyAdded'));
+      return;
+    }
+    const newShare = data.share_numerator / data.share_denominator;
+    if (totalShare + newShare > 1 + 0.000001) {
+      toast.error(t('properties.owners.validation.sharesExceed'));
       return;
     }
     const { error } = await supabaseClient.from('property_owners').insert({
@@ -244,6 +257,28 @@ export function PropertyOwnersDialog({
           )}
         </div>
 
+        {owners.length > 0 && (
+          <div
+            className={[
+              'flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium',
+              isComplete
+                ? 'bg-[#EBF5F0] text-[#1A7D4F]'
+                : isExceeding
+                  ? 'bg-[#FEF0EF] text-[#C0392B]'
+                  : 'bg-[#F1F5F9] text-[#475569]',
+            ].join(' ')}
+          >
+            <span>{t('properties.owners.totalLabel')}</span>
+            <span className="font-mono tabular-nums">
+              {isComplete
+                ? t('properties.owners.totalComplete')
+                : isExceeding
+                  ? t('properties.owners.totalExceeds')
+                  : `${totalPercent}%`}
+            </span>
+          </div>
+        )}
+
         <hr className="border-[#E2E8F0]" />
 
         {/* Section 2 — Add Owner Form */}
@@ -259,6 +294,14 @@ export function PropertyOwnersDialog({
           ) : availablePeople.length === 0 ? (
             <p className="text-sm text-[#475569] bg-[#F1F5F9] rounded-lg px-3 py-2 text-center">
               {t('properties.owners.allAdded')}
+            </p>
+          ) : isComplete ? (
+            <p className="text-sm font-medium text-[#1A7D4F] bg-[#EBF5F0] rounded-lg px-3 py-2 text-center">
+              {t('properties.owners.sharesComplete')}
+            </p>
+          ) : isExceeding ? (
+            <p className="text-sm font-medium text-[#C0392B] bg-[#FEF0EF] rounded-lg px-3 py-2 text-center">
+              {t('properties.owners.totalExceeds')}
             </p>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

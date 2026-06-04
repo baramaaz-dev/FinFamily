@@ -346,6 +346,10 @@ const en = {
       submitting:       'Adding...',
       closeButton:      'Close',
       removeTooltip:    'Remove Owner',
+      totalLabel:       'Total Shares',
+      totalComplete:    'Ownership shares complete ✓',
+      totalExceeds:     'Shares exceed 100% ✗',
+      sharesComplete:   'Shares are complete — no more owners can be added',
       toast: {
         addSuccess:    'Owner added successfully',
         addError:      'Failed to add owner',
@@ -362,6 +366,7 @@ const en = {
         denominatorInteger:  'Denominator must be an integer',
         denominatorMin:      'Denominator must be at least 1',
         basisRequired:       'Ownership basis is required',
+        sharesExceed:        'Adding this share would exceed 100%',
       },
     },
   },
