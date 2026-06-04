@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { AddPropertyDialog } from '@/components/properties/AddPropertyDialog';
@@ -219,8 +220,13 @@ export function PropertiesPage() {
                   key={property.id}
                   className="text-sm text-[#1E293B] hover:bg-[#F1F5F9]"
                 >
-                  <TableCell className="font-medium text-[#1E293B]">
-                    {property.name}
+                  <TableCell>
+                    <Link
+                      to={`/properties/${property.id}`}
+                      className="text-sm font-medium text-[#1E5DC4] hover:text-[#164399] hover:underline"
+                    >
+                      {property.name}
+                    </Link>
                   </TableCell>
 
                   <TableCell>
