@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { AddPropertyDialog } from '@/components/properties/AddPropertyDialog';
+import { PropertyOwnersDialog } from '@/components/properties/PropertyOwnersDialog';
 import { Plus, Pencil, Trash2, Users, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -140,6 +141,8 @@ function PropertiesError({ onRetry }: PropertiesErrorProps) {
 export function PropertiesPage() {
   const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+  const [ownersTarget, setOwnersTarget] =
+    useState<{ id: string; name: string } | null>(null);
 
   const {
     data: properties = [],
@@ -274,9 +277,9 @@ export function PropertiesPage() {
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
-                        disabled
-                        title={t('properties.comingSoon')}
-                        className="rounded p-1.5 text-[#1A7D4F] opacity-40 cursor-not-allowed"
+                        onClick={() => setOwnersTarget({ id: property.id, name: property.name })}
+                        title={t('properties.owners.dialogTitle')}
+                        className="rounded p-1.5 text-[#1A7D4F] hover:bg-[#EBF5F0]"
                         aria-label={t('properties.actions.owners')}
                       >
                         <Users className="h-4 w-4" />
@@ -298,6 +301,12 @@ export function PropertiesPage() {
         </div>
       )}
       <AddPropertyDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <PropertyOwnersDialog
+        open={!!ownersTarget}
+        onOpenChange={(o) => { if (!o) setOwnersTarget(null); }}
+        propertyId={ownersTarget?.id ?? ''}
+        propertyName={ownersTarget?.name ?? ''}
+      />
     </div>
   );
 }
