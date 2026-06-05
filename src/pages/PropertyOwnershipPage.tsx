@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Plus } from 'lucide-react';
+import { ArrowRight, Plus, PlusCircle } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/currency';
 import { AddLeaseDialog } from '@/components/properties/AddLeaseDialog';
@@ -25,6 +25,27 @@ interface OwnerRow {
   people: { id: string; name: string; relation: string | null } | null;
 }
 
+interface LeaseRow {
+  id:          string;
+  property_id: string;
+  tenant_name: string;
+  rent_amount: number;
+  currency:    'USD' | 'SYP';
+  frequency:   'monthly' | 'annual';
+  start_date:  string;
+  end_date:    string | null;
+}
+
+interface LeasePaymentRow {
+  id:            string;
+  lease_id:      string;
+  amount:        number;
+  currency:      'USD' | 'SYP';
+  exchange_rate: number | null;
+  paid_date:     string;
+  notes:         string | null;
+}
+
 function typeBadgeClass(type: Property['type']): string {
   const map: Record<Property['type'], string> = {
     residential: 'text-[#1A7D4F] bg-[#EBF5F0]',
@@ -40,6 +61,18 @@ function statusBadgeClass(status: Property['status']): string {
     vacant: 'text-[#B45309] bg-[#FEF7EC]',
   };
   return map[status];
+}
+
+function leaseStatusInfo(lease: LeaseRow): {
+  key:   'leases.list.statusActive' | 'leases.list.statusFuture' | 'leases.list.statusExpired';
+  class: string;
+} {
+  const today = new Date().toISOString().split('T')[0];
+  if (lease.start_date > today)
+    return { key: 'leases.list.statusFuture',  class: 'text-[#1E5DC4] bg-[#E8F0FB]' };
+  if (lease.end_date && lease.end_date < today)
+    return { key: 'leases.list.statusExpired', class: 'text-[#B45309] bg-[#FEF7EC]' };
+  return   { key: 'leases.list.statusActive',  class: 'text-[#1A7D4F] bg-[#EBF5F0]' };
 }
 
 export default function PropertyOwnershipPage() {
@@ -85,6 +118,42 @@ export default function PropertyOwnershipPage() {
     },
     enabled: !!id,
   });
+
+  const { data: leases = [] } = useQuery({
+    queryKey: ['leases', id],
+    queryFn: async (): Promise<LeaseRow[]> => {
+      const { data, error } = await supabaseClient
+        .from('leases')
+        .select('id, property_id, tenant_name, rent_amount, currency, frequency, start_date, end_date')
+        .eq('property_id', id as string)
+        .order('start_date', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as LeaseRow[];
+    },
+    enabled: !!id,
+  });
+
+  const { data: payments = [] } = useQuery({
+    queryKey: ['lease_payments', id],
+    queryFn: async (): Promise<LeasePaymentRow[]> => {
+      const { data: leasesData } = await supabaseClient
+        .from('leases')
+        .select('id')
+        .eq('property_id', id as string);
+      const leaseIds = (leasesData ?? []).map((l) => l.id);
+      if (leaseIds.length === 0) return [];
+      const { data, error } = await supabaseClient
+        .from('lease_payments')
+        .select('id, lease_id, amount, currency, exchange_rate, paid_date, notes')
+        .in('lease_id', leaseIds)
+        .order('paid_date', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as LeasePaymentRow[];
+    },
+    enabled: !!id,
+  });
+
+  const leaseMap = new Map(leases.map((l) => [l.id, l]));
 
   const totalShare   = owners.reduce(
     (sum, o) => sum + o.share_numerator / o.share_denominator,
@@ -303,6 +372,149 @@ export default function PropertyOwnershipPage() {
                 </span>
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {/* Leases list */}
+      {property && !propertyLoading && (
+        <div className="rounded-lg border border-[#E2E8F0] bg-white overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#E2E8F0]">
+            <h2 className="text-base font-medium text-[#1E293B]">
+              {t('properties.leases.list.sectionTitle')}
+            </h2>
+          </div>
+
+          {leases.length === 0 ? (
+            <p className="text-sm text-[#475569] text-center py-8">
+              {t('properties.leases.list.noLeases')}
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-[#F1F5F9] hover:bg-[#F1F5F9]">
+                  {(['columnTenant', 'columnRent', 'columnFrequency',
+                    'columnPeriod', 'columnStatus'] as const).map((col) => (
+                    <TableHead
+                      key={col}
+                      className="text-start text-xs font-medium text-[#475569]"
+                    >
+                      {t(`properties.leases.list.${col}`)}
+                    </TableHead>
+                  ))}
+                  <TableHead className="text-end text-xs font-medium text-[#475569]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {leases.map((lease) => {
+                  const status = leaseStatusInfo(lease);
+                  return (
+                    <TableRow
+                      key={lease.id}
+                      className="text-sm text-[#1E293B] hover:bg-[#F1F5F9]"
+                    >
+                      <TableCell className="font-medium">{lease.tenant_name}</TableCell>
+                      <TableCell className="font-mono tabular-nums">
+                        {formatCurrency(lease.rent_amount, lease.currency)}
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium text-[#475569] bg-[#F1F5F9]">
+                          {t(`properties.leases.form.frequency${
+                            lease.frequency === 'monthly' ? 'Monthly' : 'Annual'
+                          }`)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-mono tabular-nums text-[#475569] text-xs">
+                        {lease.start_date} — {lease.end_date ?? t('properties.leases.list.openEnded')}
+                      </TableCell>
+                      <TableCell>
+                        <span className={[
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                          status.class,
+                        ].join(' ')}>
+                          {t(status.key)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-end">
+                        <button
+                          type="button"
+                          disabled
+                          title={t('properties.leases.list.addPaymentTooltip')}
+                          className="text-[#1A7D4F] opacity-40 cursor-not-allowed"
+                        >
+                          <PlusCircle className="h-4 w-4" />
+                        </button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      )}
+
+      {/* Payments log */}
+      {property && !propertyLoading && (
+        <div className="rounded-lg border border-[#E2E8F0] bg-white overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#E2E8F0]">
+            <h2 className="text-base font-medium text-[#1E293B]">
+              {t('properties.leases.payments.sectionTitle')}
+            </h2>
+          </div>
+
+          {payments.length === 0 ? (
+            <p className="text-sm text-[#475569] text-center py-8">
+              {t('properties.leases.payments.noPayments')}
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-[#F1F5F9] hover:bg-[#F1F5F9]">
+                  {(['columnDate', 'columnTenant', 'columnAmount',
+                    'columnCurrency', 'columnRate', 'columnNotes'] as const).map((col) => (
+                    <TableHead
+                      key={col}
+                      className="text-start text-xs font-medium text-[#475569]"
+                    >
+                      {t(`properties.leases.payments.${col}`)}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payments.map((payment) => (
+                  <TableRow
+                    key={payment.id}
+                    className="text-sm text-[#1E293B] hover:bg-[#F1F5F9]"
+                  >
+                    <TableCell className="font-mono tabular-nums">
+                      {payment.paid_date}
+                    </TableCell>
+                    <TableCell className="text-[#475569]">
+                      {leaseMap.get(payment.lease_id)?.tenant_name ?? '—'}
+                    </TableCell>
+                    <TableCell className="font-mono tabular-nums">
+                      {formatCurrency(payment.amount, payment.currency)}
+                    </TableCell>
+                    <TableCell className="text-[#475569]">
+                      {payment.currency}
+                    </TableCell>
+                    <TableCell className="font-mono tabular-nums text-[#475569]">
+                      {payment.currency === 'SYP' && payment.exchange_rate != null
+                        ? payment.exchange_rate.toLocaleString()
+                        : '—'}
+                    </TableCell>
+                    <TableCell
+                      className="text-[#475569] max-w-[180px] truncate"
+                      title={payment.notes ?? ''}
+                    >
+                      {payment.notes ?? '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </div>
       )}
