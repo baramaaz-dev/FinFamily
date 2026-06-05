@@ -64,15 +64,15 @@ function statusBadgeClass(status: Property['status']): string {
 }
 
 function leaseStatusInfo(lease: LeaseRow): {
-  key:   'leases.list.statusActive' | 'leases.list.statusFuture' | 'leases.list.statusExpired';
+  key:   'properties.leases.list.statusActive' | 'properties.leases.list.statusFuture' | 'properties.leases.list.statusExpired';
   class: string;
 } {
   const today = new Date().toISOString().split('T')[0];
   if (lease.start_date > today)
-    return { key: 'leases.list.statusFuture',  class: 'text-[#1E5DC4] bg-[#E8F0FB]' };
+    return { key: 'properties.leases.list.statusFuture',  class: 'text-[#1E5DC4] bg-[#E8F0FB]' };
   if (lease.end_date && lease.end_date < today)
-    return { key: 'leases.list.statusExpired', class: 'text-[#B45309] bg-[#FEF7EC]' };
-  return   { key: 'leases.list.statusActive',  class: 'text-[#1A7D4F] bg-[#EBF5F0]' };
+    return { key: 'properties.leases.list.statusExpired', class: 'text-[#B45309] bg-[#FEF7EC]' };
+  return   { key: 'properties.leases.list.statusActive',  class: 'text-[#1A7D4F] bg-[#EBF5F0]' };
 }
 
 export default function PropertyOwnershipPage() {
