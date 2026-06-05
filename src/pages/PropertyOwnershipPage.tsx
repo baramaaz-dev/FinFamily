@@ -6,6 +6,7 @@ import { ArrowRight, Plus, PlusCircle } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/currency';
 import { AddLeaseDialog } from '@/components/properties/AddLeaseDialog';
+import { RecordLeasePaymentDialog } from '@/components/properties/RecordLeasePaymentDialog';
 import {
   Table,
   TableBody,
@@ -80,6 +81,7 @@ export default function PropertyOwnershipPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [leaseDialogOpen, setLeaseDialogOpen] = useState<boolean>(false);
+  const [paymentTarget, setPaymentTarget] = useState<LeaseRow | null>(null);
 
   const {
     data: property,
@@ -438,9 +440,9 @@ export default function PropertyOwnershipPage() {
                       <TableCell className="text-end">
                         <button
                           type="button"
-                          disabled
+                          onClick={() => setPaymentTarget(lease)}
                           title={t('properties.leases.list.addPaymentTooltip')}
-                          className="text-[#1A7D4F] opacity-40 cursor-not-allowed"
+                          className="text-[#1A7D4F] hover:text-[#126038] transition-colors"
                         >
                           <PlusCircle className="h-4 w-4" />
                         </button>
@@ -525,6 +527,15 @@ export default function PropertyOwnershipPage() {
           onOpenChange={setLeaseDialogOpen}
           propertyId={id ?? ''}
           propertyName={property.name}
+        />
+      )}
+
+      {paymentTarget && (
+        <RecordLeasePaymentDialog
+          open={!!paymentTarget}
+          onOpenChange={(o) => { if (!o) setPaymentTarget(null); }}
+          lease={paymentTarget}
+          propertyId={id ?? ''}
         />
       )}
 
