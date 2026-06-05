@@ -48,6 +48,21 @@ interface LeasePaymentRow {
   notes:         string | null;
 }
 
+interface PropertyExpenseRow {
+  id:            string;
+  property_id:   string;
+  type:          'tax' | 'maintenance' | 'utilities' | 'fees';
+  amount:        number;
+  currency:      'USD' | 'SYP';
+  exchange_rate: number | null;
+  due_date:      string;
+  paid_date:     string | null;
+  is_recurring:  boolean;
+  frequency:     'monthly' | 'annual' | 'once';
+  portfolio_id:  string | null;
+  notes:         string | null;
+}
+
 function typeBadgeClass(type: Property['type']): string {
   const map: Record<Property['type'], string> = {
     residential: 'text-[#1A7D4F] bg-[#EBF5F0]',
@@ -76,6 +91,40 @@ function leaseStatusInfo(lease: LeaseRow): {
     return { key: 'properties.leases.list.statusExpired', class: 'text-[#B45309] bg-[#FEF7EC]' };
   return   { key: 'properties.leases.list.statusActive',  class: 'text-[#1A7D4F] bg-[#EBF5F0]' };
 }
+
+function expenseStatus(expense: PropertyExpenseRow): 'paid' | 'pending' | 'overdue' {
+  if (expense.paid_date) return 'paid';
+  const today = new Date().toISOString().split('T')[0];
+  return expense.due_date < today ? 'overdue' : 'pending';
+}
+
+function expenseStatusClass(status: 'paid' | 'pending' | 'overdue'): string {
+  return {
+    paid:    'text-[#1A7D4F] bg-[#EBF5F0]',
+    pending: 'text-[#B45309] bg-[#FEF7EC]',
+    overdue: 'text-[#C0392B] bg-[#FEF0EF]',
+  }[status];
+}
+
+const EXPENSE_TYPE_KEYS: Record<string, string> = {
+  tax:         'properties.expenses.form.typeTax',
+  maintenance: 'properties.expenses.form.typeMaintenance',
+  utilities:   'properties.expenses.form.typeUtilities',
+  fees:        'properties.expenses.form.typeFees',
+};
+
+const EXPENSE_FREQ_KEYS: Record<string, string> = {
+  monthly: 'properties.expenses.form.frequencyMonthly',
+  annual:  'properties.expenses.form.frequencyAnnual',
+  once:    'properties.expenses.form.frequencyOnce',
+};
+
+const STATUS_FILTER_ACTIVE: Record<string, string> = {
+  all:     'bg-[#1E5DC4] text-white',
+  paid:    'bg-[#EBF5F0] text-[#1A7D4F]',
+  pending: 'bg-[#FEF7EC] text-[#B45309]',
+  overdue: 'bg-[#FEF0EF] text-[#C0392B]',
+};
 
 export default function PropertyOwnershipPage() {
   const { id } = useParams<{ id: string }>();
@@ -158,6 +207,27 @@ export default function PropertyOwnershipPage() {
   });
 
   const leaseMap = new Map(leases.map((l) => [l.id, l]));
+
+  const { data: expenses = [] } = useQuery({
+    queryKey: ['property_expenses', id],
+    queryFn: async (): Promise<PropertyExpenseRow[]> => {
+      const { data, error } = await supabaseClient
+        .from('property_expenses')
+        .select('id, property_id, type, amount, currency, exchange_rate, due_date, paid_date, is_recurring, frequency, portfolio_id, notes')
+        .eq('property_id', id as string)
+        .order('due_date', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as PropertyExpenseRow[];
+    },
+    enabled: !!id,
+  });
+
+  const [typeFilter,   setTypeFilter]   = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const filteredExpenses = expenses
+    .filter((e) => typeFilter === 'all' || e.type === typeFilter)
+    .filter((e) => statusFilter === 'all' || expenseStatus(e) === statusFilter);
 
   const totalShare   = owners.reduce(
     (sum, o) => sum + o.share_numerator / o.share_denominator,
@@ -529,6 +599,138 @@ export default function PropertyOwnershipPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+        </div>
+      )}
+
+      {/* Expenses log */}
+      {property && !propertyLoading && (
+        <div className="rounded-lg border border-[#E2E8F0] bg-white overflow-hidden">
+
+          {/* Section header */}
+          <div className="px-4 py-3 border-b border-[#E2E8F0]">
+            <h2 className="text-base font-medium text-[#1E293B]">
+              {t('properties.expenses.list.sectionTitle')}
+            </h2>
+          </div>
+
+          {expenses.length === 0 ? (
+            <p className="text-sm text-[#475569] text-center py-8">
+              {t('properties.expenses.list.noExpenses')}
+            </p>
+          ) : (
+            <>
+              {/* Filter bar */}
+              <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-[#E2E8F0] bg-[#F8FAFC]">
+
+                {/* Type pills */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {['all', 'tax', 'maintenance', 'utilities', 'fees'].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setTypeFilter(type)}
+                      className={[
+                        'px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
+                        typeFilter === type
+                          ? 'bg-[#1E5DC4] text-white'
+                          : 'bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0]',
+                      ].join(' ')}
+                    >
+                      {type === 'all'
+                        ? t('properties.expenses.list.filterAll')
+                        : t(EXPENSE_TYPE_KEYS[type] ?? '')}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="h-5 w-px bg-[#E2E8F0]" />
+
+                {/* Status pills */}
+                <div className="flex items-center gap-1.5">
+                  {(['all', 'paid', 'pending', 'overdue'] as const).map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => setStatusFilter(status)}
+                      className={[
+                        'px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
+                        statusFilter === status
+                          ? STATUS_FILTER_ACTIVE[status]
+                          : 'bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0]',
+                      ].join(' ')}
+                    >
+                      {status === 'all'
+                        ? t('properties.expenses.list.filterAll')
+                        : t(`properties.expenses.list.status${
+                            status.charAt(0).toUpperCase() + status.slice(1)
+                          }`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* No results */}
+              {filteredExpenses.length === 0 ? (
+                <p className="text-sm text-[#475569] text-center py-6">
+                  {t('properties.expenses.list.noResults')}
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-[#F1F5F9] hover:bg-[#F1F5F9]">
+                      {['columnType', 'columnAmount', 'columnDueDate',
+                        'columnStatus', 'columnFrequency', 'columnNotes'].map((col) => (
+                        <TableHead key={col}
+                                   className="text-start text-xs font-medium text-[#475569]">
+                          {t(`properties.expenses.list.${col}`)}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredExpenses.map((expense) => {
+                      const status = expenseStatus(expense);
+                      return (
+                        <TableRow key={expense.id}
+                                  className="text-sm text-[#1E293B] hover:bg-[#F1F5F9]">
+                          <TableCell>
+                            <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium text-[#475569] bg-[#F1F5F9]">
+                              {t(EXPENSE_TYPE_KEYS[expense.type] ?? '')}
+                            </span>
+                          </TableCell>
+                          <TableCell className="font-mono tabular-nums">
+                            {formatCurrency(expense.amount, expense.currency)}
+                          </TableCell>
+                          <TableCell className="font-mono tabular-nums text-[#475569]">
+                            {expense.due_date}
+                          </TableCell>
+                          <TableCell>
+                            <span className={[
+                              'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                              expenseStatusClass(status),
+                            ].join(' ')}>
+                              {t(`properties.expenses.list.status${
+                                status.charAt(0).toUpperCase() + status.slice(1)
+                              }`)}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium text-[#475569] bg-[#F1F5F9]">
+                              {t(EXPENSE_FREQ_KEYS[expense.frequency] ?? '')}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-[#475569] max-w-[160px] truncate"
+                                     title={expense.notes ?? ''}>
+                            {expense.notes ?? '—'}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </>
           )}
         </div>
       )}
