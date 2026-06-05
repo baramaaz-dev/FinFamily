@@ -229,6 +229,18 @@ export default function PropertyOwnershipPage() {
     .filter((e) => typeFilter === 'all' || e.type === typeFilter)
     .filter((e) => statusFilter === 'all' || expenseStatus(e) === statusFilter);
 
+  const today = new Date().toISOString().split('T')[0];
+
+  const activeLeases = leases.filter(
+    (l) => l.start_date <= today && (!l.end_date || l.end_date >= today)
+  );
+
+  const unpaidExpenses = expenses
+    .filter((e) => !e.paid_date)
+    .sort((a, b) => a.due_date.localeCompare(b.due_date));
+
+  const overdueExpenses = unpaidExpenses.filter((e) => e.due_date < today);
+
   const totalShare   = owners.reduce(
     (sum, o) => sum + o.share_numerator / o.share_denominator,
     0
@@ -731,6 +743,148 @@ export default function PropertyOwnershipPage() {
                 </Table>
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {/* Upcoming obligations */}
+      {property && !propertyLoading && (
+        <div className="rounded-lg border border-[#E2E8F0] bg-white overflow-hidden">
+
+          {/* Section header with optional overdue badge */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#E2E8F0]">
+            <h2 className="text-base font-medium text-[#1E293B]">
+              {t('properties.obligations.sectionTitle')}
+            </h2>
+            {overdueExpenses.length > 0 && (
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-[#C0392B] bg-[#FEF0EF]">
+                {overdueExpenses.length} {t('properties.obligations.overdueCount')}
+              </span>
+            )}
+          </div>
+
+          {activeLeases.length === 0 && unpaidExpenses.length === 0 ? (
+            <p className="text-sm text-[#475569] text-center py-8">
+              {t('properties.obligations.noObligations')}
+            </p>
+          ) : (
+            <div className="divide-y divide-[#E2E8F0]">
+
+              {/* Sub-section A — Active Leases */}
+              <div className="px-4 py-3 space-y-2">
+                <p className="text-sm font-medium text-[#475569]">
+                  {t('properties.obligations.activeLeasesTitle')}
+                </p>
+                {activeLeases.length === 0 ? (
+                  <p className="text-sm text-[#94A3B8] py-1">
+                    {t('properties.obligations.noActiveLeases')}
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-[#F8FAFC] hover:bg-[#F8FAFC]">
+                        {[
+                          'properties.leases.list.columnTenant',
+                          'properties.leases.list.columnRent',
+                          'properties.leases.list.columnFrequency',
+                          'properties.obligations.columnUntil',
+                        ].map((key) => (
+                          <TableHead key={key}
+                                     className="text-start text-xs font-medium text-[#475569]">
+                            {t(key)}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {activeLeases.map((lease) => (
+                        <TableRow key={lease.id}
+                                  className="text-sm text-[#1E293B] hover:bg-[#F1F5F9]">
+                          <TableCell className="font-medium">
+                            {lease.tenant_name}
+                          </TableCell>
+                          <TableCell className="font-mono tabular-nums">
+                            {formatCurrency(lease.rent_amount, lease.currency)}
+                          </TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium text-[#475569] bg-[#F1F5F9]">
+                              {t(`properties.leases.form.frequency${
+                                lease.frequency === 'monthly' ? 'Monthly' : 'Annual'
+                              }`)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="font-mono tabular-nums text-[#475569]">
+                            {lease.end_date ?? t('properties.leases.list.openEnded')}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+
+              {/* Sub-section B — Unpaid Expenses */}
+              <div className="px-4 py-3 space-y-2">
+                <p className="text-sm font-medium text-[#475569]">
+                  {t('properties.obligations.unpaidExpensesTitle')}
+                </p>
+                {unpaidExpenses.length === 0 ? (
+                  <p className="text-sm text-[#94A3B8] py-1">
+                    {t('properties.obligations.noUnpaidExpenses')}
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-[#F8FAFC] hover:bg-[#F8FAFC]">
+                        {[
+                          'properties.expenses.list.columnType',
+                          'properties.expenses.list.columnAmount',
+                          'properties.expenses.list.columnDueDate',
+                          'properties.expenses.list.columnStatus',
+                        ].map((key) => (
+                          <TableHead key={key}
+                                     className="text-start text-xs font-medium text-[#475569]">
+                            {t(key)}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {unpaidExpenses.map((expense) => {
+                        const status = expenseStatus(expense);
+                        return (
+                          <TableRow key={expense.id}
+                                    className="text-sm text-[#1E293B] hover:bg-[#F1F5F9]">
+                            <TableCell>
+                              <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium text-[#475569] bg-[#F1F5F9]">
+                                {t(EXPENSE_TYPE_KEYS[expense.type] ?? '')}
+                              </span>
+                            </TableCell>
+                            <TableCell className="font-mono tabular-nums">
+                              {formatCurrency(expense.amount, expense.currency)}
+                            </TableCell>
+                            <TableCell className="font-mono tabular-nums text-[#475569]">
+                              {expense.due_date}
+                            </TableCell>
+                            <TableCell>
+                              <span className={[
+                                'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                                expenseStatusClass(status),
+                              ].join(' ')}>
+                                {t(`properties.expenses.list.status${
+                                  status.charAt(0).toUpperCase() + status.slice(1)
+                                }`)}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+
+            </div>
           )}
         </div>
       )}
