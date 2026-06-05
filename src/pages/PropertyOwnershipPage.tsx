@@ -7,6 +7,7 @@ import { supabaseClient } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/currency';
 import { AddLeaseDialog } from '@/components/properties/AddLeaseDialog';
 import { RecordLeasePaymentDialog } from '@/components/properties/RecordLeasePaymentDialog';
+import { AddPropertyExpenseDialog } from '@/components/properties/AddPropertyExpenseDialog';
 import {
   Table,
   TableBody,
@@ -81,6 +82,7 @@ export default function PropertyOwnershipPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [leaseDialogOpen, setLeaseDialogOpen] = useState<boolean>(false);
+  const [expenseDialogOpen, setExpenseDialogOpen] = useState<boolean>(false);
   const [paymentTarget, setPaymentTarget] = useState<LeaseRow | null>(null);
 
   const {
@@ -188,13 +190,23 @@ export default function PropertyOwnershipPage() {
           )}
         </div>
         {property && (
-          <Button
-            onClick={() => setLeaseDialogOpen(true)}
-            className="bg-[#1E5DC4] hover:bg-[#164399] text-white shrink-0"
-          >
-            <Plus className="h-4 w-4 me-2" />
-            {t('properties.leases.form.addLeaseButton')}
-          </Button>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setExpenseDialogOpen(true)}
+              className="border-[#C0392B] text-[#C0392B] hover:bg-[#FEF0EF]"
+            >
+              <Plus className="h-4 w-4 me-2" />
+              {t('properties.expenses.form.addExpenseButton')}
+            </Button>
+            <Button
+              onClick={() => setLeaseDialogOpen(true)}
+              className="bg-[#1E5DC4] hover:bg-[#164399] text-white"
+            >
+              <Plus className="h-4 w-4 me-2" />
+              {t('properties.leases.form.addLeaseButton')}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -536,6 +548,15 @@ export default function PropertyOwnershipPage() {
           onOpenChange={(o) => { if (!o) setPaymentTarget(null); }}
           lease={paymentTarget}
           propertyId={id ?? ''}
+        />
+      )}
+
+      {property && (
+        <AddPropertyExpenseDialog
+          open={expenseDialogOpen}
+          onOpenChange={setExpenseDialogOpen}
+          propertyId={id ?? ''}
+          propertyName={property.name}
         />
       )}
 
