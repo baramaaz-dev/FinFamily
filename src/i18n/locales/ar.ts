@@ -539,6 +539,16 @@ const ar = {
         columnNotes:     'ملاحظات',
       },
     },
+    obligations: {
+      sectionTitle:        'الالتزامات القادمة',
+      noObligations:       'لا توجد التزامات قادمة لهذا العقار',
+      activeLeasesTitle:   'عقود الإيجار السارية',
+      noActiveLeases:      'لا توجد عقود إيجار سارية',
+      unpaidExpensesTitle: 'مصروفات غير مدفوعة',
+      noUnpaidExpenses:    'لا توجد مصروفات غير مدفوعة',
+      columnUntil:         'حتى',
+      overdueCount:        'متأخر',
+    },
   },
   language: {
     toggle:  'EN',

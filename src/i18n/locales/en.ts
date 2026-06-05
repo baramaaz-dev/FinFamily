@@ -539,6 +539,16 @@ const en = {
         columnNotes:     'Notes',
       },
     },
+    obligations: {
+      sectionTitle:        'Upcoming Obligations',
+      noObligations:       'No upcoming obligations for this property',
+      activeLeasesTitle:   'Active Leases',
+      noActiveLeases:      'No active leases',
+      unpaidExpensesTitle: 'Unpaid Expenses',
+      noUnpaidExpenses:    'No unpaid expenses',
+      columnUntil:         'Until',
+      overdueCount:        'overdue',
+    },
   },
   language: {
     toggle:  'ع',
