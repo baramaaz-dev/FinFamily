@@ -60,13 +60,14 @@ export interface Transaction {
 // ─── Properties ──────────────────────────────────────────────────────────────
 
 export interface Property {
-  id: string
-  name: string
-  type: 'residential' | 'commercial' | 'land'
-  location: string | null
-  purchase_date: string | null
-  estimated_value: number | null
-  status: 'rented' | 'vacant'
+  id:              string;
+  name:            string;
+  type:            'residential' | 'commercial' | 'land';
+  location:        string | null;
+  purchase_date:   string | null;
+  estimated_value: number | null;
+  status:          'rented' | 'vacant';
+  owners_count:    number;           // derived — NOT a DB column
 }
 
 export interface PropertyOwner {

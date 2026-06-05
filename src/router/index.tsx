@@ -6,7 +6,7 @@ import TransactionsPage        from '@/pages/TransactionsPage';
 import PortfoliosPage          from '@/pages/PortfoliosPage';
 import PortfolioDetailPage     from '@/pages/PortfolioDetailPage';
 import PropertiesPage          from '@/pages/PropertiesPage';
-import PropertyDetailPage      from '@/pages/PropertyDetailPage';
+import PropertyOwnershipPage   from '@/pages/PropertyOwnershipPage';
 import PartnersPage            from '@/pages/PartnersPage';
 import PartnerDetailPage       from '@/pages/PartnerDetailPage';
 import ReportsPage             from '@/pages/ReportsPage';
@@ -33,7 +33,7 @@ export const router = createBrowserRouter([
           { path: 'portfolios',         element: <PortfoliosPage /> },
           { path: 'portfolios/:id',     element: <PortfolioDetailPage /> },
           { path: 'properties',         element: <PropertiesPage /> },
-          { path: 'properties/:id',     element: <PropertyDetailPage /> },
+          { path: 'properties/:id',     element: <PropertyOwnershipPage /> },
           { path: 'partners',           element: <PartnersPage /> },
           { path: 'partners/:id',       element: <PartnerDetailPage /> },
           { path: 'reports',            element: <ReportsPage /> },
