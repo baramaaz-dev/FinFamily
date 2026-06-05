@@ -416,9 +416,9 @@ export function AddPropertyExpenseDialog({
                   </SelectTrigger>
                   <SelectContent>
                     {portfolios.length === 0 ? (
-                      <SelectItem value="" disabled>
+                      <div className="py-2 px-3 text-sm text-[#94A3B8]">
                         {t('properties.expenses.form.portfolioPlaceholder')}
-                      </SelectItem>
+                      </div>
                     ) : (
                       portfolios.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
