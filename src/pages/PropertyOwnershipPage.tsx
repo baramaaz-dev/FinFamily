@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Plus } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/currency';
+import { AddLeaseDialog } from '@/components/properties/AddLeaseDialog';
 import {
   Table,
   TableBody,
@@ -44,6 +46,7 @@ export default function PropertyOwnershipPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [leaseDialogOpen, setLeaseDialogOpen] = useState<boolean>(false);
 
   const {
     data: property,
@@ -104,12 +107,23 @@ export default function PropertyOwnershipPage() {
       </button>
 
       {/* Page title */}
-      <div>
-        <h1 className="text-xl font-medium text-[#1E293B]">
-          {t('properties.statement.pageTitle')}
-        </h1>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-medium text-[#1E293B]">
+            {t('properties.statement.pageTitle')}
+          </h1>
+          {property && (
+            <p className="mt-0.5 text-sm text-[#475569]">{property.name}</p>
+          )}
+        </div>
         {property && (
-          <p className="mt-0.5 text-sm text-[#475569]">{property.name}</p>
+          <Button
+            onClick={() => setLeaseDialogOpen(true)}
+            className="bg-[#1E5DC4] hover:bg-[#164399] text-white shrink-0"
+          >
+            <Plus className="h-4 w-4 me-2" />
+            {t('properties.leases.form.addLeaseButton')}
+          </Button>
         )}
       </div>
 
@@ -291,6 +305,15 @@ export default function PropertyOwnershipPage() {
             </>
           )}
         </div>
+      )}
+
+      {property && (
+        <AddLeaseDialog
+          open={leaseDialogOpen}
+          onOpenChange={setLeaseDialogOpen}
+          propertyId={id ?? ''}
+          propertyName={property.name}
+        />
       )}
 
     </div>
