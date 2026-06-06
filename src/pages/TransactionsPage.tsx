@@ -1,9 +1,21 @@
 import { useState, useMemo }                                  from 'react';
 import { useTranslation }                                     from 'react-i18next';
-import { useQuery }                                           from '@tanstack/react-query';
+import { useQuery, useQueryClient }                           from '@tanstack/react-query';
 import { Link }                                               from 'react-router-dom';
+import { toast }                                              from 'sonner';
 import AddTransactionDialog                                   from '@/components/transactions/AddTransactionDialog';
+import EditTransactionDialog                                  from '@/components/transactions/EditTransactionDialog';
 import TransactionsFilters                                    from '@/components/transactions/TransactionsFilters';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+}                                                             from '@/components/ui/alert-dialog';
 import { supabaseClient }                                     from '@/lib/supabase';
 import type { Transaction }                                   from '@/types';
 import { formatCurrency }                                     from '@/lib/currency';
@@ -169,7 +181,11 @@ export default function TransactionsPage() {
     queryFn:  fetchPortfolioOptions,
     staleTime: 60_000,
   });
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const queryClient                                     = useQueryClient();
+  const [dialogOpen,          setDialogOpen]          = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [deleteTransactionId, setDeleteTransactionId] = useState<string | null>(null);
+  const [isDeleting,          setIsDeleting]          = useState(false);
 
   const [filterType,      setFilterType]      = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
   const [filterPortfolio, setFilterPortfolio] = useState('');
@@ -205,6 +221,25 @@ export default function TransactionsPage() {
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterSearch('');
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTransactionId) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabaseClient
+        .from('transactions')
+        .delete()
+        .eq('id', deleteTransactionId);
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      toast.success(t('transactions.toast.deleteSuccess'));
+      setDeleteTransactionId(null);
+    } catch {
+      toast.error(t('transactions.toast.deleteError'));
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -324,16 +359,16 @@ export default function TransactionsPage() {
                   {/* Actions */}
                   <TableCell className="text-end">
                     <button
-                      disabled
+                      onClick={() => setSelectedTransaction(tx)}
                       title={t('transactions.actions.edit')}
-                      className="me-2 cursor-not-allowed opacity-40 text-[#1E5DC4]"
+                      className="me-2 text-[#1E5DC4] hover:opacity-80"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
-                      disabled
+                      onClick={() => setDeleteTransactionId(tx.id)}
                       title={t('transactions.actions.delete')}
-                      className="cursor-not-allowed opacity-40 text-[#C0392B]"
+                      className="text-[#C0392B] hover:opacity-80"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -347,6 +382,43 @@ export default function TransactionsPage() {
       )}
 
       <AddTransactionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+
+      <EditTransactionDialog
+        transaction={selectedTransaction}
+        open={selectedTransaction !== null}
+        onOpenChange={(open) => { if (!open) setSelectedTransaction(null); }}
+      />
+
+      <AlertDialog
+        open={deleteTransactionId !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTransactionId(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-medium text-[#1E293B]">
+              {t('transactions.dialog.deleteTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-[#475569]">
+              {t('transactions.dialog.deleteDescription')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={isDeleting}
+              className="border-[#E2E8F0] text-[#475569] hover:bg-[#F1F5F9]"
+            >
+              {t('transactions.dialog.deleteCancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-[#C0392B] text-white hover:bg-[#922B21]"
+            >
+              {t('transactions.dialog.deleteConfirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
