@@ -629,6 +629,8 @@ const en = {
       dateTo:        'To',
       clearAll:      'Clear Filters',
       showing:       'Showing {count} of {total}',
+      search:            'Search',
+      searchPlaceholder: 'Search transactions...',
     },
   },
   language: {

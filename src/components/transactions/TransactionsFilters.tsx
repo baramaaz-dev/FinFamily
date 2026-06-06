@@ -26,6 +26,8 @@ export interface TransactionsFiltersProps {
   onDateFromChange:  (v: string) => void;
   onDateToChange:    (v: string) => void;
   onClearAll:        () => void;
+  filterSearch:      string;
+  onSearchChange:    (v: string) => void;
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -45,12 +47,25 @@ export default function TransactionsFilters({
   filterType, filterPortfolio, filterDateFrom, filterDateTo,
   portfolioOptions, hasActiveFilters, resultCount, totalCount,
   onTypeChange, onPortfolioChange, onDateFromChange, onDateToChange, onClearAll,
+  filterSearch, onSearchChange,
 }: TransactionsFiltersProps) {
   const { t } = useTranslation();
 
   return (
     <div className="overflow-hidden rounded-lg border border-[#E2E8F0] bg-white px-4 py-3">
       <div className="flex flex-wrap items-end gap-4">
+
+        {/* Search */}
+        <div>
+          <p className="mb-1 text-xs text-[#475569]">{t('transactions.filters.search')}</p>
+          <Input
+            type="text"
+            value={filterSearch}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={t('transactions.filters.searchPlaceholder')}
+            className="h-8 w-52 border-[#E2E8F0] text-sm focus-visible:ring-[#1E5DC4]"
+          />
+        </div>
 
         {/* Type filter */}
         <div>

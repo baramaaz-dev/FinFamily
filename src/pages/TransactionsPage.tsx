@@ -175,10 +175,11 @@ export default function TransactionsPage() {
   const [filterPortfolio, setFilterPortfolio] = useState('');
   const [filterDateFrom,  setFilterDateFrom]  = useState('');
   const [filterDateTo,    setFilterDateTo]    = useState('');
+  const [filterSearch,    setFilterSearch]    = useState('');
 
   const hasActiveFilters =
     filterType !== 'all' || filterPortfolio !== '' ||
-    filterDateFrom !== '' || filterDateTo !== '';
+    filterDateFrom !== '' || filterDateTo !== '' || filterSearch !== '';
 
   const filteredTransactions = useMemo(() => {
     return (transactions ?? []).filter((tx) => {
@@ -186,15 +187,24 @@ export default function TransactionsPage() {
       if (filterPortfolio !== '' && tx.portfolio_id !== filterPortfolio) return false;
       if (filterDateFrom  !== '' && tx.date < filterDateFrom) return false;
       if (filterDateTo    !== '' && tx.date > filterDateTo)   return false;
+      if (filterSearch !== '') {
+        const q = filterSearch.trim().toLowerCase();
+        const matches =
+          tx.portfolio_name.toLowerCase().includes(q) ||
+          (tx.category ?? '').toLowerCase().includes(q) ||
+          (tx.notes    ?? '').toLowerCase().includes(q);
+        if (!matches) return false;
+      }
       return true;
     });
-  }, [transactions, filterType, filterPortfolio, filterDateFrom, filterDateTo]);
+  }, [transactions, filterType, filterPortfolio, filterDateFrom, filterDateTo, filterSearch]);
 
   const handleClearFilters = () => {
     setFilterType('all');
     setFilterPortfolio('');
     setFilterDateFrom('');
     setFilterDateTo('');
+    setFilterSearch('');
   };
 
   return (
@@ -230,6 +240,8 @@ export default function TransactionsPage() {
         onDateFromChange={setFilterDateFrom}
         onDateToChange={setFilterDateTo}
         onClearAll={handleClearFilters}
+        filterSearch={filterSearch}
+        onSearchChange={setFilterSearch}
       />
 
       {/* States */}
