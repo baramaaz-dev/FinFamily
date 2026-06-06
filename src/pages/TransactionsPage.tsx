@@ -1,8 +1,9 @@
-import { useState }                                           from 'react';
+import { useState, useMemo }                                  from 'react';
 import { useTranslation }                                     from 'react-i18next';
 import { useQuery }                                           from '@tanstack/react-query';
 import { Link }                                               from 'react-router-dom';
 import AddTransactionDialog                                   from '@/components/transactions/AddTransactionDialog';
+import TransactionsFilters                                    from '@/components/transactions/TransactionsFilters';
 import { supabaseClient }                                     from '@/lib/supabase';
 import type { Transaction }                                   from '@/types';
 import { formatCurrency }                                     from '@/lib/currency';
@@ -75,6 +76,15 @@ async function fetchTransactions(): Promise<Transaction[]> {
     journal_entry_id: row.journal_entry_id,
     created_at:       row.created_at,
   }));
+}
+
+async function fetchPortfolioOptions(): Promise<Array<{ id: string; name: string }>> {
+  const { data, error } = await supabaseClient
+    .from('portfolios')
+    .select('id, name')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -154,7 +164,38 @@ export default function TransactionsPage() {
     queryFn:  fetchTransactions,
     staleTime: 30_000,
   });
+  const { data: portfolioOptions = [] } = useQuery({
+    queryKey: ['portfolios-simple'],
+    queryFn:  fetchPortfolioOptions,
+    staleTime: 60_000,
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const [filterType,      setFilterType]      = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
+  const [filterPortfolio, setFilterPortfolio] = useState('');
+  const [filterDateFrom,  setFilterDateFrom]  = useState('');
+  const [filterDateTo,    setFilterDateTo]    = useState('');
+
+  const hasActiveFilters =
+    filterType !== 'all' || filterPortfolio !== '' ||
+    filterDateFrom !== '' || filterDateTo !== '';
+
+  const filteredTransactions = useMemo(() => {
+    return (transactions ?? []).filter((tx) => {
+      if (filterType !== 'all' && tx.type !== filterType) return false;
+      if (filterPortfolio !== '' && tx.portfolio_id !== filterPortfolio) return false;
+      if (filterDateFrom  !== '' && tx.date < filterDateFrom) return false;
+      if (filterDateTo    !== '' && tx.date > filterDateTo)   return false;
+      return true;
+    });
+  }, [transactions, filterType, filterPortfolio, filterDateFrom, filterDateTo]);
+
+  const handleClearFilters = () => {
+    setFilterType('all');
+    setFilterPortfolio('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+  };
 
   return (
     <div className="space-y-4">
@@ -174,13 +215,30 @@ export default function TransactionsPage() {
         </Button>
       </div>
 
+      {/* Filters */}
+      <TransactionsFilters
+        filterType={filterType}
+        filterPortfolio={filterPortfolio}
+        filterDateFrom={filterDateFrom}
+        filterDateTo={filterDateTo}
+        portfolioOptions={portfolioOptions}
+        hasActiveFilters={hasActiveFilters}
+        resultCount={filteredTransactions.length}
+        totalCount={transactions.length}
+        onTypeChange={setFilterType}
+        onPortfolioChange={setFilterPortfolio}
+        onDateFromChange={setFilterDateFrom}
+        onDateToChange={setFilterDateTo}
+        onClearAll={handleClearFilters}
+      />
+
       {/* States */}
       {isLoading && <TransactionsSkeleton />}
       {isError   && <TransactionsError onRetry={refetch} />}
-      {!isLoading && !isError && transactions.length === 0 && <TransactionsEmpty onAdd={() => setDialogOpen(true)} />}
+      {!isLoading && !isError && filteredTransactions.length === 0 && <TransactionsEmpty onAdd={() => setDialogOpen(true)} />}
 
       {/* Table */}
-      {!isLoading && !isError && transactions.length > 0 && (
+      {!isLoading && !isError && filteredTransactions.length > 0 && (
         <div
           className="overflow-hidden rounded-lg border border-[#E2E8F0] bg-white"
           role="region"
@@ -199,7 +257,7 @@ export default function TransactionsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transactions.map((tx) => (
+              {filteredTransactions.map((tx) => (
                 <TableRow key={tx.id} className="text-sm text-[#1E293B] hover:bg-[#F1F5F9]">
 
                   {/* Date */}
