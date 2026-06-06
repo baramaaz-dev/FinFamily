@@ -1,5 +1,7 @@
+import { useState }                                           from 'react';
 import { useTranslation }                                     from 'react-i18next';
 import { useQuery }                                           from '@tanstack/react-query';
+import AddTransactionDialog                                   from '@/components/transactions/AddTransactionDialog';
 import { supabaseClient }                                     from '@/lib/supabase';
 import type { Transaction }                                   from '@/types';
 import { formatCurrency }                                     from '@/lib/currency';
@@ -150,6 +152,7 @@ export default function TransactionsPage() {
     queryFn:  fetchTransactions,
     staleTime: 30_000,
   });
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -161,8 +164,7 @@ export default function TransactionsPage() {
           <p className="mt-0.5 text-sm text-[#475569]">{t('transactions.pageSubtitle')}</p>
         </div>
         <Button
-          disabled
-          title={t('transactions.comingSoon')}
+          onClick={() => setDialogOpen(true)}
           className="bg-[#1E5DC4] text-white hover:bg-[#164399]"
         >
           <Plus className="me-2 h-4 w-4" />
@@ -173,7 +175,7 @@ export default function TransactionsPage() {
       {/* States */}
       {isLoading && <TransactionsSkeleton />}
       {isError   && <TransactionsError onRetry={refetch} />}
-      {!isLoading && !isError && transactions.length === 0 && <TransactionsEmpty onAdd={() => {}} />}
+      {!isLoading && !isError && transactions.length === 0 && <TransactionsEmpty onAdd={() => setDialogOpen(true)} />}
 
       {/* Table */}
       {!isLoading && !isError && transactions.length > 0 && (
@@ -267,6 +269,7 @@ export default function TransactionsPage() {
         </div>
       )}
 
+      <AddTransactionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }
