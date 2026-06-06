@@ -38,6 +38,7 @@ interface AddTransactionDialogProps {
 interface PortfolioOption {
   id:   string;
   name: string;
+  type: 'cash_usd' | 'cash_syp' | 'gold' | 'project';
 }
 
 const addTransactionSchema = z.object({
@@ -92,15 +93,29 @@ function typeBadgeClass(type: 'income' | 'expense' | 'transfer'): string {
   return map[type];
 }
 
+function portfolioTypeBadgeClass(type: PortfolioOption['type']): string {
+  const map: Record<PortfolioOption['type'], string> = {
+    cash_usd: 'text-[#1A7D4F] bg-[#EBF5F0]',
+    cash_syp: 'text-[#B45309] bg-[#FEF7EC]',
+    gold:     'text-[#B45309] bg-[#FEF7EC]',
+    project:  'text-[#1E5DC4] bg-[#E8F0FB]',
+  };
+  return map[type];
+}
+
 // ─── Data fetchers ────────────────────────────────────────────────────────────
 
 async function fetchPortfolioOptions(): Promise<PortfolioOption[]> {
   const { data, error } = await supabaseClient
     .from('portfolios')
-    .select('id, name')
+    .select('id, name, type')
     .order('created_at', { ascending: true });
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map((row) => ({
+    id:   row.id,
+    name: row.name,
+    type: row.type as PortfolioOption['type'],
+  }));
 }
 
 async function fetchLatestExchangeRate(): Promise<number | null> {
@@ -265,7 +280,12 @@ export default function AddTransactionDialog({
                   <SelectContent>
                     {portfolioOptions.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
-                        {p.name}
+                        <span className="flex items-center gap-2">
+                          <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${portfolioTypeBadgeClass(p.type)}`}>
+                            {t(`portfolios.types.${p.type}`)}
+                          </span>
+                          <span>{p.name}</span>
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
