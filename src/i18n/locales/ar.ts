@@ -629,6 +629,8 @@ const ar = {
       dateTo:        'إلى',
       clearAll:      'مسح الفلاتر',
       showing:       'عرض {count} من {total}',
+      search:            'بحث',
+      searchPlaceholder: 'ابحث في المعاملات...',
     },
   },
   language: {
