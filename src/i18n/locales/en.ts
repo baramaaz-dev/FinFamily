@@ -550,6 +550,38 @@ const en = {
       overdueCount:        'overdue',
     },
   },
+  transactions: {
+    pageTitle:    'Transaction Log',
+    pageSubtitle: 'All financial transactions across portfolios',
+    addTransaction: 'Add Transaction',
+    comingSoon:   'Coming Soon',
+    columns: {
+      date:      'Date',
+      type:      'Type',
+      amount:    'Amount',
+      portfolio: 'Portfolio',
+      category:  'Category',
+      notes:     'Notes',
+      actions:   'Actions',
+    },
+    types: {
+      income:   'Income',
+      expense:  'Expense',
+      transfer: 'Transfer',
+    },
+    empty: {
+      title:    'No transactions recorded',
+      subtitle: 'Start by recording the first financial transaction',
+    },
+    error: {
+      title: 'Failed to load transactions',
+      retry: 'Try Again',
+    },
+    actions: {
+      edit:   'Edit',
+      delete: 'Delete',
+    },
+  },
   language: {
     toggle:  'ع',
     current: 'English',
