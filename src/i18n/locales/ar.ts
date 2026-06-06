@@ -619,6 +619,17 @@ const ar = {
       addSuccess: 'تمت إضافة المعاملة بنجاح',
       addError:   'تعذّر إضافة المعاملة',
     },
+    filters: {
+      label:         'تصفية',
+      type:          'النوع',
+      allTypes:      'جميع الأنواع',
+      portfolio:     'المحفظة',
+      allPortfolios: 'جميع المحافظ',
+      dateFrom:      'من',
+      dateTo:        'إلى',
+      clearAll:      'مسح الفلاتر',
+      showing:       'عرض {count} من {total}',
+    },
   },
   language: {
     toggle:  'EN',
