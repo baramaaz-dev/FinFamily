@@ -599,6 +599,9 @@ const en = {
       categoryPlaceholder:  'e.g. Salary, Rent, Groceries...',
       notes:                'Notes (optional)',
       notesPlaceholder:     'Any additional details...',
+      exchangeRate:            'Exchange Rate (SYP / USD)',
+      exchangeRatePlaceholder: 'e.g. 13500',
+      exchangeRateHint:        'Auto-filled from latest entry',
     },
     validation: {
       portfolioRequired: 'Please select a portfolio',
@@ -608,6 +611,9 @@ const en = {
       dateRequired:      'Please select a date',
       categoryTooLong:   'Category must not exceed 100 characters',
       notesTooLong:      'Notes must not exceed 500 characters',
+      exchangeRateRequired: 'Exchange rate is required for SYP transactions',
+      exchangeRatePositive: 'Exchange rate must be greater than zero',
+      exchangeRateInvalid:  'Exchange rate is not a valid number',
     },
     toast: {
       addSuccess: 'Transaction added successfully',
