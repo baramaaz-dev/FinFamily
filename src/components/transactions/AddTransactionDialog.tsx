@@ -1,3 +1,4 @@
+import { useEffect }                from 'react';
 import { useTranslation }           from 'react-i18next';
 import { useForm, Controller }      from 'react-hook-form';
 import type { Resolver }            from 'react-hook-form';
@@ -40,7 +41,8 @@ interface PortfolioOption {
 }
 
 const addTransactionSchema = z.object({
-  portfolio_id: z.string().min(1, { message: 'transactions.validation.portfolioRequired' }),
+  portfolio_id: z.string()
+    .min(1, { message: 'transactions.validation.portfolioRequired' }),
   type: z.enum(['income', 'expense', 'transfer'], {
     error: 'transactions.validation.typeRequired',
   }),
@@ -49,9 +51,32 @@ const addTransactionSchema = z.object({
   currency: z.enum(['USD', 'SYP'], {
     error: 'transactions.validation.currencyRequired',
   }),
-  date: z.string().min(1, { message: 'transactions.validation.dateRequired' }),
-  category: z.string().max(100, { message: 'transactions.validation.categoryTooLong' }).optional(),
-  notes: z.string().max(500, { message: 'transactions.validation.notesTooLong' }).optional(),
+  date: z.string()
+    .min(1, { message: 'transactions.validation.dateRequired' }),
+  category: z.string()
+    .max(100, { message: 'transactions.validation.categoryTooLong' })
+    .optional(),
+  notes: z.string()
+    .max(500, { message: 'transactions.validation.notesTooLong' })
+    .optional(),
+  exchange_rate: z.string()
+    .refine(
+      (v) => v === '' || v === undefined || !isNaN(parseFloat(v)),
+      { message: 'transactions.validation.exchangeRateInvalid' }
+    )
+    .refine(
+      (v) => v === '' || v === undefined || parseFloat(v) > 0,
+      { message: 'transactions.validation.exchangeRatePositive' }
+    )
+    .optional(),
+}).superRefine((data, ctx) => {
+  if (data.currency === 'SYP' && (!data.exchange_rate || data.exchange_rate === '')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['exchange_rate'],
+      message: 'transactions.validation.exchangeRateRequired',
+    });
+  }
 });
 
 type AddTransactionFormData = z.infer<typeof addTransactionSchema>;
@@ -67,7 +92,7 @@ function typeBadgeClass(type: 'income' | 'expense' | 'transfer'): string {
   return map[type];
 }
 
-// ─── Data fetcher ─────────────────────────────────────────────────────────────
+// ─── Data fetchers ────────────────────────────────────────────────────────────
 
 async function fetchPortfolioOptions(): Promise<PortfolioOption[]> {
   const { data, error } = await supabaseClient
@@ -76,6 +101,18 @@ async function fetchPortfolioOptions(): Promise<PortfolioOption[]> {
     .order('created_at', { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+async function fetchLatestExchangeRate(): Promise<number | null> {
+  const { data, error } = await supabaseClient
+    .from('exchange_rates')
+    .select('rate')
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.rate ?? null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -93,25 +130,44 @@ export default function AddTransactionDialog({
     staleTime: 60_000,
   });
 
+  const { data: latestRate } = useQuery({
+    queryKey: ['latest-exchange-rate'],
+    queryFn:  fetchLatestExchangeRate,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const {
     register,
     handleSubmit,
     control,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<AddTransactionFormData>({
     resolver: zodResolver(addTransactionSchema) as unknown as Resolver<AddTransactionFormData>,
     defaultValues: {
-      portfolio_id: '',
-      type:         'income',
-      amount:       '' as unknown as number,
-      currency:     'USD',
-      date:         format(new Date(), 'yyyy-MM-dd'),
-      category:     '',
-      notes:        '',
+      portfolio_id:  '',
+      type:          'income',
+      amount:        '' as unknown as number,
+      currency:      'USD',
+      date:          format(new Date(), 'yyyy-MM-dd'),
+      category:      '',
+      notes:         '',
+      exchange_rate: '',
     },
   });
+
+  const watchedType     = watch('type');
+  const watchedCurrency = watch('currency');
+
+  useEffect(() => {
+    if (watchedCurrency === 'SYP' && latestRate != null) {
+      setValue('exchange_rate', String(latestRate));
+    } else if (watchedCurrency === 'USD') {
+      setValue('exchange_rate', '');
+    }
+  }, [watchedCurrency, latestRate, setValue]);
 
   const handleClose = () => {
     reset();
@@ -127,7 +183,9 @@ export default function AddTransactionDialog({
           type:          data.type,
           amount:        data.amount,
           currency:      data.currency,
-          exchange_rate: null,
+          exchange_rate: data.currency === 'SYP' && data.exchange_rate
+            ? parseFloat(data.exchange_rate)
+            : null,
           category:      data.category || null,
           date:          data.date,
           notes:         data.notes || null,
@@ -140,9 +198,6 @@ export default function AddTransactionDialog({
       toast.error(t('transactions.toast.addError'));
     }
   });
-
-  const watchedType     = watch('type');
-  const watchedCurrency = watch('currency');
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -278,6 +333,35 @@ export default function AddTransactionDialog({
             </div>
 
           </div>
+
+          {/* FIELD 3b — Exchange Rate (SYP only) */}
+          {watchedCurrency === 'SYP' && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium text-[#1E293B]">
+                  {t('transactions.form.exchangeRate')}
+                </Label>
+                {latestRate != null && (
+                  <span className="text-xs text-[#94A3B8]">
+                    {t('transactions.form.exchangeRateHint')}: {latestRate.toLocaleString('ar-SA')}
+                  </span>
+                )}
+              </div>
+              <Input
+                type="number"
+                step="1"
+                min="1"
+                placeholder={t('transactions.form.exchangeRatePlaceholder')}
+                className="border-[#E2E8F0] focus-visible:ring-[#1E5DC4]"
+                {...register('exchange_rate')}
+              />
+              {errors.exchange_rate && (
+                <p className="text-xs text-[#C0392B] mt-1">
+                  {t(errors.exchange_rate.message ?? '')}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* FIELD 4 — Date */}
           <div className="space-y-1.5">

@@ -599,6 +599,9 @@ const ar = {
       categoryPlaceholder:  'مثال: راتب، إيجار، مشتريات...',
       notes:                'ملاحظات (اختياري)',
       notesPlaceholder:     'أي تفاصيل إضافية...',
+      exchangeRate:            'سعر الصرف (ل.س / دولار)',
+      exchangeRatePlaceholder: 'مثال: 13500',
+      exchangeRateHint:        'سعر تلقائي من آخر إدخال',
     },
     validation: {
       portfolioRequired: 'يجب اختيار محفظة',
@@ -608,6 +611,9 @@ const ar = {
       dateRequired:      'يجب اختيار التاريخ',
       categoryTooLong:   'التصنيف لا يجب أن يتجاوز 100 حرف',
       notesTooLong:      'الملاحظات لا يجب أن تتجاوز 500 حرف',
+      exchangeRateRequired: 'يجب إدخال سعر الصرف للمعاملات بالليرة السورية',
+      exchangeRatePositive: 'يجب أن يكون سعر الصرف أكبر من صفر',
+      exchangeRateInvalid:  'سعر الصرف غير صالح',
     },
     toast: {
       addSuccess: 'تمت إضافة المعاملة بنجاح',
