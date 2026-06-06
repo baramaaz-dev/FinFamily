@@ -550,6 +550,38 @@ const ar = {
       overdueCount:        'متأخر',
     },
   },
+  transactions: {
+    pageTitle:    'سجل المعاملات',
+    pageSubtitle: 'جميع المعاملات المالية عبر المحافظ',
+    addTransaction: 'إضافة معاملة',
+    comingSoon:   'قريباً',
+    columns: {
+      date:      'التاريخ',
+      type:      'النوع',
+      amount:    'المبلغ',
+      portfolio: 'المحفظة',
+      category:  'التصنيف',
+      notes:     'الملاحظات',
+      actions:   'الإجراءات',
+    },
+    types: {
+      income:   'دخل',
+      expense:  'مصروف',
+      transfer: 'تحويل',
+    },
+    empty: {
+      title:    'لا توجد معاملات مسجّلة',
+      subtitle: 'ابدأ بتسجيل أول معاملة مالية',
+    },
+    error: {
+      title: 'تعذّر تحميل المعاملات',
+      retry: 'إعادة المحاولة',
+    },
+    actions: {
+      edit:   'تعديل',
+      delete: 'حذف',
+    },
+  },
   language: {
     toggle:  'EN',
     current: 'العربية',

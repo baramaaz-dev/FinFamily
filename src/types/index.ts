@@ -44,17 +44,18 @@ export interface PortfolioDetailMember extends PortfolioMember {
 // ─── Transactions ────────────────────────────────────────────────────────────
 
 export interface Transaction {
-  id: string
-  portfolio_id: string
-  type: 'income' | 'expense' | 'transfer'
-  amount: number
-  currency: SupportedCurrency
-  exchange_rate: number | null
-  category: string | null
-  date: string
-  journal_entry_id: string | null     // null until posted to GL (M-03)
-  notes: string | null
-  created_at: string
+  id:               string;
+  portfolio_id:     string;
+  portfolio_name:   string;   // derived — from portfolios(name) embed
+  type:             'income' | 'expense' | 'transfer';
+  amount:           number;
+  currency:         'USD' | 'SYP';
+  exchange_rate:    number | null;
+  category:         string | null;
+  date:             string;
+  notes:            string | null;
+  journal_entry_id: string | null;
+  created_at:       string;
 }
 
 // ─── Properties ──────────────────────────────────────────────────────────────
