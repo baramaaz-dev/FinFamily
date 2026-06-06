@@ -1,6 +1,7 @@
 import { useState }                                           from 'react';
 import { useTranslation }                                     from 'react-i18next';
 import { useQuery }                                           from '@tanstack/react-query';
+import { Link }                                               from 'react-router-dom';
 import AddTransactionDialog                                   from '@/components/transactions/AddTransactionDialog';
 import { supabaseClient }                                     from '@/lib/supabase';
 import type { Transaction }                                   from '@/types';
@@ -16,6 +17,7 @@ import {
 }                                                             from '@/components/ui/table';
 import { Button }                                             from '@/components/ui/button';
 import { Plus, Pencil, Trash2, ArrowLeftRight }               from 'lucide-react';
+import { ROUTES }                                             from '@/router/routes';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -225,8 +227,13 @@ export default function TransactionsPage() {
                   </TableCell>
 
                   {/* Portfolio */}
-                  <TableCell className="text-sm text-[#1E293B]">
-                    {tx.portfolio_name}
+                  <TableCell>
+                    <Link
+                      to={ROUTES.PORTFOLIO(tx.portfolio_id)}
+                      className="text-sm text-[#1E5DC4] hover:underline"
+                    >
+                      {tx.portfolio_name}
+                    </Link>
                   </TableCell>
 
                   {/* Category */}
