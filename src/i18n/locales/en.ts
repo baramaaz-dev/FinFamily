@@ -619,6 +619,17 @@ const en = {
       addSuccess: 'Transaction added successfully',
       addError:   'Failed to add transaction',
     },
+    filters: {
+      label:         'Filters',
+      type:          'Type',
+      allTypes:      'All Types',
+      portfolio:     'Portfolio',
+      allPortfolios: 'All Portfolios',
+      dateFrom:      'From',
+      dateTo:        'To',
+      clearAll:      'Clear Filters',
+      showing:       'Showing {count} of {total}',
+    },
   },
   language: {
     toggle:  'ع',
