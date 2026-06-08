@@ -5,6 +5,7 @@ import { useTranslation }           from 'react-i18next';
 import { Wallet, Plus, Lock, Eye }  from 'lucide-react';
 import { supabaseClient }           from '@/lib/supabase';
 import { formatCurrency, type SupportedCurrency } from '@/lib/currency';
+import { buildCapitalBreakdown }   from '../utils/capital';
 import {
   Table, TableBody, TableCell,
   TableHead, TableHeader, TableRow,
@@ -52,6 +53,22 @@ async function fetchCapitalAccounts(): Promise<RawCapitalRow[]> {
   return (data ?? []) as unknown as RawCapitalRow[];
 }
 
+type RawTxForBalance = {
+  capital_account_id: string;
+  type: 'capital_injection' | 'capital_reduction' | 'drawing' | 'profit_share' | 'loss_share';
+  amount: number;
+  currency: SupportedCurrency;
+  exchange_rate: number | null;
+};
+
+async function fetchAllTransactionsForBalance(): Promise<RawTxForBalance[]> {
+  const { data, error } = await supabaseClient
+    .from('capital_transactions')
+    .select('capital_account_id, type, amount, currency, exchange_rate');
+  if (error) throw error;
+  return (data ?? []) as unknown as RawTxForBalance[];
+}
+
 async function fetchEntityNames(): Promise<EntityNameMap> {
   const [pfolio, prop] = await Promise.all([
     supabaseClient.from('portfolios').select('id, name'),
@@ -79,7 +96,7 @@ function CapitalSkeleton() {
     <TableBody>
       {[0, 1, 2, 3, 4].map(i => (
         <TableRow key={i}>
-          {[0, 1, 2, 3, 4, 5].map(j => (
+          {[0, 1, 2, 3, 4, 5, 6].map(j => (
             <TableCell key={j}>
               <div className="h-4 bg-[#F1F5F9] rounded animate-pulse" />
             </TableCell>
@@ -95,7 +112,7 @@ function CapitalEmpty({ onAdd }: { onAdd: () => void }) {
   return (
     <TableBody>
       <TableRow>
-        <TableCell colSpan={6}>
+        <TableCell colSpan={7}>
           <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
             <Wallet size={40} className="text-[#94A3B8]" />
             <p className="font-medium text-[#1E293B]">{t('capital.empty.title')}</p>
@@ -119,7 +136,7 @@ function CapitalError({ onRetry }: { onRetry: () => void }) {
   return (
     <TableBody>
       <TableRow>
-        <TableCell colSpan={6}>
+        <TableCell colSpan={7}>
           <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
             <p className="text-[#475569] text-sm">{t('capital.error.title')}</p>
             <button
@@ -165,6 +182,14 @@ export default function CapitalAccountsPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const {
+    data: allTransactions,
+  } = useQuery({
+    queryKey: ['capital-transactions-all'],
+    queryFn:  fetchAllTransactionsForBalance,
+    staleTime: 15_000,
+  });
+
   const displayRows = useMemo((): DisplayCapitalRow[] => {
     if (!accounts || !entityData) return [];
     return accounts.map(acc => ({
@@ -173,6 +198,22 @@ export default function CapitalAccountsPage() {
       entity_name:  resolveEntityName(acc.entity_type, acc.entity_id, entityData),
     }));
   }, [accounts, entityData]);
+
+  const closingBalanceMap = useMemo(() => {
+    if (!accounts || !allTransactions) return new Map<string, number>();
+    return new Map(
+      accounts.map(account => {
+        const txs = allTransactions.filter(tx => tx.capital_account_id === account.id);
+        const breakdown = buildCapitalBreakdown(
+          account.opening_balance,
+          account.currency as 'USD' | 'SYP',
+          null,
+          txs,
+        );
+        return [account.id, breakdown.closingBalance];
+      }),
+    );
+  }, [accounts, allTransactions]);
 
   const isLoading = accountsLoading || entityLoading;
 
@@ -207,6 +248,7 @@ export default function CapitalAccountsPage() {
               <TableHead className="text-[#475569] font-medium">{t('capital.columns.entityType')}</TableHead>
               <TableHead className="text-[#475569] font-medium">{t('capital.columns.entity')}</TableHead>
               <TableHead className="text-[#475569] font-medium">{t('capital.columns.openingBalance')}</TableHead>
+              <TableHead className="text-[#475569] font-medium">{t('capital.columns.closingBalance')}</TableHead>
               <TableHead className="text-[#475569] font-medium">{t('capital.columns.openingDate')}</TableHead>
               <TableHead className="text-[#475569] font-medium">{t('capital.columns.actions')}</TableHead>
             </TableRow>
@@ -236,6 +278,19 @@ export default function CapitalAccountsPage() {
                   <TableCell className="text-[#475569]">{row.entity_name}</TableCell>
                   <TableCell className="font-mono text-[#1E293B]">
                     {formatCurrency(row.opening_balance, row.currency as SupportedCurrency)}
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const closing = closingBalanceMap.get(row.id) ?? row.opening_balance;
+                      return (
+                        <span className={`font-mono tabular-nums text-sm ${
+                          closing >= 0 ? 'text-[#1A7D4F]' : 'text-[#C0392B]'
+                        }`}>
+                          {closing >= 0 ? '+' : '−'}
+                          {formatCurrency(Math.abs(closing), 'USD')}
+                        </span>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell className="text-[#475569]">{row.opening_date}</TableCell>
                   <TableCell>
