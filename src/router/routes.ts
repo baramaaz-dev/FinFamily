@@ -10,6 +10,7 @@ export const ROUTES = {
   PARTNER:           (id: string) => `/partners/${id}`,
   REPORTS:           '/reports',
   CAPITAL:           '/capital',
+  CAPITAL_DETAIL:    (accountId: string) => `/capital/${accountId}`,
   SETTINGS:          '/settings',
   SETTINGS_PEOPLE:   '/settings/people',
   SETTINGS_EXCHANGE: '/settings/exchange-rates',
