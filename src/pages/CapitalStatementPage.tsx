@@ -1,3 +1,4 @@
+import { useMemo }                 from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery }                from '@tanstack/react-query';
 import { useTranslation }          from 'react-i18next';
@@ -5,6 +6,7 @@ import { ChevronRight, FileText }  from 'lucide-react';
 import { supabaseClient }          from '@/lib/supabase';
 import { formatCurrency, type SupportedCurrency } from '@/lib/currency';
 import type { CapitalTransaction } from '@/types';
+import { buildCapitalBreakdown }   from '../utils/capital';
 
 // ─── Fetch helpers ────────────────────────────────────────────────────────────
 
@@ -36,7 +38,7 @@ type RawTransaction = {
   id: string;
   type: CapitalTransaction['type'];
   amount: number;
-  currency: string;
+  currency: SupportedCurrency;
   exchange_rate: number | null;
   date: string;
   reference_no: string | null;
@@ -84,6 +86,32 @@ const TX_TYPE_COLORS: Record<CapitalTransaction['type'], string> = {
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
+interface SummaryRowProps {
+  label:      string;
+  value:      number;
+  prefix:     '+' | '−';
+  color:      'positive' | 'negative' | 'neutral';
+  alwaysShow?: boolean;
+}
+
+const SUMMARY_COLOR: Record<SummaryRowProps['color'], string> = {
+  positive: 'text-[#1A7D4F]',
+  negative: 'text-[#C0392B]',
+  neutral:  'text-[#475569]',
+};
+
+function SummaryRow({ label, value, prefix, color, alwaysShow = false }: SummaryRowProps) {
+  if (!alwaysShow && value === 0) return null;
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-[#475569]">{label}</span>
+      <span className={`font-mono tabular-nums text-sm ${SUMMARY_COLOR[color]}`}>
+        {prefix} {formatCurrency(value, 'USD')}
+      </span>
+    </div>
+  );
+}
 
 function StatementSkeleton() {
   return (
@@ -178,6 +206,16 @@ export default function CapitalStatementPage() {
     enabled:  !!account,
     staleTime: 5 * 60 * 1000,
   });
+
+  const breakdown = useMemo(() => {
+    if (!account || !transactions) return null;
+    return buildCapitalBreakdown(
+      account.opening_balance,
+      account.currency as 'USD' | 'SYP',
+      null,
+      transactions,
+    );
+  }, [account, transactions]);
 
   const isLoading = accountLoading || txLoading || entityLoading;
   const isError   = accountError || txError;
@@ -294,6 +332,69 @@ export default function CapitalStatementPage() {
 
             </div>
           </div>
+
+          {/* Closing balance summary card */}
+          {breakdown && (
+            <div className="rounded-lg border border-[#E2E8F0] bg-white p-4">
+              <h2 className="text-sm font-medium text-[#1E293B] mb-4">
+                {t('capital.summary.title')}
+              </h2>
+              <div className="space-y-2">
+                <SummaryRow
+                  label={t('capital.summary.openingBalance')}
+                  value={breakdown.openingBalance}
+                  prefix="+"
+                  color="neutral"
+                  alwaysShow
+                />
+                <SummaryRow
+                  label={t('capital.summary.injections')}
+                  value={breakdown.injections}
+                  prefix="+"
+                  color="positive"
+                />
+                <SummaryRow
+                  label={t('capital.summary.profitShares')}
+                  value={breakdown.profitShares}
+                  prefix="+"
+                  color="positive"
+                />
+                <SummaryRow
+                  label={t('capital.summary.lossShares')}
+                  value={breakdown.lossShares}
+                  prefix="−"
+                  color="negative"
+                />
+                <SummaryRow
+                  label={t('capital.summary.drawings')}
+                  value={breakdown.drawings}
+                  prefix="−"
+                  color="negative"
+                />
+                <SummaryRow
+                  label={t('capital.summary.reductions')}
+                  value={breakdown.reductions}
+                  prefix="−"
+                  color="negative"
+                />
+                <div className="border-t border-[#E2E8F0] my-2" />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-[#1E293B]">
+                    {t('capital.summary.closingBalance')}
+                  </span>
+                  <span className={`font-mono tabular-nums text-lg font-semibold ${
+                    breakdown.closingBalance >= 0 ? 'text-[#1A7D4F]' : 'text-[#C0392B]'
+                  }`}>
+                    {breakdown.closingBalance >= 0 ? '+' : '−'}
+                    {formatCurrency(Math.abs(breakdown.closingBalance), 'USD')}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-[#94A3B8] mt-3">
+                {t('capital.summary.currencyNote')}
+              </p>
+            </div>
+          )}
 
           {/* Transactions table card */}
           <div className="rounded-lg border border-[#E2E8F0] bg-white overflow-hidden">
