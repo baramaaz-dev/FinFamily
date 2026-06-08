@@ -16,6 +16,7 @@ import ExchangeRatesPage       from '@/pages/ExchangeRatesPage';
 import AccountsPage            from '@/pages/AccountsPage';
 import CapitalAccountsPage     from '@/pages/CapitalAccountsPage';
 import CapitalStatementPage    from '@/pages/CapitalStatementPage';
+import SettlementsPage         from '@/pages/SettlementsPage';
 import LoginPage               from '@/pages/LoginPage';
 import NotFoundPage            from '@/pages/NotFoundPage';
 
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
           { path: 'reports',            element: <ReportsPage /> },
           { path: 'capital',            element: <CapitalAccountsPage /> },
           { path: 'capital/:accountId', element: <CapitalStatementPage /> },
+          { path: 'settlements',        element: <SettlementsPage /> },
           {
             path: 'settings',
             element: <SettingsPage />,
