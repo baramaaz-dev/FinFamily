@@ -1,6 +1,8 @@
+import { useMemo }                 from 'react';
 import { useParams, useNavigate }  from 'react-router-dom';
 import { useQuery }                from '@tanstack/react-query';
 import { useTranslation }          from 'react-i18next';
+import { toUSD, formatCurrency }   from '@/lib/currency';
 import { format }                  from 'date-fns';
 import { ChevronRight, Wallet, Building2 } from 'lucide-react';
 import { supabaseClient }          from '@/lib/supabase';
@@ -27,11 +29,12 @@ interface PropertyOwnership {
   share_denominator: number;
   ownership_basis:   string;
   properties: {
-    id:       string;
-    name:     string;
-    type:     string;
-    location: string | null;
-    status:   string;
+    id:              string;
+    name:            string;
+    type:            string;
+    location:        string | null;
+    status:          string;
+    estimated_value: number | null;
   };
 }
 
@@ -139,7 +142,7 @@ export default function PartnerDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabaseClient
         .from('property_owners')
-        .select('share_numerator, share_denominator, ownership_basis, properties(id, name, type, location, status)')
+        .select('share_numerator, share_denominator, ownership_basis, properties(id, name, type, location, status, estimated_value)')
         .eq('person_id', id!);
       if (error) throw error;
       return (data ?? []) as unknown as PropertyOwnership[];
@@ -162,6 +165,51 @@ export default function PartnerDetailPage() {
     enabled: !!id,
     staleTime: 30_000,
   });
+
+  // Hook 5 — Portfolio transactions (for balance calculation)
+  const portfolioIds = portfolioMemberships.map((pm) => pm.portfolios.id);
+
+  const { data: allPortfolioTxs = [], isLoading: txLoading } = useQuery({
+    queryKey: ['partner-portfolio-transactions', id],
+    queryFn: async () => {
+      const { data, error } = await supabaseClient
+        .from('transactions')
+        .select('portfolio_id, type, amount, currency, exchange_rate')
+        .in('portfolio_id', portfolioIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!id && portfolioMemberships.length > 0,
+    staleTime: 30_000,
+  });
+
+  // Portfolio balance map — net USD balance per portfolio id
+  const portfolioBalanceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const pm of portfolioMemberships) {
+      const txs = allPortfolioTxs.filter(
+        (tx) => tx.portfolio_id === pm.portfolios.id
+      );
+      const balance = txs.reduce((sum, tx) => {
+        const usdAmount = toUSD(
+          Number(tx.amount),
+          tx.currency as 'USD' | 'SYP',
+          tx.exchange_rate ?? 1
+        );
+        if (tx.type === 'income')  return sum + usdAmount;
+        if (tx.type === 'expense') return sum - usdAmount;
+        return sum;
+      }, 0);
+      map.set(pm.portfolios.id, balance);
+    }
+    return map;
+  }, [allPortfolioTxs, portfolioMemberships]);
+
+  const signColor = (value: number): string => {
+    if (value > 0) return 'text-[#1A7D4F]';
+    if (value < 0) return 'text-[#C0392B]';
+    return 'text-[#94A3B8]';
+  };
 
   // Loading guard — all hooks declared above
   if (personLoading) return <PartnerDetailSkeleton />;
@@ -288,6 +336,12 @@ export default function PartnerDetailPage() {
                 <TableHead className="text-start text-xs font-medium text-[#475569]">
                   {t('partners.portfoliosSection.columns.joinedDate')}
                 </TableHead>
+                <TableHead className="text-start text-xs font-medium text-[#475569]">
+                  {t('partners.portfoliosSection.columns.balance')}
+                </TableHead>
+                <TableHead className="text-start text-xs font-medium text-[#475569]">
+                  {t('partners.portfoliosSection.columns.shareValue')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -306,6 +360,31 @@ export default function PartnerDetailPage() {
                   </TableCell>
                   <TableCell className="font-mono tabular-nums text-[#475569]">
                     {format(new Date(pm.joined_date), 'dd/MM/yyyy')}
+                  </TableCell>
+                  <TableCell>
+                    {txLoading ? (
+                      <div className="h-4 w-20 animate-pulse rounded bg-[#E2E8F0]" />
+                    ) : (() => {
+                      const balance = portfolioBalanceMap.get(pm.portfolios.id) ?? 0;
+                      return (
+                        <span className={`font-mono tabular-nums text-sm ${signColor(balance)}`}>
+                          {formatCurrency(balance, 'USD')}
+                        </span>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell>
+                    {txLoading ? (
+                      <div className="h-4 w-20 animate-pulse rounded bg-[#E2E8F0]" />
+                    ) : (() => {
+                      const balance    = portfolioBalanceMap.get(pm.portfolios.id) ?? 0;
+                      const shareValue = balance * (pm.share_numerator / pm.share_denominator);
+                      return (
+                        <span className={`font-mono tabular-nums text-sm ${signColor(shareValue)}`}>
+                          {formatCurrency(shareValue, 'USD')}
+                        </span>
+                      );
+                    })()}
                   </TableCell>
                 </TableRow>
               ))}
@@ -349,6 +428,12 @@ export default function PartnerDetailPage() {
                 <TableHead className="text-start text-xs font-medium text-[#475569]">
                   {t('partners.propertiesSection.columns.ownershipBasis')}
                 </TableHead>
+                <TableHead className="text-start text-xs font-medium text-[#475569]">
+                  {t('partners.propertiesSection.columns.estimatedValue')}
+                </TableHead>
+                <TableHead className="text-start text-xs font-medium text-[#475569]">
+                  {t('partners.propertiesSection.columns.shareValue')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -370,6 +455,27 @@ export default function PartnerDetailPage() {
                   </TableCell>
                   <TableCell className="text-[#475569]">
                     {po.ownership_basis}
+                  </TableCell>
+                  <TableCell>
+                    {po.properties.estimated_value != null ? (
+                      <span className="font-mono tabular-nums text-sm text-[#1E293B]">
+                        {formatCurrency(po.properties.estimated_value, 'USD')}
+                      </span>
+                    ) : (
+                      <span className="text-[#94A3B8]">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {po.properties.estimated_value != null ? (
+                      <span className="font-mono tabular-nums text-sm text-[#1E293B]">
+                        {formatCurrency(
+                          po.properties.estimated_value * (po.share_numerator / po.share_denominator),
+                          'USD'
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-[#94A3B8]">—</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
