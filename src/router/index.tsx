@@ -14,6 +14,7 @@ import SettingsPage            from '@/pages/SettingsPage';
 import PeoplePage              from '@/pages/PeoplePage';
 import ExchangeRatesPage       from '@/pages/ExchangeRatesPage';
 import AccountsPage            from '@/pages/AccountsPage';
+import CapitalAccountsPage     from '@/pages/CapitalAccountsPage';
 import LoginPage               from '@/pages/LoginPage';
 import NotFoundPage            from '@/pages/NotFoundPage';
 
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
           { path: 'partners',           element: <PartnersPage /> },
           { path: 'partners/:id',       element: <PartnerDetailPage /> },
           { path: 'reports',            element: <ReportsPage /> },
+          { path: 'capital',            element: <CapitalAccountsPage /> },
           {
             path: 'settings',
             element: <SettingsPage />,
