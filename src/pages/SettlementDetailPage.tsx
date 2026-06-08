@@ -42,17 +42,27 @@ async function fetchSettlement(id: string): Promise<ProfitSettlement | null> {
 async function fetchShares(settlementId: string): Promise<SettlementShare[]> {
   const { data, error } = await supabaseClient
     .from('settlement_shares')
-    .select(`
-      id, settlement_id, partner_id, share_numerator, share_denominator,
-      amount, capital_transaction_id, created_at,
-      people!partner_id ( name )
-    `)
+    .select(
+      'id, settlement_id, partner_id, share_numerator, share_denominator, amount, capital_transaction_id'
+    )
     .eq('settlement_id', settlementId)
     .order('amount', { ascending: false });
   if (error) throw error;
-  return (data ?? []).map(row => ({
+  if (!data || data.length === 0) return [];
+
+  const partnerIds = [...new Set(data.map(r => r.partner_id))];
+  const { data: people, error: peopleError } = await supabaseClient
+    .from('people')
+    .select('id, name')
+    .in('id', partnerIds);
+  if (peopleError) throw peopleError;
+
+  const peopleMap = new Map((people ?? []).map(p => [p.id, p.name]));
+
+  return data.map(row => ({
     ...row,
-    partner_name: (row.people as unknown as { name: string })?.name ?? '—',
+    capital_transaction_id: row.capital_transaction_id ?? null,
+    partner_name:            peopleMap.get(row.partner_id) ?? '—',
   })) as unknown as SettlementShare[];
 }
 
@@ -164,7 +174,6 @@ export default function SettlementDetailPage() {
   const {
     data: shares = [],
     isLoading: sharesLoading,
-    refetch: refetchShares,             // ← أضيف هنا
   } = useQuery({
     queryKey: ['settlement-shares', settlementId],
     queryFn:  () => fetchShares(settlementId!),
@@ -290,14 +299,15 @@ export default function SettlementDetailPage() {
 
       if (statusError) throw statusError;
 
-      // 4. Invalidate all affected queries
-      await Promise.all([
+      // 4. Refresh queries — fetch shares directly so capital_transaction_id is visible immediately
+      const [freshShares] = await Promise.all([
+        fetchShares(settlementId!),
         queryClient.invalidateQueries({ queryKey: ['settlement', settlementId] }),
-        queryClient.invalidateQueries({ queryKey: ['settlement-shares', settlementId] }),
         queryClient.invalidateQueries({ queryKey: ['settlements'] }),
         queryClient.invalidateQueries({ queryKey: ['capital-accounts'] }),
         queryClient.invalidateQueries({ queryKey: ['capital-transactions-all'] }),
       ]);
+      queryClient.setQueryData(['settlement-shares', settlementId], freshShares);
 
       setConfirmDialogOpen(false);
       toast.success(t('settlements.detail.confirm.toast.success'));
