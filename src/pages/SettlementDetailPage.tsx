@@ -157,6 +157,7 @@ export default function SettlementDetailPage() {
   const {
     data: shares = [],
     isLoading: sharesLoading,
+    refetch: refetchShares,             // ← أضيف هنا
   } = useQuery({
     queryKey: ['settlement-shares', settlementId],
     queryFn:  () => fetchShares(settlementId!),
@@ -206,6 +207,7 @@ export default function SettlementDetailPage() {
       if (error) throw error;
 
       await queryClient.invalidateQueries({ queryKey: ['settlement-shares', settlementId] });
+      await refetchShares();            // ← أضيف هنا: إجبار على إعادة الجلب فوراً
       toast.success(t('settlements.detail.toast.calculateSuccess'));
     } catch {
       toast.error(t('settlements.detail.toast.calculateError'));
