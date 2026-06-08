@@ -213,8 +213,8 @@ export default function SettlementDetailPage() {
         .insert(sharesToInsert);
       if (error) throw error;
 
-      await queryClient.invalidateQueries({ queryKey: ['settlement-shares', settlementId] });
-      await refetchShares();            // ← أضيف هنا: إجبار على إعادة الجلب فوراً
+      const freshShares = await fetchShares(settlementId!);
+      queryClient.setQueryData(['settlement-shares', settlementId], freshShares);            // ← أضيف هنا: إجبار على إعادة الجلب فوراً
       toast.success(t('settlements.detail.toast.calculateSuccess'));
     } catch {
       toast.error(t('settlements.detail.toast.calculateError'));
