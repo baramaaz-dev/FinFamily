@@ -113,7 +113,8 @@ const ar = {
       actions: 'الإجراءات',
     },
     actions: {
-      edit: 'تعديل',
+      view:   'تفاصيل',
+      edit:   'تعديل',
       delete: 'حذف',
     },
     empty: {
@@ -1026,6 +1027,69 @@ const ar = {
           error:   'حدث خطأ أثناء تأكيد التسوية',
         },
       },
+    },
+  },
+  partners: {
+    pageTitle:  'تفاصيل الشريك',
+    backToList: 'العودة إلى الأشخاص',
+
+    header: {
+      relation:    'صلة القرابة',
+      notes:       'ملاحظات',
+      memberSince: 'عضو منذ',
+    },
+
+    stats: {
+      portfolios:      'محفظة',
+      properties:      'عقار',
+      capitalAccounts: 'حساب رأسمال',
+    },
+
+    portfoliosSection: {
+      title: 'المحافظ المالية',
+      empty: 'لا توجد محافظ مرتبطة بهذا الشريك',
+      columns: {
+        name:       'اسم المحفظة',
+        type:       'النوع',
+        share:      'الحصة',
+        joinedDate: 'تاريخ الانضمام',
+      },
+      types: {
+        cash_usd: 'نقد دولار',
+        cash_syp: 'نقد ليرة',
+        gold:     'ذهب',
+        project:  'مشروع',
+      },
+    },
+
+    propertiesSection: {
+      title: 'العقارات',
+      empty: 'لا توجد عقارات مرتبطة بهذا الشريك',
+      columns: {
+        name:           'اسم العقار',
+        type:           'النوع',
+        location:       'الموقع',
+        share:          'الحصة',
+        ownershipBasis: 'علة التملك',
+      },
+      types: {
+        residential: 'سكني',
+        commercial:  'تجاري',
+        land:        'أرض',
+      },
+    },
+
+    stubs: {
+      capitalTitle:     'ملخص رأس المال',
+      withdrawalsTitle: 'المسحوبات',
+      comingSoon:       'قريباً',
+    },
+
+    error: {
+      title:        'تعذّر تحميل البيانات',
+      retry:        'إعادة المحاولة',
+      notFound:     'الشريك غير موجود',
+      notFoundSub:  'لم يتم العثور على الشخص المطلوب',
     },
   },
   language: {

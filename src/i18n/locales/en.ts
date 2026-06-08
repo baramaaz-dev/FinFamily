@@ -113,7 +113,8 @@ const en = {
       actions: 'Actions',
     },
     actions: {
-      edit: 'Edit',
+      view:   'Details',
+      edit:   'Edit',
       delete: 'Delete',
     },
     empty: {
@@ -1026,6 +1027,69 @@ const en = {
           error:   'Failed to confirm settlement',
         },
       },
+    },
+  },
+  partners: {
+    pageTitle:  'Partner Details',
+    backToList: 'Back to People',
+
+    header: {
+      relation:    'Relation',
+      notes:       'Notes',
+      memberSince: 'Member Since',
+    },
+
+    stats: {
+      portfolios:      'Portfolio',
+      properties:      'Property',
+      capitalAccounts: 'Capital Account',
+    },
+
+    portfoliosSection: {
+      title: 'Financial Portfolios',
+      empty: 'No portfolios linked to this partner',
+      columns: {
+        name:       'Portfolio',
+        type:       'Type',
+        share:      'Share',
+        joinedDate: 'Joined',
+      },
+      types: {
+        cash_usd: 'Cash USD',
+        cash_syp: 'Cash SYP',
+        gold:     'Gold',
+        project:  'Project',
+      },
+    },
+
+    propertiesSection: {
+      title: 'Properties',
+      empty: 'No properties linked to this partner',
+      columns: {
+        name:           'Property',
+        type:           'Type',
+        location:       'Location',
+        share:          'Share',
+        ownershipBasis: 'Ownership Basis',
+      },
+      types: {
+        residential: 'Residential',
+        commercial:  'Commercial',
+        land:        'Land',
+      },
+    },
+
+    stubs: {
+      capitalTitle:     'Capital Summary',
+      withdrawalsTitle: 'Withdrawals',
+      comingSoon:       'Coming Soon',
+    },
+
+    error: {
+      title:       'Failed to load data',
+      retry:       'Retry',
+      notFound:    'Partner not found',
+      notFoundSub: 'The requested person was not found',
     },
   },
   language: {
