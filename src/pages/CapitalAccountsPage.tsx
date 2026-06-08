@@ -1,7 +1,8 @@
 import { useState, useMemo }       from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate }              from 'react-router-dom';
 import { useTranslation }           from 'react-i18next';
-import { Wallet, Plus, Lock }       from 'lucide-react';
+import { Wallet, Plus, Lock, Eye }  from 'lucide-react';
 import { supabaseClient }           from '@/lib/supabase';
 import { formatCurrency, type SupportedCurrency } from '@/lib/currency';
 import {
@@ -138,6 +139,7 @@ function CapitalError({ onRetry }: { onRetry: () => void }) {
 
 export default function CapitalAccountsPage() {
   const { t }            = useTranslation();
+  const navigate         = useNavigate();
   const queryClient      = useQueryClient();
   const [dialogOpen, setDialogOpen]             = useState(false);
   const [selectedAccount, setSelectedAccount]   = useState<DisplayCapitalRow | null>(null);
@@ -238,6 +240,14 @@ export default function CapitalAccountsPage() {
                   <TableCell className="text-[#475569]">{row.opening_date}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => navigate(`/capital/${row.id}`)}
+                        title={t('capital.statement.viewButton')}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#1E5DC4] border border-[#B8CFF5] hover:bg-[#E8F0FB] transition-colors"
+                      >
+                        <Eye size={11} />
+                        {t('capital.statement.viewButton')}
+                      </button>
                       <button
                         onClick={() => { setSelectedAccount(row); setTxDialogOpen(true); }}
                         className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#1A7D4F] border border-[#A3D4BC] hover:bg-[#EBF5F0] transition-colors"
