@@ -9,6 +9,7 @@ export const ROUTES = {
   PARTNERS:          '/partners',
   PARTNER:           (id: string) => `/partners/${id}`,
   REPORTS:           '/reports',
+  CAPITAL:           '/capital',
   SETTINGS:          '/settings',
   SETTINGS_PEOPLE:   '/settings/people',
   SETTINGS_EXCHANGE: '/settings/exchange-rates',
