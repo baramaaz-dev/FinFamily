@@ -426,12 +426,15 @@ export default function CapitalStatementPage() {
                     <th className="px-4 py-3 text-start text-xs font-medium text-[#475569]">
                       {t('capital.statement.columns.postingStatus')}
                     </th>
+                    <th className="px-4 py-3 text-start text-xs font-medium text-[#475569]">
+                      {t('capital.statement.columns.source')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {!transactions || transactions.length === 0 ? (
                     <tr>
-                      <td colSpan={8}>
+                      <td colSpan={9}>
                         <StatementEmpty />
                       </td>
                     </tr>
@@ -525,6 +528,18 @@ export default function CapitalStatementPage() {
                               <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium text-[#94A3B8] bg-[#F1F5F9]">
                                 {t('capital.statement.postingStatus.unposted')}
                               </span>
+                            )}
+                          </td>
+
+                          {/* source */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {tx.reference_no?.startsWith('SETTLE-') ? (
+                              <span className="inline-flex items-center rounded-md px-2 py-0.5
+                                               text-xs font-medium text-[#1A7D4F] bg-[#EBF5F0]">
+                                {t('capital.statement.settlementBadge')}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-[#94A3B8]">—</span>
                             )}
                           </td>
 
