@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
@@ -28,6 +29,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+
+async function fetchLatestExchangeRate(): Promise<number | null> {
+  const { data, error } = await supabaseClient
+    .from('exchange_rates')
+    .select('rate')
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.rate ?? null;
+}
 
 const addPropertyExpenseSchema = z.object({
   type: z.enum(['tax', 'maintenance', 'utilities', 'fees'], {
@@ -149,6 +162,20 @@ export function AddPropertyExpenseDialog({
     staleTime: 5 * 60 * 1000,
     enabled: open,
   });
+
+  const { data: latestRate } = useQuery({
+    queryKey: ['latest-exchange-rate'],
+    queryFn:  fetchLatestExchangeRate,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (watchedCurrency === 'SYP' && latestRate != null) {
+      setValue('exchange_rate', String(latestRate));
+    } else if (watchedCurrency === 'USD') {
+      setValue('exchange_rate', '');
+    }
+  }, [watchedCurrency, latestRate, setValue]);
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) reset();
@@ -319,6 +346,12 @@ export function AddPropertyExpenseDialog({
                 placeholder={t('properties.expenses.form.exchangeRatePlaceholder')}
                 className="font-mono focus-visible:ring-[#1E5DC4]"
               />
+              <p className="text-xs text-[#94A3B8]">
+                {latestRate != null
+                  ? t('properties.expenses.form.exchangeRateHint')
+                      .replace('{rate}', Number(latestRate).toLocaleString('ar-SA'))
+                  : t('exchangeRates.form.rateHint')}
+              </p>
               {errors.exchange_rate && (
                 <p className="text-[#C0392B] text-xs mt-1">
                   {t(errors.exchange_rate.message ?? '')}
