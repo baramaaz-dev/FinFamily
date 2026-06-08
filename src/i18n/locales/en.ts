@@ -1004,6 +1004,23 @@ const en = {
       },
       error: 'Failed to load settlement details',
       retry: 'Retry',
+      confirm: {
+        dialogTitle:       'Confirm Settlement',
+        dialogDescription: 'Profits will be distributed to partners and capital transactions will be created. This action cannot be undone.',
+        entityLabel:       'Entity',
+        periodLabel:       'Period',
+        totalLabel:        'Total Profit',
+        partnersLabel:     'Partners',
+        cancelButton:      'Cancel',
+        confirmButton:     'Confirm Distribution',
+        confirming:        'Confirming...',
+        noCapitalAccount:  'Partner "{name}" has no capital account for this entity. Create it first from the Capital Accounts page.',
+        sumMismatchBlock:  'Sum of partner shares does not equal total profit. Review shares before confirming.',
+        toast: {
+          success: 'Settlement confirmed and profits distributed successfully',
+          error:   'Failed to confirm settlement',
+        },
+      },
     },
   },
   language: {
