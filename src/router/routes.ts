@@ -11,6 +11,7 @@ export const ROUTES = {
   REPORTS:           '/reports',
   CAPITAL:           '/capital',
   CAPITAL_DETAIL:    (accountId: string) => `/capital/${accountId}`,
+  SETTLEMENTS:       '/settlements',
   SETTINGS:          '/settings',
   SETTINGS_PEOPLE:   '/settings/people',
   SETTINGS_EXCHANGE: '/settings/exchange-rates',
