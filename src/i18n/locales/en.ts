@@ -887,7 +887,9 @@ const en = {
         referenceNo:   'Reference',
         notes:         'Notes',
         postingStatus: 'Posting',
+        source:        'Source',
       },
+      settlementBadge: 'Settlement',
       postingStatus: {
         posted:   'Posted',
         unposted: 'Unposted',
@@ -988,7 +990,10 @@ const en = {
         fraction: 'Share',
         amount:   'Calculated Amount',
         currency: 'Currency',
+        linked:   'Link',
       },
+      linkedBadge:  'Linked',
+      unlinkedDash: '—',
       sumCheck: {
         match:    'Sum of shares = Total profit ✓',
         mismatch: 'Warning: sum of shares ({sum}) does not equal total profit ({total})',

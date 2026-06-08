@@ -887,7 +887,9 @@ const ar = {
         referenceNo:   'المرجع',
         notes:         'ملاحظات',
         postingStatus: 'الترحيل',
+        source:        'المصدر',
       },
+      settlementBadge: 'تسوية',
       postingStatus: {
         posted:   'مُرحَّل',
         unposted: 'غير مُرحَّل',
@@ -988,7 +990,10 @@ const ar = {
         fraction: 'الحصة',
         amount:   'المبلغ المحتسب',
         currency: 'العملة',
+        linked:   'الترحيل',
       },
+      linkedBadge:  'مرتبط',
+      unlinkedDash: '—',
       sumCheck: {
         match:    'مجموع الحصص = إجمالي الأرباح ✓',
         mismatch: 'تحذير: مجموع الحصص ({sum}) لا يساوي إجمالي الأرباح ({total})',
