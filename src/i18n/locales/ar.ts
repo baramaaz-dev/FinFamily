@@ -644,6 +644,32 @@ const ar = {
       searchPlaceholder: 'ابحث في المعاملات...',
     },
   },
+  exchangeRates: {
+    pageTitle:    'أسعار الصرف',
+    pageSubtitle: 'إدارة أسعار صرف الليرة السورية مقابل الدولار الأمريكي',
+    addRate:      'إضافة سعر جديد',
+    latestBadge:  'الأحدث',
+    rateUnit:     'ل.س / دولار',
+    columns: {
+      date:    'التاريخ',
+      rate:    'سعر الصرف',
+      notes:   'الملاحظات',
+      actions: 'الإجراءات',
+    },
+    actions: {
+      edit:       'تعديل',
+      delete:     'حذف',
+      comingSoon: 'قريباً',
+    },
+    empty: {
+      title:    'لا توجد أسعار صرف مسجّلة',
+      subtitle: 'ابدأ بتسجيل أول سعر صرف للليرة السورية',
+    },
+    error: {
+      title: 'تعذّر تحميل أسعار الصرف',
+      retry: 'إعادة المحاولة',
+    },
+  },
   language: {
     toggle:  'EN',
     current: 'العربية',

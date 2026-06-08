@@ -644,6 +644,32 @@ const en = {
       searchPlaceholder: 'Search transactions...',
     },
   },
+  exchangeRates: {
+    pageTitle:    'Exchange Rates',
+    pageSubtitle: 'Manage SYP to USD exchange rates',
+    addRate:      'Add New Rate',
+    latestBadge:  'Latest',
+    rateUnit:     'SYP / USD',
+    columns: {
+      date:    'Date',
+      rate:    'Exchange Rate',
+      notes:   'Notes',
+      actions: 'Actions',
+    },
+    actions: {
+      edit:       'Edit',
+      delete:     'Delete',
+      comingSoon: 'Coming Soon',
+    },
+    empty: {
+      title:    'No exchange rates recorded',
+      subtitle: 'Start by adding the first SYP exchange rate',
+    },
+    error: {
+      title: 'Failed to load exchange rates',
+      retry: 'Try Again',
+    },
+  },
   language: {
     toggle:  'ع',
     current: 'English',
