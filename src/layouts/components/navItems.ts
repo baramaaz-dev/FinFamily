@@ -6,6 +6,7 @@ import {
   Users,
   FileBarChart,
   Wallet,
+  BarChart2,
   Settings,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -25,6 +26,7 @@ export const navItems: NavItem[] = [
   { labelKey: 'nav.properties',   icon: Building2,       href: ROUTES.PROPERTIES,   exactMatch: false },
   { labelKey: 'nav.partners',     icon: Users,           href: ROUTES.PARTNERS,     exactMatch: false },
   { labelKey: 'nav.reports',      icon: FileBarChart,    href: ROUTES.REPORTS,      exactMatch: false },
-  { labelKey: 'capital.title',    icon: Wallet,          href: ROUTES.CAPITAL,      exactMatch: false },
-  { labelKey: 'nav.settings',     icon: Settings,        href: ROUTES.SETTINGS,     exactMatch: false },
+  { labelKey: 'capital.title',      icon: Wallet,     href: ROUTES.CAPITAL,      exactMatch: false },
+  { labelKey: 'settlements.title', icon: BarChart2,  href: ROUTES.SETTLEMENTS,  exactMatch: false },
+  { labelKey: 'nav.settings',      icon: Settings,   href: ROUTES.SETTINGS,     exactMatch: false },
 ];
