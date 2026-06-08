@@ -1,8 +1,8 @@
 # FinFamily — Validation Strategy (Zod v4)
 **Document:** STR-005
-**Version:** 1.2
+**Version:** 1.3
 **Status:** ✅ Adopted
-**Last updated:** 2026-06-06
+**Last updated:** 2026-06-08
 
 > **قاعدة إلزامية:** أي نموذج إدخال (form) أو معالجة بيانات خارجية في المشروع
 > يجب أن يستخدم Zod schema موثّق في هذا الملف أو متوافق مع أنماطه.
@@ -89,10 +89,13 @@ const { register, handleSubmit, control, reset, formState: { errors, isSubmittin
 
 ---
 
-### 4.1 cast إلزامي عند استخدام .superRefine()
+### 4.1 cast إلزامي عند استخدام z.coerce.number() أو .superRefine()
 
-> ⚠️ **مكتشف في S-027/S-028:** عند إضافة `.superRefine()` لأي schema،
-> يتغير النوع المستنتج بشكل يتعارض مع توقع `useForm<MyFormData>`.
+> ⚠️ **مكتشف في S-027/S-028، مؤكَّد في S-045:** الـ cast مطلوب في حالتين:
+> 1. عند استخدام `z.coerce.number()` في أي حقل من حقول الـ schema
+> 2. عند إضافة `.superRefine()` على مستوى الـ object
+>
+> كلا الحالتين تُغيّر النوع المستنتج بشكل يتعارض مع توقع `useForm<MyFormData>`.
 > الأعراض: خطأ TypeScript على سطر `resolver`.
 
 **الحل الثابت في هذا المشروع:**
@@ -100,21 +103,23 @@ const { register, handleSubmit, control, reset, formState: { errors, isSubmittin
 ```ts
 import type { Resolver } from 'react-hook-form';
 
-// ✅ cast إلزامي عند وجود .superRefine() في الـ schema
+// ✅ cast إلزامي في حالتين:
+//    1. الـ schema يحتوي z.coerce.number()   ← مُضاف في v1.3
+//    2. الـ schema يحتوي .superRefine()
 useForm<MyFormData>({
   resolver: zodResolver(mySchema) as unknown as Resolver<MyFormData>,
   defaultValues: { ... },
 });
 
-// ✅ بدون .superRefine() — لا حاجة للـ cast
+// ✅ بدون z.coerce.number() ولا .superRefine() — لا حاجة للـ cast
 useForm<MyFormData>({
   resolver: zodResolver(mySchema),
   defaultValues: { ... },
 });
 ```
 
-> القاعدة: إذا كان الـ schema يحتوي على `.superRefine()` → أضف الـ cast دائماً.
-> إذا لم يحتوِ → لا تضفه (لا حاجة والـ cast الزائد يُضعف type safety).
+> القاعدة: إذا كان الـ schema يحتوي `z.coerce.number()` **أو** `.superRefine()` → أضف الـ cast دائماً.
+> إذا لم يحتوِ أياً منهما → لا تضفه (الـ cast الزائد يُضعف type safety).
 
 ---
 
@@ -158,6 +163,8 @@ z.coerce.number()
 > **ملاحظة:** حقول الأرقام في HTML تُرجع string من `event.target.value`.
 > استخدم `z.coerce.number()` دائماً مع `<Input type="number">` لتجنب
 > أخطاء النوع.
+>
+> ⚠️ استخدام `z.coerce.number()` يستلزم الـ cast في `resolver` — راجع §4.1.
 
 ---
 
@@ -411,7 +418,7 @@ const addTransactionSchema = z.object({
   }
 });
 
-// cast إلزامي بسبب .superRefine()
+// cast إلزامي: schema يحتوي z.coerce.number() و .superRefine() (§4.1)
 resolver: zodResolver(addTransactionSchema) as unknown as Resolver<AddTransactionFormData>
 
 // في onSubmit:
@@ -429,15 +436,19 @@ z.object({
   joined_date:       z.coerce.date(),
 })
 // مجموع الحصص يُتحقق منه بـ validateShares() بعد جمع كل الأعضاء
+// cast إلزامي بسبب z.coerce.number() (§4.1)
 ```
 
 ### 6.5 Exchange Rates (S-045)
 ```ts
+// src/components/exchange-rates/AddExchangeRateDialog.tsx
 z.object({
-  rate:  z.coerce.number().positive(),
   date:  z.string().min(1),   // ← string لا z.coerce.date() (§5.4)
+  rate:  z.coerce.number().positive(),
   notes: z.string().max(500).optional(),
 })
+// cast إلزامي بسبب z.coerce.number() (§4.1)
+resolver: zodResolver(addExchangeRateSchema) as unknown as Resolver<AddExchangeRateFormData>
 ```
 
 ### 6.6 Leases (S-038)
@@ -453,6 +464,7 @@ z.object({
     z.string().optional()
   ),
 })
+// cast إلزامي بسبب z.coerce.number() (§4.1)
 ```
 
 ### 6.7 Properties (S-034)
@@ -490,6 +502,7 @@ z.object({
 // في onSubmit:
 // estimated_value: data.estimated_value ? parseFloat(data.estimated_value) : null
 // purchase_date:   data.purchase_date || null
+// لا cast مطلوب: لا z.coerce.number() ولا .superRefine() في هذا الـ schema
 ```
 
 ---
@@ -519,7 +532,7 @@ z.object({
 | `z.coerce.date()` مع Supabase | `z.string().min(1)` للمطلوب · `z.preprocess(...)` للاختياري (§5.4) |
 | `z.string().uuid()` لحقول Shadcn Select | `z.string().min(1)` — رسالة خطأ أوضح (§5.6) |
 | منطق cross-field داخل حقل واحد | `.superRefine()` على مستوى الـ object (§5.7) |
-| `zodResolver(schema)` بدون cast مع `.superRefine()` | `zodResolver(schema) as unknown as Resolver<T>` (§4.1) |
+| `zodResolver(schema)` بدون cast مع `z.coerce.number()` أو `.superRefine()` | `zodResolver(schema) as unknown as Resolver<T>` (§4.1) |
 | تحقق مجموع الحصص داخل الـ schema | `validateShares()` من `@/lib/currency` |
 | تعريف الـ schema داخل الـ component | خارج الـ component دائماً |
 | `any` type في FormData | `z.infer<typeof schema>` |
@@ -541,3 +554,4 @@ z.object({
 | 2026-06-06 | `z.string().min(1)` لحقول Select بدلاً من `z.string().uuid()` | اكتُشف في S-027: uuid() يُنتج رسالة خطأ تقنية لا تُفيد المستخدم |
 | 2026-06-06 | `.superRefine()` للتحقق المتقاطع بين حقلين | اكتُشف في S-028: الحاجة لإلزام exchange_rate عند currency=SYP |
 | 2026-06-06 | تصحيح §6.3 (Transactions schema) | كان يوثّق أنماطاً تتعارض مع §5.2.1 و§5.4؛ حُدّث ليعكس الكود الفعلي |
+| 2026-06-08 | توسيع قاعدة الـ cast لتشمل `z.coerce.number()` | اكتُشف في S-045: TypeScript يرفض `zodResolver` أيضاً عند وجود `z.coerce.number()` وحده بدون `.superRefine()`؛ §4.1 محدَّث ليشمل كلا الحالتين |
