@@ -162,6 +162,7 @@ export interface ProfitSettlement {
   id: string
   entity_type: 'portfolio' | 'property' | 'project'
   entity_id: string
+  entity_name: string                 // derived — resolved in application layer
   period_start: string
   period_end: string
   total_profit: number
@@ -176,6 +177,7 @@ export interface SettlementShare {
   id: string
   settlement_id: string
   partner_id: string
+  partner_name: string                // derived — resolved in application layer
   share_numerator: number
   share_denominator: number
   amount: number                      // CHECK >= 0 per STR-002 §2.4
@@ -276,6 +278,11 @@ export interface Account {
   is_postable: boolean
   is_active: boolean
   created_at: string
+}
+
+// Derived in application layer — never stored in DB
+export interface AccountNode extends Account {
+  children: AccountNode[];
 }
 
 export interface JournalEntry {

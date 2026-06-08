@@ -13,6 +13,11 @@ import ReportsPage             from '@/pages/ReportsPage';
 import SettingsPage            from '@/pages/SettingsPage';
 import PeoplePage              from '@/pages/PeoplePage';
 import ExchangeRatesPage       from '@/pages/ExchangeRatesPage';
+import AccountsPage            from '@/pages/AccountsPage';
+import CapitalAccountsPage     from '@/pages/CapitalAccountsPage';
+import CapitalStatementPage    from '@/pages/CapitalStatementPage';
+import SettlementsPage         from '@/pages/SettlementsPage';
+import SettlementDetailPage    from '@/pages/SettlementDetailPage';
 import LoginPage               from '@/pages/LoginPage';
 import NotFoundPage            from '@/pages/NotFoundPage';
 
@@ -37,6 +42,10 @@ export const router = createBrowserRouter([
           { path: 'partners',           element: <PartnersPage /> },
           { path: 'partners/:id',       element: <PartnerDetailPage /> },
           { path: 'reports',            element: <ReportsPage /> },
+          { path: 'capital',            element: <CapitalAccountsPage /> },
+          { path: 'capital/:accountId', element: <CapitalStatementPage /> },
+          { path: 'settlements',              element: <SettlementsPage /> },
+          { path: 'settlements/:settlementId', element: <SettlementDetailPage /> },
           {
             path: 'settings',
             element: <SettingsPage />,
@@ -44,6 +53,7 @@ export const router = createBrowserRouter([
               { index: true,            element: <PeoplePage /> },
               { path: 'people',         element: <PeoplePage /> },
               { path: 'exchange-rates', element: <ExchangeRatesPage /> },
+              { path: 'accounts',      element: <AccountsPage /> },
             ],
           },
           { path: '*',                  element: <NotFoundPage /> },
