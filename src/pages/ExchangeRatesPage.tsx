@@ -1,6 +1,8 @@
+import { useState }       from 'react';
 import { useQuery }       from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { TrendingUp }     from 'lucide-react';
+import AddExchangeRateDialog from '@/components/exchange-rates/AddExchangeRateDialog';
 import { Button }         from '@/components/ui/button';
 import {
   Table, TableBody, TableCell, TableHead,
@@ -53,7 +55,6 @@ function ExchangeRatesEmpty({ onAdd }: { onAdd: () => void }) {
       <p className="text-[#1E293B] font-medium">{t('exchangeRates.empty.title')}</p>
       <p className="text-[#475569] text-sm">{t('exchangeRates.empty.subtitle')}</p>
       <Button
-        disabled
         onClick={onAdd}
         className="bg-[#1E5DC4] text-white"
       >
@@ -85,9 +86,16 @@ export default function ExchangeRatesPage() {
     staleTime: 30_000,
   });
 
+  const [dialogOpen, setDialogOpen] = useState(false);
+
   if (isLoading) return <ExchangeRatesSkeleton />;
   if (isError)   return <ExchangeRatesError onRetry={refetch} />;
-  if (rates.length === 0) return <ExchangeRatesEmpty onAdd={() => {}} />;
+  if (rates.length === 0) return (
+    <>
+      <ExchangeRatesEmpty onAdd={() => setDialogOpen(true)} />
+      <AddExchangeRateDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+    </>
+  );
 
   return (
     <div className="space-y-6">
@@ -103,8 +111,7 @@ export default function ExchangeRatesPage() {
           </p>
         </div>
         <Button
-          disabled
-          title={t('exchangeRates.actions.comingSoon')}
+          onClick={() => setDialogOpen(true)}
           className="bg-[#1E5DC4] hover:bg-[#164399] text-white"
         >
           {t('exchangeRates.addRate')}
@@ -185,6 +192,11 @@ export default function ExchangeRatesPage() {
           </TableBody>
         </Table>
       </div>
+
+      <AddExchangeRateDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
 
     </div>
   );
