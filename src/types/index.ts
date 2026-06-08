@@ -278,6 +278,11 @@ export interface Account {
   created_at: string
 }
 
+// Derived in application layer — never stored in DB
+export interface AccountNode extends Account {
+  children: AccountNode[];
+}
+
 export interface JournalEntry {
   id: string
   period_id: string

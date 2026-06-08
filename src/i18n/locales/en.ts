@@ -13,6 +13,56 @@ const en = {
   settings: {
     people:        'People Management',
     exchangeRates: 'Exchange Rates',
+    accounts: {
+      title:          'Chart of Accounts',
+      subtitle:       'Account structure per IFRS 18',
+      addAccount:     'Add Account',
+      lockedTooltip:  'Will be activated in a future release',
+      expandAll:      'Expand All',
+      collapseAll:    'Collapse All',
+      columns: {
+        code:          'Code',
+        name:          'Account Name',
+        class:         'Class',
+        normalBalance: 'Normal Balance',
+        postable:      'Postable',
+        actions:       'Actions',
+      },
+      classes: {
+        asset:     'Asset',
+        liability: 'Liability',
+        equity:    'Equity',
+        revenue:   'Revenue',
+        expense:   'Expense',
+      },
+      normalBalance: {
+        debit:  'Debit',
+        credit: 'Credit',
+      },
+      postable: {
+        yes: 'Yes',
+        no:  'No',
+      },
+      ifrsCategories: {
+        balance:   'Balance Sheet',
+        operating: 'Operating',
+        investing:  'Investing',
+        financing:  'Financing',
+      },
+      ifrsCodes: {
+        balance:   '1000 · 2000 · 3000',
+        operating: '4000 · 7000',
+        investing:  '5000 · 8000',
+        financing:  '6000 · 9000',
+      },
+      empty:  'No accounts found',
+      error:  'Failed to load chart of accounts',
+      retry:  'Retry',
+      actions: {
+        edit:   'Edit',
+        delete: 'Delete',
+      },
+    },
   },
   auth: {
     email:              'Email',

@@ -13,6 +13,56 @@ const ar = {
   settings: {
     people:        'إدارة الأشخاص',
     exchangeRates: 'أسعار الصرف',
+    accounts: {
+      title:          'دليل الحسابات',
+      subtitle:       'هيكل الحسابات وفق IFRS 18',
+      addAccount:     'إضافة حساب',
+      lockedTooltip:  'ستُفعَّل في إصدار لاحق',
+      expandAll:      'توسيع الكل',
+      collapseAll:    'طي الكل',
+      columns: {
+        code:          'الرمز',
+        name:          'اسم الحساب',
+        class:         'الفئة',
+        normalBalance: 'الرصيد الطبيعي',
+        postable:      'قابل للترحيل',
+        actions:       'إجراءات',
+      },
+      classes: {
+        asset:     'أصول',
+        liability: 'خصوم',
+        equity:    'حقوق ملكية',
+        revenue:   'إيرادات',
+        expense:   'مصروفات',
+      },
+      normalBalance: {
+        debit:  'مدين',
+        credit: 'دائن',
+      },
+      postable: {
+        yes: 'نعم',
+        no:  'لا',
+      },
+      ifrsCategories: {
+        balance:   'ميزانية',
+        operating: 'تشغيل',
+        investing:  'استثمار',
+        financing:  'تمويل',
+      },
+      ifrsCodes: {
+        balance:   '1000 · 2000 · 3000',
+        operating: '4000 · 7000',
+        investing:  '5000 · 8000',
+        financing:  '6000 · 9000',
+      },
+      empty:  'لا توجد حسابات مسجَّلة',
+      error:  'تعذَّر تحميل دليل الحسابات',
+      retry:  'إعادة المحاولة',
+      actions: {
+        edit:   'تعديل',
+        delete: 'حذف',
+      },
+    },
   },
   auth: {
     email:              'البريد الإلكتروني',
