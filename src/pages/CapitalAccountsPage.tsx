@@ -1,5 +1,5 @@
 import { useState, useMemo }       from 'react';
-import { useQuery }                 from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation }           from 'react-i18next';
 import { Wallet, Plus, Lock }       from 'lucide-react';
 import { supabaseClient }           from '@/lib/supabase';
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/table';
 import { Button }                   from '@/components/ui/button';
 import AddCapitalAccountDialog      from '@/components/capital/AddCapitalAccountDialog';
+import AddCapitalTransactionDialog  from '@/components/capital/AddCapitalTransactionDialog';
 
 // ─── Local types ──────────────────────────────────────────────────────────────
 
@@ -137,7 +138,10 @@ function CapitalError({ onRetry }: { onRetry: () => void }) {
 
 export default function CapitalAccountsPage() {
   const { t }            = useTranslation();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const queryClient      = useQueryClient();
+  const [dialogOpen, setDialogOpen]             = useState(false);
+  const [selectedAccount, setSelectedAccount]   = useState<DisplayCapitalRow | null>(null);
+  const [txDialogOpen, setTxDialogOpen]         = useState(false);
 
   const {
     data: accounts,
@@ -235,6 +239,13 @@ export default function CapitalAccountsPage() {
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <button
+                        onClick={() => { setSelectedAccount(row); setTxDialogOpen(true); }}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#1A7D4F] border border-[#A3D4BC] hover:bg-[#EBF5F0] transition-colors"
+                      >
+                        <Plus size={11} />
+                        {t('capital.transactions.addButton')}
+                      </button>
+                      <button
                         disabled
                         title={t('capital.comingSoon')}
                         className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[#94A3B8] cursor-not-allowed opacity-60 border border-[#E2E8F0] bg-[#F1F5F9]"
@@ -263,6 +274,16 @@ export default function CapitalAccountsPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSuccess={() => {}}
+      />
+
+      <AddCapitalTransactionDialog
+        account={selectedAccount}
+        open={txDialogOpen}
+        onOpenChange={(open) => {
+          setTxDialogOpen(open);
+          if (!open) setSelectedAccount(null);
+        }}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['capital-accounts'] })}
       />
     </div>
   );
