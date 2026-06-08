@@ -669,6 +669,29 @@ const en = {
       title: 'Failed to load exchange rates',
       retry: 'Try Again',
     },
+    dialog: {
+      addTitle:   'Add New Exchange Rate',
+      cancel:     'Cancel',
+      submit:     'Save',
+      submitting: 'Saving...',
+    },
+    form: {
+      date:             'Date',
+      rate:             'Exchange Rate',
+      ratePlaceholder:  'e.g. 14000',
+      rateHint:         'Number of Syrian pounds per one US dollar',
+      notes:            'Notes',
+      notesPlaceholder: 'Rate source or any additional notes',
+    },
+    validation: {
+      dateRequired: 'Date is required',
+      ratePositive: 'Rate must be a positive number',
+      notesTooLong: 'Notes must not exceed 500 characters',
+    },
+    toast: {
+      addSuccess: 'Exchange rate saved successfully',
+      addError:   'Failed to save exchange rate',
+    },
   },
   language: {
     toggle:  'ع',

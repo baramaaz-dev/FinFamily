@@ -669,6 +669,29 @@ const ar = {
       title: 'تعذّر تحميل أسعار الصرف',
       retry: 'إعادة المحاولة',
     },
+    dialog: {
+      addTitle:   'إضافة سعر صرف جديد',
+      cancel:     'إلغاء',
+      submit:     'حفظ',
+      submitting: 'جارٍ الحفظ...',
+    },
+    form: {
+      date:             'التاريخ',
+      rate:             'سعر الصرف',
+      ratePlaceholder:  'مثال: 14000',
+      rateHint:         'عدد الليرات السورية مقابل دولار واحد',
+      notes:            'ملاحظات',
+      notesPlaceholder: 'مصدر السعر أو أي ملاحظة إضافية',
+    },
+    validation: {
+      dateRequired: 'التاريخ مطلوب',
+      ratePositive: 'السعر يجب أن يكون رقماً موجباً',
+      notesTooLong: 'الملاحظات لا تتجاوز 500 حرف',
+    },
+    toast: {
+      addSuccess: 'تمّ حفظ سعر الصرف بنجاح',
+      addError:   'تعذّر حفظ سعر الصرف',
+    },
   },
   language: {
     toggle:  'EN',
