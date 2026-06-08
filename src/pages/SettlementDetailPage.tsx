@@ -2,7 +2,12 @@ import { useState }                  from 'react';
 import { useParams, useNavigate }    from 'react-router-dom';
 import { useQuery, useQueryClient }  from '@tanstack/react-query';
 import { useTranslation }            from 'react-i18next';
-import { ChevronRight, Lock }        from 'lucide-react';
+import { ChevronRight, CheckCircle2 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogTrigger, AlertDialogContent,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 import { toast }                     from 'sonner';
 import { supabaseClient }            from '@/lib/supabase';
 import { formatCurrency, type SupportedCurrency } from '@/lib/currency';
@@ -140,7 +145,9 @@ export default function SettlementDetailPage() {
   const queryClient     = useQueryClient();
   const { settlementId } = useParams<{ settlementId: string }>();
 
-  const [isCalculating, setIsCalculating] = useState(false);
+  const [isCalculating,    setIsCalculating]    = useState(false);
+  const [isConfirming,     setIsConfirming]     = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
   const {
     data: settlement,
@@ -213,6 +220,91 @@ export default function SettlementDetailPage() {
       toast.error(t('settlements.detail.toast.calculateError'));
     } finally {
       setIsCalculating(false);
+    }
+  }
+
+  async function handleConfirmSettlement() {
+    if (!settlement || shares.length === 0) return;
+    setIsConfirming(true);
+    try {
+      // 1. Pre-check: sum validation
+      const sumAmounts = shares.reduce((acc, s) => acc + s.amount, 0);
+      if (Math.abs(sumAmounts - settlement.total_profit) > 0.0001) {
+        toast.error(t('settlements.detail.confirm.sumMismatchBlock'));
+        return;
+      }
+
+      // 2. For each share: find capital account → insert tx → update share link
+      for (const share of shares) {
+        // 2a. Find capital account
+        const { data: capitalAccount, error: caError } = await supabaseClient
+          .from('partner_capital_accounts')
+          .select('id')
+          .eq('partner_id', share.partner_id)
+          .eq('entity_type', settlement.entity_type)
+          .eq('entity_id', settlement.entity_id)
+          .maybeSingle();
+
+        if (caError) throw caError;
+
+        if (!capitalAccount) {
+          toast.error(
+            t('settlements.detail.confirm.noCapitalAccount').replace('{name}', share.partner_name),
+          );
+          return;
+        }
+
+        // 2b. Insert capital_transaction (type='profit_share', journal_entry_id=NULL per STR-006 §11.3)
+        const { data: newTx, error: txError } = await supabaseClient
+          .from('capital_transactions')
+          .insert({
+            capital_account_id: capitalAccount.id,
+            type:               'profit_share',
+            amount:             share.amount,
+            currency:           settlement.currency,
+            exchange_rate:      null,
+            date:               settlement.settlement_date,
+            reference_no:       `SETTLE-${settlement.id.substring(0, 8).toUpperCase()}`,
+            journal_entry_id:   null,
+            notes:              `${settlement.period_start} → ${settlement.period_end}`,
+          })
+          .select('id')
+          .single();
+
+        if (txError) throw txError;
+
+        // 2c. Update settlement_share.capital_transaction_id
+        const { error: shareError } = await supabaseClient
+          .from('settlement_shares')
+          .update({ capital_transaction_id: newTx.id })
+          .eq('id', share.id);
+
+        if (shareError) throw shareError;
+      }
+
+      // 3. Update settlement status → confirmed
+      const { error: statusError } = await supabaseClient
+        .from('profit_settlements')
+        .update({ status: 'confirmed' })
+        .eq('id', settlement.id);
+
+      if (statusError) throw statusError;
+
+      // 4. Invalidate all affected queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['settlement', settlementId] }),
+        queryClient.invalidateQueries({ queryKey: ['settlement-shares', settlementId] }),
+        queryClient.invalidateQueries({ queryKey: ['settlements'] }),
+        queryClient.invalidateQueries({ queryKey: ['capital-accounts'] }),
+        queryClient.invalidateQueries({ queryKey: ['capital-transactions-all'] }),
+      ]);
+
+      setConfirmDialogOpen(false);
+      toast.success(t('settlements.detail.confirm.toast.success'));
+    } catch {
+      toast.error(t('settlements.detail.confirm.toast.error'));
+    } finally {
+      setIsConfirming(false);
     }
   }
 
@@ -326,16 +418,71 @@ export default function SettlementDetailPage() {
             {t('settlements.detail.sharesSection')}
           </h2>
           {shares.length > 0 && settlement.status === 'draft' && (
-            <button
-              disabled
-              title={t('settlements.detail.confirmLocked')}
-              className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5
-                         text-sm font-medium bg-[#F1F5F9] text-[#94A3B8]
-                         cursor-not-allowed border border-[#E2E8F0]"
-            >
-              <Lock size={13} />
-              {t('settlements.detail.confirmSettlement')}
-            </button>
+            <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <button
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5
+                             text-sm font-medium bg-[#1A7D4F] text-white
+                             hover:bg-[#126038] transition-colors"
+                >
+                  <CheckCircle2 size={13} />
+                  {t('settlements.detail.confirmSettlement')}
+                </button>
+              </AlertDialogTrigger>
+
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {t('settlements.detail.confirm.dialogTitle')}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('settlements.detail.confirm.dialogDescription')}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                {/* Summary */}
+                <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-[#475569]">{t('settlements.detail.confirm.entityLabel')}</span>
+                    <span className="font-medium text-[#1E293B]">{entityName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#475569]">{t('settlements.detail.confirm.periodLabel')}</span>
+                    <span className="font-mono tabular-nums text-[#1E293B]">
+                      {settlement.period_start} → {settlement.period_end}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#475569]">{t('settlements.detail.confirm.totalLabel')}</span>
+                    <span className="font-mono tabular-nums font-medium text-[#1A7D4F]">
+                      {formatCurrency(settlement.total_profit, settlement.currency as SupportedCurrency)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#475569]">{t('settlements.detail.confirm.partnersLabel')}</span>
+                    <span className="font-medium text-[#1E293B]">{shares.length}</span>
+                  </div>
+                </div>
+
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isConfirming}>
+                    {t('settlements.detail.confirm.cancelButton')}
+                  </AlertDialogCancel>
+                  <button
+                    onClick={handleConfirmSettlement}
+                    disabled={isConfirming}
+                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2
+                               text-sm font-medium bg-[#1A7D4F] text-white
+                               hover:bg-[#126038] disabled:opacity-60
+                               disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isConfirming
+                      ? t('settlements.detail.confirm.confirming')
+                      : t('settlements.detail.confirm.confirmButton')}
+                  </button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
 
