@@ -1053,6 +1053,8 @@ const en = {
         type:       'Type',
         share:      'Share',
         joinedDate: 'Joined',
+        balance:    'Portfolio Balance',
+        shareValue: 'Partner Share',
       },
       types: {
         cash_usd: 'Cash USD',
@@ -1071,6 +1073,8 @@ const en = {
         location:       'Location',
         share:          'Share',
         ownershipBasis: 'Ownership Basis',
+        estimatedValue: 'Estimated Value',
+        shareValue:     'Partner Share',
       },
       types: {
         residential: 'Residential',
