@@ -1,15 +1,22 @@
-import { useState }       from 'react';
-import { useQuery }       from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
-import { TrendingUp }     from 'lucide-react';
-import AddExchangeRateDialog from '@/components/exchange-rates/AddExchangeRateDialog';
-import { Button }         from '@/components/ui/button';
+import { useState }            from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation }      from 'react-i18next';
+import { TrendingUp }          from 'lucide-react';
+import { toast }               from 'sonner';
+import AddExchangeRateDialog   from '@/components/exchange-rates/AddExchangeRateDialog';
+import EditExchangeRateDialog  from '@/components/exchange-rates/EditExchangeRateDialog';
+import { Button }              from '@/components/ui/button';
 import {
   Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow,
 } from '@/components/ui/table';
-import { supabaseClient } from '@/lib/supabase';
-import type { ExchangeRate } from '@/types';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { supabaseClient }      from '@/lib/supabase';
+import type { ExchangeRate }   from '@/types';
 
 async function fetchExchangeRates(): Promise<ExchangeRate[]> {
   const { data, error } = await supabaseClient
@@ -86,7 +93,30 @@ export default function ExchangeRatesPage() {
     staleTime: 30_000,
   });
 
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen]   = useState(false);
+  const queryClient                    = useQueryClient();
+  const [selectedRate, setSelectedRate] = useState<ExchangeRate | null>(null);
+  const [deleteRateId, setDeleteRateId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting]     = useState(false);
+
+  async function handleDeleteConfirm() {
+    if (!deleteRateId) return;
+    setIsDeleting(true);
+    const { error } = await supabaseClient
+      .from('exchange_rates')
+      .delete()
+      .eq('id', deleteRateId);
+    if (error) {
+      toast.error(t('exchangeRates.toast.deleteError'));
+      setIsDeleting(false);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ['exchange-rates'] });
+    await queryClient.invalidateQueries({ queryKey: ['latest-exchange-rate'] });
+    toast.success(t('exchangeRates.toast.deleteSuccess'));
+    setDeleteRateId(null);
+    setIsDeleting(false);
+  }
 
   if (isLoading) return <ExchangeRatesSkeleton />;
   if (isError)   return <ExchangeRatesError onRetry={refetch} />;
@@ -169,8 +199,7 @@ export default function ExchangeRatesPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      disabled
-                      title={t('exchangeRates.actions.comingSoon')}
+                      onClick={() => setSelectedRate(rate)}
                       className="text-[#475569]"
                     >
                       {t('exchangeRates.actions.edit')}
@@ -178,8 +207,7 @@ export default function ExchangeRatesPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      disabled
-                      title={t('exchangeRates.actions.comingSoon')}
+                      onClick={() => setDeleteRateId(rate.id)}
                       className="text-[#C0392B]"
                     >
                       {t('exchangeRates.actions.delete')}
@@ -197,6 +225,50 @@ export default function ExchangeRatesPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
+
+      <EditExchangeRateDialog
+        exchangeRate={selectedRate}
+        onOpenChange={(open) => { if (!open) setSelectedRate(null); }}
+      />
+
+      <AlertDialog
+        open={deleteRateId !== null}
+        onOpenChange={(open) => { if (!open && !isDeleting) setDeleteRateId(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[#0F172A]">
+              {t('exchangeRates.dialog.deleteTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[#475569]">
+              {t('exchangeRates.dialog.deleteDescription').replace(
+                '{rate}',
+                (() => {
+                  const found = rates.find(r => r.id === deleteRateId);
+                  return found
+                    ? `${Number(found.rate).toLocaleString('ar-SA')} ${t('exchangeRates.rateUnit')}`
+                    : '';
+                })()
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={isDeleting}
+              className="border-[#E2E8F0] text-[#475569]"
+            >
+              {t('exchangeRates.dialog.deleteCancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-[#C0392B] hover:bg-[#922B21] text-white"
+            >
+              {t('exchangeRates.dialog.deleteConfirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
