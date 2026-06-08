@@ -1053,6 +1053,8 @@ const ar = {
         type:       'النوع',
         share:      'الحصة',
         joinedDate: 'تاريخ الانضمام',
+        balance:    'رصيد المحفظة',
+        shareValue: 'نصيب الشريك',
       },
       types: {
         cash_usd: 'نقد دولار',
@@ -1071,6 +1073,8 @@ const ar = {
         location:       'الموقع',
         share:          'الحصة',
         ownershipBasis: 'علة التملك',
+        estimatedValue: 'القيمة التقديرية',
+        shareValue:     'نصيب الشريك',
       },
       types: {
         residential: 'سكني',
