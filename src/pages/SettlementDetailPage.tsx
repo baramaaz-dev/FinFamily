@@ -544,6 +544,9 @@ export default function SettlementDetailPage() {
                   <TableHead className="text-[#64748B]">
                     {t('settlements.detail.sharesColumns.currency')}
                   </TableHead>
+                  <TableHead className="text-[#64748B]">
+                    {t('settlements.detail.sharesColumns.linked')}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -566,6 +569,19 @@ export default function SettlementDetailPage() {
                       }`}>
                         {settlement.currency}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      {share.capital_transaction_id ? (
+                        <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5
+                                         text-xs font-medium text-[#1A7D4F] bg-[#EBF5F0]">
+                          <CheckCircle2 size={11} />
+                          {t('settlements.detail.linkedBadge')}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[#94A3B8]">
+                          {t('settlements.detail.unlinkedDash')}
+                        </span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
