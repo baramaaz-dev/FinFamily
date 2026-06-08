@@ -1,7 +1,8 @@
 import { useState }                  from 'react';
 import { useQuery, useQueryClient }  from '@tanstack/react-query';
+import { useNavigate }               from 'react-router-dom';
 import { useTranslation }            from 'react-i18next';
-import { BarChart2, Plus }           from 'lucide-react';
+import { BarChart2, Plus, Eye }      from 'lucide-react';
 import { supabaseClient }            from '@/lib/supabase';
 import { formatCurrency, type SupportedCurrency } from '@/lib/currency';
 import {
@@ -116,6 +117,7 @@ function StatusBadge({ status }: { status: 'draft' | 'confirmed' }) {
 
 export default function SettlementsPage() {
   const { t }       = useTranslation();
+  const navigate    = useNavigate();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -207,7 +209,15 @@ export default function SettlementsPage() {
                     <StatusBadge status={s.status} />
                   </TableCell>
                   <TableCell>
-                    <span className="text-xs text-[#94A3B8]">{t('settlements.comingSoon')}</span>
+                    <button
+                      onClick={() => navigate(`/settlements/${s.id}`)}
+                      className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5
+                                 text-xs font-medium text-[#1E5DC4] bg-[#E8F0FB]
+                                 hover:bg-[#B8CFF5] transition-colors"
+                    >
+                      <Eye size={13} />
+                      {t('settlements.details')}
+                    </button>
                   </TableCell>
                 </TableRow>
               ))}
