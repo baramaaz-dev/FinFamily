@@ -1167,6 +1167,15 @@ const ar = {
   },
   dashboard: {
     title: 'لوحة التحكم',
+    portfolios: {
+      title:      'المحافظ المالية',
+      viewAll:    'عرض الكل',
+      netBalance: 'صافي الرصيد',
+      members:    '{count} شريك',
+      empty:      'لا توجد محافظ مسجّلة',
+      error:      'فشل تحميل المحافظ',
+      retry:      'إعادة المحاولة',
+    },
     netWorth: {
       title:        'صافي الثروة الإجمالي',
       subtitle:     'إجمالي قيمة الأصول بالدولار الأمريكي',
