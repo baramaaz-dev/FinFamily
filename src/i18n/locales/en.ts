@@ -1138,6 +1138,20 @@ const en = {
       },
     },
 
+    capitalSection: {
+      title:         'Capital Summary',
+      empty:         'No capital accounts for this partner',
+      total:         'Total Capital (USD)',
+      viewStatement: 'View Statement',
+      columns: {
+        entity:         'Entity',
+        entityType:     'Type',
+        openingBalance: 'Opening Balance',
+        closingBalance: 'Closing Balance (USD)',
+        actions:        'Actions',
+      },
+    },
+
     stubs: {
       capitalTitle:     'Capital Summary',
       withdrawalsTitle: 'Withdrawals',

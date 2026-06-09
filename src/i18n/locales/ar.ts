@@ -1138,6 +1138,20 @@ const ar = {
       },
     },
 
+    capitalSection: {
+      title:         'ملخص رأس المال',
+      empty:         'لا توجد حسابات رأس مال لهذا الشريك',
+      total:         'إجمالي رأس المال (USD)',
+      viewStatement: 'كشف الحساب',
+      columns: {
+        entity:         'الكيان',
+        entityType:     'النوع',
+        openingBalance: 'الرصيد الافتتاحي',
+        closingBalance: 'الرصيد الختامي (USD)',
+        actions:        'الإجراءات',
+      },
+    },
+
     stubs: {
       capitalTitle:     'ملخص رأس المال',
       withdrawalsTitle: 'المسحوبات',
