@@ -1165,6 +1165,18 @@ const en = {
       notFoundSub: 'The requested person was not found',
     },
   },
+  dashboard: {
+    title: 'Dashboard',
+    netWorth: {
+      title:        'Total Net Worth',
+      subtitle:     'Total asset value in US Dollars',
+      portfolios:   'Portfolios',
+      properties:   'Properties',
+      currencyNote: 'All figures converted to USD',
+      error:        'Failed to load net worth data',
+      retry:        'Retry',
+    },
+  },
   language: {
     toggle:  'ع',
     current: 'English',
