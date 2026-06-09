@@ -1165,6 +1165,18 @@ const ar = {
       notFoundSub:  'لم يتم العثور على الشخص المطلوب',
     },
   },
+  dashboard: {
+    title: 'لوحة التحكم',
+    netWorth: {
+      title:        'صافي الثروة الإجمالي',
+      subtitle:     'إجمالي قيمة الأصول بالدولار الأمريكي',
+      portfolios:   'المحافظ المالية',
+      properties:   'العقارات',
+      currencyNote: 'جميع الأرقام محوّلة للدولار الأمريكي',
+      error:        'فشل تحميل بيانات الثروة',
+      retry:        'إعادة المحاولة',
+    },
+  },
   language: {
     toggle:  'EN',
     current: 'العربية',
