@@ -1083,6 +1083,26 @@ const en = {
       },
     },
 
+    withdrawalsSection: {
+      title:     'Withdrawals',
+      addButton: 'Add Withdrawal',
+      empty:     'No withdrawals recorded for this partner',
+      total:     'Total Withdrawals (USD)',
+      columns: {
+        date:       'Date',
+        entity:     'Entity',
+        entityType: 'Type',
+        amount:     'Amount',
+        currency:   'Currency',
+        notes:      'Notes',
+      },
+      entityTypes: {
+        portfolio: 'Portfolio',
+        property:  'Property',
+        project:   'Project',
+      },
+    },
+
     stubs: {
       capitalTitle:     'Capital Summary',
       withdrawalsTitle: 'Withdrawals',
