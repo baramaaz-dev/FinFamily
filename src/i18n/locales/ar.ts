@@ -1218,6 +1218,15 @@ const ar = {
       typeExpense:  'مصروف',
       typeTransfer: 'تحويل',
     },
+    partnerShares: {
+      title:      'نصيب الشركاء',
+      viewAll:    'عرض الكل',
+      totalLabel: 'إجمالي رأس المال',
+      shareLabel: '{percent}% من الإجمالي',
+      empty:      'لا توجد حسابات رأس مال مسجّلة',
+      error:      'فشل تحميل نصيب الشركاء',
+      retry:      'إعادة المحاولة',
+    },
   },
   language: {
     toggle:  'EN',

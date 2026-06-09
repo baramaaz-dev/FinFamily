@@ -1218,6 +1218,15 @@ const en = {
       typeExpense:  'Expense',
       typeTransfer: 'Transfer',
     },
+    partnerShares: {
+      title:      'Partner Shares',
+      viewAll:    'View All',
+      totalLabel: 'Total Capital',
+      shareLabel: '{percent}% of total',
+      empty:      'No capital accounts registered',
+      error:      'Failed to load partner shares',
+      retry:      'Retry',
+    },
   },
   language: {
     toggle:  'ع',
