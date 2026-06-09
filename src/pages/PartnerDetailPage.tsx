@@ -4,7 +4,7 @@ import { useQuery }                from '@tanstack/react-query';
 import { useTranslation }          from 'react-i18next';
 import { toUSD, formatCurrency }   from '@/lib/currency';
 import { format }                  from 'date-fns';
-import { ChevronRight, Wallet, Building2 } from 'lucide-react';
+import { ChevronRight, Wallet, Building2, HandCoins } from 'lucide-react';
 import { supabaseClient }          from '@/lib/supabase';
 import {
   Table, TableBody, TableCell,
@@ -36,6 +36,44 @@ interface PropertyOwnership {
     status:          string;
     estimated_value: number | null;
   };
+}
+
+// ─── Helper sub-components ───────────────────────────────────────────────────
+
+function EntityTypeBadge({
+  entityType,
+  t,
+}: {
+  entityType: string;
+  t: (key: string) => string;
+}) {
+  const styles: Record<string, string> = {
+    portfolio: 'bg-[#E8F0FB] text-[#1E5DC4]',
+    property:  'bg-[#EBF5F0] text-[#1A7D4F]',
+    project:   'bg-[#FEF7EC] text-[#B45309]',
+  };
+  const style = styles[entityType] ?? 'bg-[#F1F5F9] text-[#475569]';
+  const label = t(`partners.withdrawalsSection.entityTypes.${entityType}`);
+  return (
+    <span className={`rounded px-2 py-0.5 text-xs font-medium ${style}`}>
+      {label}
+    </span>
+  );
+}
+
+function WithdrawalsSkeleton() {
+  return (
+    <div className="divide-y divide-[#E2E8F0]" aria-busy="true">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center gap-4 px-4 py-3">
+          <div className="h-4 w-20 animate-pulse rounded bg-[#E2E8F0]" />
+          <div className="h-4 w-28 animate-pulse rounded bg-[#E2E8F0]" />
+          <div className="h-4 w-14 animate-pulse rounded bg-[#E2E8F0]" />
+          <div className="h-4 w-20 animate-pulse rounded bg-[#E2E8F0]" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ─── Skeleton sub-components ─────────────────────────────────────────────────
@@ -183,6 +221,25 @@ export default function PartnerDetailPage() {
     staleTime: 30_000,
   });
 
+  // Hook 6 — Partner withdrawals
+  const {
+    data: withdrawals = [],
+    isLoading: withdrawalsLoading,
+  } = useQuery({
+    queryKey: ['partner-withdrawals', id],
+    queryFn: async () => {
+      const { data, error } = await supabaseClient
+        .from('distributions')
+        .select('id, entity_type, entity_id, amount, currency, exchange_rate, date, notes')
+        .eq('partner_id', id!)
+        .order('date', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+
   // Portfolio balance map — net USD balance per portfolio id
   const portfolioBalanceMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -204,6 +261,30 @@ export default function PartnerDetailPage() {
     }
     return map;
   }, [allPortfolioTxs, portfolioMemberships]);
+
+  const entityNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    portfolioMemberships.forEach((pm) =>
+      map.set(pm.portfolios.id, pm.portfolios.name)
+    );
+    propertyOwnerships.forEach((po) =>
+      map.set(po.properties.id, po.properties.name)
+    );
+    return map;
+  }, [portfolioMemberships, propertyOwnerships]);
+
+  const totalWithdrawalsUSD = useMemo(() => {
+    return withdrawals.reduce((sum, w) => {
+      return (
+        sum +
+        toUSD(
+          Number(w.amount),
+          w.currency as 'USD' | 'SYP',
+          w.exchange_rate ?? 1
+        )
+      );
+    }, 0);
+  }, [withdrawals]);
 
   const signColor = (value: number): string => {
     if (value > 0) return 'text-[#1A7D4F]';
@@ -496,16 +577,102 @@ export default function PartnerDetailPage() {
         </div>
       </div>
 
-      {/* Withdrawals stub */}
-      <div className="overflow-hidden rounded-lg border border-[#E2E8F0] bg-white p-4">
-        <div className="flex items-center justify-between">
+      {/* Withdrawals section */}
+      <div className="overflow-hidden rounded-lg border border-[#E2E8F0] bg-white">
+
+        {/* Section header */}
+        <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-3">
           <h2 className="text-base font-medium text-[#1E293B]">
-            {t('partners.stubs.withdrawalsTitle')}
+            {t('partners.withdrawalsSection.title')}
           </h2>
-          <span className="rounded-md bg-[#FEF7EC] px-2 py-0.5 text-xs font-medium text-[#B45309]">
-            {t('partners.stubs.comingSoon')}
-          </span>
+          <button
+            disabled
+            className="rounded-md bg-[#1E5DC4] px-3 py-1.5 text-sm text-white opacity-50 cursor-not-allowed"
+          >
+            {t('partners.withdrawalsSection.addButton')}
+          </button>
         </div>
+
+        {/* Content */}
+        {withdrawalsLoading ? (
+          <WithdrawalsSkeleton />
+        ) : withdrawals.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-12">
+            <HandCoins className="h-10 w-10 text-[#94A3B8]" />
+            <p className="text-sm text-[#475569]">
+              {t('partners.withdrawalsSection.empty')}
+            </p>
+          </div>
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-[#F1F5F9] hover:bg-[#F1F5F9]">
+                  <TableHead className="text-start text-xs font-medium text-[#475569]">
+                    {t('partners.withdrawalsSection.columns.date')}
+                  </TableHead>
+                  <TableHead className="text-start text-xs font-medium text-[#475569]">
+                    {t('partners.withdrawalsSection.columns.entity')}
+                  </TableHead>
+                  <TableHead className="text-start text-xs font-medium text-[#475569]">
+                    {t('partners.withdrawalsSection.columns.entityType')}
+                  </TableHead>
+                  <TableHead className="text-start text-xs font-medium text-[#475569]">
+                    {t('partners.withdrawalsSection.columns.amount')}
+                  </TableHead>
+                  <TableHead className="text-start text-xs font-medium text-[#475569]">
+                    {t('partners.withdrawalsSection.columns.currency')}
+                  </TableHead>
+                  <TableHead className="text-start text-xs font-medium text-[#475569]">
+                    {t('partners.withdrawalsSection.columns.notes')}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {withdrawals.map((w) => {
+                  const entityName = entityNameMap.get(w.entity_id) ?? '—';
+                  return (
+                    <TableRow
+                      key={w.id}
+                      className="text-sm text-[#1E293B] hover:bg-[#F8FAFC]"
+                    >
+                      <TableCell className="font-mono tabular-nums text-[#475569]">
+                        {format(new Date(w.date), 'dd/MM/yyyy')}
+                      </TableCell>
+                      <TableCell className="font-medium">{entityName}</TableCell>
+                      <TableCell>
+                        <EntityTypeBadge entityType={w.entity_type} t={t} />
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono tabular-nums text-sm text-[#C0392B]">
+                          {formatCurrency(Number(w.amount), w.currency as 'USD' | 'SYP')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-[#475569]">{w.currency}</TableCell>
+                      <TableCell>
+                        <span
+                          className="block max-w-[180px] truncate text-[#475569]"
+                          title={w.notes ?? undefined}
+                        >
+                          {w.notes ?? '—'}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+
+            <div className="flex items-center justify-between border-t border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
+              <span className="text-sm text-[#475569]">
+                {t('partners.withdrawalsSection.total')}
+              </span>
+              <span className="font-mono tabular-nums text-sm font-medium text-[#C0392B]">
+                {formatCurrency(totalWithdrawalsUSD, 'USD')}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
     </div>
