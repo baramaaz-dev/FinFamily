@@ -8,6 +8,10 @@ import { ROUTES }                           from '@/router/routes';
 import NetWorthCard                         from '@/components/dashboard/NetWorthCard';
 import PortfolioBalanceCard                 from '@/components/dashboard/PortfolioBalanceCard';
 import PortfolioBalanceCardSkeleton         from '@/components/dashboard/PortfolioBalanceCardSkeleton';
+import UpcomingObligationsSection, {
+  type ActiveLease,
+  type UnpaidExpense,
+}                                           from '@/components/dashboard/UpcomingObligationsSection';
 
 // ─── Query functions (outside component per React Query v5 convention) ────────
 
@@ -51,10 +55,41 @@ async function fetchPortfolioTransactions() {
   return data ?? [];
 }
 
+async function fetchActiveLeases() {
+  const today = new Date().toISOString().split('T')[0];
+  const { data, error } = await supabaseClient
+    .from('leases')
+    .select('id, property_id, tenant_name, rent_amount, currency, frequency, start_date, end_date')
+    .lte('start_date', today);
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function fetchUnpaidExpenses() {
+  const { data, error } = await supabaseClient
+    .from('property_expenses')
+    .select('id, property_id, type, amount, currency, due_date')
+    .is('paid_date', null)
+    .not('due_date', 'is', null)
+    .order('due_date', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function fetchObligationPropertyNames() {
+  const { data, error } = await supabaseClient
+    .from('properties')
+    .select('id, name');
+  if (error) throw error;
+  return data ?? [];
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const { t } = useTranslation();
+
+  const today = new Date().toISOString().split('T')[0];
 
   const {
     data:    txData   = [],
@@ -100,6 +135,39 @@ export default function DashboardPage() {
     staleTime: 60_000,
   });
 
+  const {
+    data:      leasesData             = [],
+    isLoading: leasesLoading,
+    isError:   leasesError,
+    refetch:   refetchLeases,
+  } = useQuery({
+    queryKey: ['dashboard-active-leases'],
+    queryFn:  fetchActiveLeases,
+    staleTime: 60_000,
+  });
+
+  const {
+    data:      unpaidExpensesData     = [],
+    isLoading: expensesLoading,
+    isError:   expensesError,
+    refetch:   refetchExpenses,
+  } = useQuery({
+    queryKey: ['dashboard-unpaid-expenses'],
+    queryFn:  fetchUnpaidExpenses,
+    staleTime: 60_000,
+  });
+
+  const {
+    data:      obligationPropertiesData = [],
+    isLoading: obligationPropsLoading,
+    isError:   obligationPropsError,
+    refetch:   refetchObligationProps,
+  } = useQuery({
+    queryKey: ['dashboard-obligation-property-names'],
+    queryFn:  fetchObligationPropertyNames,
+    staleTime: 300_000,
+  });
+
   const portfolioBalanceUSD = useMemo(() => {
     return txData.reduce((sum, tx) => {
       const amount = Number(tx.amount);
@@ -139,6 +207,20 @@ export default function DashboardPage() {
     }
     return map;
   }, [portfolioTxData]);
+
+  const activeLeases = useMemo(
+    () => leasesData.filter(
+      (l) => !l.end_date || l.end_date >= today
+    ) as ActiveLease[],
+    [leasesData, today]
+  );
+
+  const propertyNameMap = useMemo(
+    () => new Map(obligationPropertiesData.map((p) => [p.id, p.name])),
+    [obligationPropertiesData]
+  );
+
+  const unpaidExpenses = unpaidExpensesData as UnpaidExpense[];
 
   const isLoading = txLoading || propLoading;
   const isError   = txError   || propError;
@@ -223,7 +305,20 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-      {/* TODO S-063: Upcoming obligations */}
+      {/* S-063 — Upcoming Obligations */}
+      <UpcomingObligationsSection
+        activeLeases={activeLeases}
+        unpaidExpenses={unpaidExpenses}
+        propertyNameMap={propertyNameMap}
+        today={today}
+        isLoading={leasesLoading || expensesLoading || obligationPropsLoading}
+        isError={!!(leasesError || expensesError || obligationPropsError)}
+        onRetry={() => {
+          void refetchLeases();
+          void refetchExpenses();
+          void refetchObligationProps();
+        }}
+      />
       {/* TODO S-064: Last 5 transactions */}
       {/* TODO S-065: Partner shares */}
       {/* TODO S-066: Asset distribution chart */}
