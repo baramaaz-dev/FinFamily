@@ -12,6 +12,9 @@ import UpcomingObligationsSection, {
   type ActiveLease,
   type UnpaidExpense,
 }                                           from '@/components/dashboard/UpcomingObligationsSection';
+import RecentTransactionsTable, {
+  type DashboardTransaction,
+}                                           from '@/components/dashboard/RecentTransactionsTable';
 
 // ─── Query functions (outside component per React Query v5 convention) ────────
 
@@ -82,6 +85,26 @@ async function fetchObligationPropertyNames() {
     .select('id, name');
   if (error) throw error;
   return data ?? [];
+}
+
+async function fetchRecentTransactions() {
+  const { data, error } = await supabaseClient
+    .from('transactions')
+    .select('id, type, amount, currency, exchange_rate, category, date, portfolios(name)')
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(5);
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id:             row.id,
+    type:           row.type as DashboardTransaction['type'],
+    amount:         Number(row.amount),
+    currency:       row.currency as DashboardTransaction['currency'],
+    exchange_rate:  row.exchange_rate ? Number(row.exchange_rate) : null,
+    category:       row.category,
+    date:           row.date,
+    portfolio_name: (row.portfolios as unknown as { name: string } | null)?.name ?? '—',
+  }));
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -166,6 +189,17 @@ export default function DashboardPage() {
     queryKey: ['dashboard-obligation-property-names'],
     queryFn:  fetchObligationPropertyNames,
     staleTime: 300_000,
+  });
+
+  const {
+    data:      recentTxData     = [],
+    isLoading: recentTxLoading,
+    isError:   recentTxError,
+    refetch:   refetchRecentTx,
+  } = useQuery({
+    queryKey: ['dashboard-recent-transactions'],
+    queryFn:  fetchRecentTransactions,
+    staleTime: 30_000,
   });
 
   const portfolioBalanceUSD = useMemo(() => {
@@ -319,7 +353,13 @@ export default function DashboardPage() {
           void refetchObligationProps();
         }}
       />
-      {/* TODO S-064: Last 5 transactions */}
+      {/* S-064 — Recent Transactions */}
+      <RecentTransactionsTable
+        transactions={recentTxData}
+        isLoading={recentTxLoading}
+        isError={!!recentTxError}
+        onRetry={() => void refetchRecentTx()}
+      />
       {/* TODO S-065: Partner shares */}
       {/* TODO S-066: Asset distribution chart */}
       {/* TODO S-067: P&L indicator */}
