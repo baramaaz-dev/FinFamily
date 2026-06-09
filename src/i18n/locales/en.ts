@@ -113,7 +113,8 @@ const en = {
       actions: 'Actions',
     },
     actions: {
-      edit: 'Edit',
+      view:   'Details',
+      edit:   'Edit',
       delete: 'Delete',
     },
     empty: {
@@ -1026,6 +1027,142 @@ const en = {
           error:   'Failed to confirm settlement',
         },
       },
+    },
+  },
+  partners: {
+    pageTitle:  'Partner Details',
+    backToList: 'Back to People',
+
+    header: {
+      relation:    'Relation',
+      notes:       'Notes',
+      memberSince: 'Member Since',
+    },
+
+    stats: {
+      portfolios:      'Portfolio',
+      properties:      'Property',
+      capitalAccounts: 'Capital Account',
+    },
+
+    portfoliosSection: {
+      title: 'Financial Portfolios',
+      empty: 'No portfolios linked to this partner',
+      columns: {
+        name:       'Portfolio',
+        type:       'Type',
+        share:      'Share',
+        joinedDate: 'Joined',
+        balance:    'Portfolio Balance',
+        shareValue: 'Partner Share',
+      },
+      types: {
+        cash_usd: 'Cash USD',
+        cash_syp: 'Cash SYP',
+        gold:     'Gold',
+        project:  'Project',
+      },
+    },
+
+    propertiesSection: {
+      title: 'Properties',
+      empty: 'No properties linked to this partner',
+      columns: {
+        name:           'Property',
+        type:           'Type',
+        location:       'Location',
+        share:          'Share',
+        ownershipBasis: 'Ownership Basis',
+        estimatedValue: 'Estimated Value',
+        shareValue:     'Partner Share',
+      },
+      types: {
+        residential: 'Residential',
+        commercial:  'Commercial',
+        land:        'Land',
+      },
+    },
+
+    withdrawalsSection: {
+      title:     'Withdrawals',
+      addButton: 'Add Withdrawal',
+      empty:     'No withdrawals recorded for this partner',
+      total:     'Total Withdrawals (USD)',
+      columns: {
+        date:       'Date',
+        entity:     'Entity',
+        entityType: 'Type',
+        amount:     'Amount',
+        currency:   'Currency',
+        notes:      'Notes',
+      },
+      entityTypes: {
+        portfolio: 'Portfolio',
+        property:  'Property',
+        project:   'Project',
+      },
+    },
+
+    withdrawalForm: {
+      dialogTitle: 'Record Withdrawal',
+      cancel:      'Cancel',
+      submit:      'Save',
+      submitting:  'Saving...',
+      form: {
+        entityType:              'Entity Type',
+        entityPortfolio:         'Portfolio',
+        entityProperty:          'Property',
+        entity:                  'Entity',
+        entityPlaceholder:       'Select an entity',
+        noEntities:              'No entities available',
+        amount:                  'Amount',
+        amountPlaceholder:       '0.00',
+        currency:                'Currency',
+        exchangeRate:            'Exchange Rate (SYP/USD)',
+        exchangeRatePlaceholder: 'Enter rate',
+        date:                    'Withdrawal Date',
+        notes:                   'Notes',
+        notesPlaceholder:        'Optional notes...',
+      },
+      validation: {
+        entityTypeRequired:   'Entity type is required',
+        entityRequired:       'Please select an entity',
+        amountRequired:       'Amount is required and must be greater than zero',
+        currencyRequired:     'Currency is required',
+        exchangeRateRequired: 'Exchange rate is required for SYP amounts',
+        dateRequired:         'Date is required',
+      },
+      toast: {
+        success: 'Withdrawal recorded successfully',
+        error:   'Failed to record withdrawal',
+      },
+    },
+
+    capitalSection: {
+      title:         'Capital Summary',
+      empty:         'No capital accounts for this partner',
+      total:         'Total Capital (USD)',
+      viewStatement: 'View Statement',
+      columns: {
+        entity:         'Entity',
+        entityType:     'Type',
+        openingBalance: 'Opening Balance',
+        closingBalance: 'Closing Balance (USD)',
+        actions:        'Actions',
+      },
+    },
+
+    stubs: {
+      capitalTitle:     'Capital Summary',
+      withdrawalsTitle: 'Withdrawals',
+      comingSoon:       'Coming Soon',
+    },
+
+    error: {
+      title:       'Failed to load data',
+      retry:       'Retry',
+      notFound:    'Partner not found',
+      notFoundSub: 'The requested person was not found',
     },
   },
   language: {

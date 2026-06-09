@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { Plus, Pencil, Trash2, Loader2, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Users, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase';
+import { ROUTES } from '@/router/routes';
 import { Button } from '@/components/ui/button';
 import { AddPersonDialog } from '@/components/people/AddPersonDialog';
 import { EditPersonDialog } from '@/components/people/EditPersonDialog';
@@ -121,7 +123,8 @@ function PeopleError({ onRetry, t }: { onRetry: () => void; t: (key: string) => 
 }
 
 export default function PeoplePage() {
-  const { t } = useTranslation();
+  const { t }       = useTranslation();
+  const navigate    = useNavigate();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -251,6 +254,14 @@ export default function PeoplePage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => navigate(ROUTES.PARTNER_DETAIL(person.id))}
+                          aria-label={t('people.actions.view')}
+                          title={t('people.actions.view')}
+                          className="rounded p-1 text-[#475569] hover:bg-[#F1F5F9] transition-colors"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => { setEditTarget(person); setEditDialogOpen(true); }}
                           className="rounded p-1 text-[#1E5DC4] hover:bg-[#E8F0FB] transition-colors"

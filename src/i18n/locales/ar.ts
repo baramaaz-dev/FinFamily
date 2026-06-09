@@ -113,7 +113,8 @@ const ar = {
       actions: 'الإجراءات',
     },
     actions: {
-      edit: 'تعديل',
+      view:   'تفاصيل',
+      edit:   'تعديل',
       delete: 'حذف',
     },
     empty: {
@@ -1026,6 +1027,142 @@ const ar = {
           error:   'حدث خطأ أثناء تأكيد التسوية',
         },
       },
+    },
+  },
+  partners: {
+    pageTitle:  'تفاصيل الشريك',
+    backToList: 'العودة إلى الأشخاص',
+
+    header: {
+      relation:    'صلة القرابة',
+      notes:       'ملاحظات',
+      memberSince: 'عضو منذ',
+    },
+
+    stats: {
+      portfolios:      'محفظة',
+      properties:      'عقار',
+      capitalAccounts: 'حساب رأسمال',
+    },
+
+    portfoliosSection: {
+      title: 'المحافظ المالية',
+      empty: 'لا توجد محافظ مرتبطة بهذا الشريك',
+      columns: {
+        name:       'اسم المحفظة',
+        type:       'النوع',
+        share:      'الحصة',
+        joinedDate: 'تاريخ الانضمام',
+        balance:    'رصيد المحفظة',
+        shareValue: 'نصيب الشريك',
+      },
+      types: {
+        cash_usd: 'نقد دولار',
+        cash_syp: 'نقد ليرة',
+        gold:     'ذهب',
+        project:  'مشروع',
+      },
+    },
+
+    propertiesSection: {
+      title: 'العقارات',
+      empty: 'لا توجد عقارات مرتبطة بهذا الشريك',
+      columns: {
+        name:           'اسم العقار',
+        type:           'النوع',
+        location:       'الموقع',
+        share:          'الحصة',
+        ownershipBasis: 'علة التملك',
+        estimatedValue: 'القيمة التقديرية',
+        shareValue:     'نصيب الشريك',
+      },
+      types: {
+        residential: 'سكني',
+        commercial:  'تجاري',
+        land:        'أرض',
+      },
+    },
+
+    withdrawalsSection: {
+      title:     'المسحوبات',
+      addButton: 'إضافة مسحوبات',
+      empty:     'لا توجد مسحوبات مسجّلة لهذا الشريك',
+      total:     'إجمالي المسحوبات (USD)',
+      columns: {
+        date:       'التاريخ',
+        entity:     'الكيان',
+        entityType: 'النوع',
+        amount:     'المبلغ',
+        currency:   'العملة',
+        notes:      'ملاحظات',
+      },
+      entityTypes: {
+        portfolio: 'محفظة',
+        property:  'عقار',
+        project:   'مشروع',
+      },
+    },
+
+    withdrawalForm: {
+      dialogTitle: 'تسجيل مسحوبات',
+      cancel:      'إلغاء',
+      submit:      'حفظ',
+      submitting:  'جارٍ الحفظ...',
+      form: {
+        entityType:              'نوع الكيان',
+        entityPortfolio:         'محفظة',
+        entityProperty:          'عقار',
+        entity:                  'الكيان',
+        entityPlaceholder:       'اختر كياناً',
+        noEntities:              'لا توجد كيانات',
+        amount:                  'المبلغ',
+        amountPlaceholder:       '0.00',
+        currency:                'العملة',
+        exchangeRate:            'سعر الصرف (SYP/USD)',
+        exchangeRatePlaceholder: 'أدخل السعر',
+        date:                    'تاريخ المسحوبات',
+        notes:                   'ملاحظات',
+        notesPlaceholder:        'ملاحظات اختيارية...',
+      },
+      validation: {
+        entityTypeRequired:   'نوع الكيان مطلوب',
+        entityRequired:       'يرجى اختيار كيان',
+        amountRequired:       'المبلغ مطلوب ويجب أن يكون أكبر من صفر',
+        currencyRequired:     'العملة مطلوبة',
+        exchangeRateRequired: 'سعر الصرف مطلوب للمبالغ بالليرة',
+        dateRequired:         'التاريخ مطلوب',
+      },
+      toast: {
+        success: 'تم تسجيل المسحوبات بنجاح',
+        error:   'تعذّر تسجيل المسحوبات',
+      },
+    },
+
+    capitalSection: {
+      title:         'ملخص رأس المال',
+      empty:         'لا توجد حسابات رأس مال لهذا الشريك',
+      total:         'إجمالي رأس المال (USD)',
+      viewStatement: 'كشف الحساب',
+      columns: {
+        entity:         'الكيان',
+        entityType:     'النوع',
+        openingBalance: 'الرصيد الافتتاحي',
+        closingBalance: 'الرصيد الختامي (USD)',
+        actions:        'الإجراءات',
+      },
+    },
+
+    stubs: {
+      capitalTitle:     'ملخص رأس المال',
+      withdrawalsTitle: 'المسحوبات',
+      comingSoon:       'قريباً',
+    },
+
+    error: {
+      title:        'تعذّر تحميل البيانات',
+      retry:        'إعادة المحاولة',
+      notFound:     'الشريك غير موجود',
+      notFoundSub:  'لم يتم العثور على الشخص المطلوب',
     },
   },
   language: {
