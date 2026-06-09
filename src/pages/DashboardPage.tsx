@@ -19,6 +19,9 @@ import RecentTransactionsTable, {
 import PartnerSharesSection, {
   type PartnerShareRow,
 }                                           from '@/components/dashboard/PartnerSharesSection';
+import AssetDistributionChart, {
+  type AssetSlice,
+}                                           from '@/components/dashboard/AssetDistributionChart';
 
 // ─── Query functions (outside component per React Query v5 convention) ────────
 
@@ -366,6 +369,31 @@ export default function DashboardPage() {
     return { partnerShareRows: rows, grandTotal: total };
   }, [capitalAccountsData, capitalTxAllData, peopleSlimData]);
 
+  const chartSlices = useMemo((): AssetSlice[] => {
+    const slices: AssetSlice[] = [];
+
+    for (const portfolio of portfoliosData) {
+      const balance = portfolioBalanceMap.get(portfolio.id) ?? 0;
+      if (balance > 0) {
+        slices.push({
+          name : portfolio.name,
+          value: balance,
+          type : portfolio.type,
+        });
+      }
+    }
+
+    if (propertyValueUSD > 0) {
+      slices.push({
+        name : t('dashboard.assetChart.propertiesLabel'),
+        value: propertyValueUSD,
+        type : 'property',
+      });
+    }
+
+    return slices;
+  }, [portfoliosData, portfolioBalanceMap, propertyValueUSD, t]);
+
   const isLoading = txLoading || propLoading;
   const isError   = txError   || propError;
 
@@ -482,7 +510,11 @@ export default function DashboardPage() {
           void refetchPeopleSlim();
         }}
       />
-      {/* TODO S-066: Asset distribution chart */}
+      {/* S-066 — Asset Distribution Chart */}
+      <AssetDistributionChart
+        slices={chartSlices}
+        isLoading={portfoliosLoading || portfolioTxLoading || propLoading}
+      />
       {/* TODO S-067: P&L indicator */}
     </div>
   );
