@@ -1167,6 +1167,15 @@ const en = {
   },
   dashboard: {
     title: 'Dashboard',
+    portfolios: {
+      title:      'Financial Portfolios',
+      viewAll:    'View All',
+      netBalance: 'Net Balance',
+      members:    '{count} member(s)',
+      empty:      'No portfolios registered',
+      error:      'Failed to load portfolios',
+      retry:      'Retry',
+    },
     netWorth: {
       title:        'Total Net Worth',
       subtitle:     'Total asset value in US Dollars',
