@@ -1103,6 +1103,41 @@ const ar = {
       },
     },
 
+    withdrawalForm: {
+      dialogTitle: 'تسجيل مسحوبات',
+      cancel:      'إلغاء',
+      submit:      'حفظ',
+      submitting:  'جارٍ الحفظ...',
+      form: {
+        entityType:              'نوع الكيان',
+        entityPortfolio:         'محفظة',
+        entityProperty:          'عقار',
+        entity:                  'الكيان',
+        entityPlaceholder:       'اختر كياناً',
+        noEntities:              'لا توجد كيانات',
+        amount:                  'المبلغ',
+        amountPlaceholder:       '0.00',
+        currency:                'العملة',
+        exchangeRate:            'سعر الصرف (SYP/USD)',
+        exchangeRatePlaceholder: 'أدخل السعر',
+        date:                    'تاريخ المسحوبات',
+        notes:                   'ملاحظات',
+        notesPlaceholder:        'ملاحظات اختيارية...',
+      },
+      validation: {
+        entityTypeRequired:   'نوع الكيان مطلوب',
+        entityRequired:       'يرجى اختيار كيان',
+        amountRequired:       'المبلغ مطلوب ويجب أن يكون أكبر من صفر',
+        currencyRequired:     'العملة مطلوبة',
+        exchangeRateRequired: 'سعر الصرف مطلوب للمبالغ بالليرة',
+        dateRequired:         'التاريخ مطلوب',
+      },
+      toast: {
+        success: 'تم تسجيل المسحوبات بنجاح',
+        error:   'تعذّر تسجيل المسحوبات',
+      },
+    },
+
     stubs: {
       capitalTitle:     'ملخص رأس المال',
       withdrawalsTitle: 'المسحوبات',
