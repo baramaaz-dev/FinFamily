@@ -19,6 +19,7 @@ import RecentTransactionsTable, {
 import PartnerSharesSection, {
   type PartnerShareRow,
 }                                           from '@/components/dashboard/PartnerSharesSection';
+import PLIndicatorCard                      from '@/components/dashboard/PLIndicatorCard';
 
 // ─── Query functions (outside component per React Query v5 convention) ────────
 
@@ -116,6 +117,22 @@ async function fetchPeopleSlimForDashboard() {
   return data ?? [];
 }
 
+function getFirstDayOfMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+async function fetchPLCurrentMonth() {
+  const firstDay = getFirstDayOfMonth();
+  const { data, error } = await supabaseClient
+    .from('transactions')
+    .select('type, amount, currency, exchange_rate')
+    .in('type', ['income', 'expense'])
+    .gte('date', firstDay);
+  if (error) throw error;
+  return data ?? [];
+}
+
 async function fetchRecentTransactions() {
   const { data, error } = await supabaseClient
     .from('transactions')
@@ -142,6 +159,11 @@ export default function DashboardPage() {
   const { t } = useTranslation();
 
   const today = new Date().toISOString().split('T')[0];
+
+  const periodLabel = new Intl.DateTimeFormat('ar-SA', {
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date());
 
   const {
     data:    txData   = [],
@@ -264,6 +286,17 @@ export default function DashboardPage() {
     staleTime: 300_000,
   });
 
+  const {
+    data:      plData    = [],
+    isLoading: plLoading,
+    isError:   plError,
+    refetch:   refetchPL,
+  } = useQuery({
+    queryKey: ['dashboard-pl-current-month'],
+    queryFn:  fetchPLCurrentMonth,
+    staleTime: 30_000,
+  });
+
   const portfolioBalanceUSD = useMemo(() => {
     return txData.reduce((sum, tx) => {
       const amount = Number(tx.amount);
@@ -365,6 +398,24 @@ export default function DashboardPage() {
 
     return { partnerShareRows: rows, grandTotal: total };
   }, [capitalAccountsData, capitalTxAllData, peopleSlimData]);
+
+  const { incomeUSD, expenseUSD, netPL } = useMemo(() => {
+    let income  = 0;
+    let expense = 0;
+    for (const tx of plData) {
+      const amount = Number(tx.amount);
+      const rate   = tx.exchange_rate ? Number(tx.exchange_rate) : null;
+      const usd    =
+        tx.currency === 'USD'
+          ? amount
+          : rate && rate > 0
+          ? amount / rate
+          : 0;
+      if (tx.type === 'income')  income  += usd;
+      if (tx.type === 'expense') expense += usd;
+    }
+    return { incomeUSD: income, expenseUSD: expense, netPL: income - expense };
+  }, [plData]);
 
   const isLoading = txLoading || propLoading;
   const isError   = txError   || propError;
@@ -483,7 +534,16 @@ export default function DashboardPage() {
         }}
       />
       {/* TODO S-066: Asset distribution chart */}
-      {/* TODO S-067: P&L indicator */}
+      {/* S-067 — P&L Indicator */}
+      <PLIndicatorCard
+        incomeUSD={incomeUSD}
+        expenseUSD={expenseUSD}
+        netPL={netPL}
+        periodLabel={periodLabel}
+        isLoading={plLoading}
+        isError={!!plError}
+        onRetry={() => void refetchPL()}
+      />
     </div>
   );
 }
