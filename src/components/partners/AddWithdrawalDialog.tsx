@@ -232,7 +232,7 @@ export default function AddWithdrawalDialog({
                   control={control}
                   render={({ field }) => (
                     <Select
-                      value={field.value || undefined}
+                      value={field.value}
                       onValueChange={(v) => field.onChange(v)}
                       disabled={options.length === 0}
                     >
