@@ -4,13 +4,16 @@ import { useQuery }                from '@tanstack/react-query';
 import { useTranslation }          from 'react-i18next';
 import { toUSD, formatCurrency }   from '@/lib/currency';
 import { format }                  from 'date-fns';
-import { ChevronRight, Wallet, Building2, HandCoins } from 'lucide-react';
+import { ChevronRight, Wallet, Building2, HandCoins, Landmark, Eye } from 'lucide-react';
 import { supabaseClient }          from '@/lib/supabase';
 import {
   Table, TableBody, TableCell,
   TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import AddWithdrawalDialog from '@/components/partners/AddWithdrawalDialog';
+import AddWithdrawalDialog        from '@/components/partners/AddWithdrawalDialog';
+import { buildCapitalBreakdown }  from '@/utils/capital';
+import type { PartnerCapitalAccount } from '@/types';
+import { ROUTES }                 from '@/router/routes';
 
 // ─── Local interfaces ────────────────────────────────────────────────────────
 
@@ -70,6 +73,21 @@ function WithdrawalsSkeleton() {
           <div className="h-4 w-20 animate-pulse rounded bg-[#E2E8F0]" />
           <div className="h-4 w-28 animate-pulse rounded bg-[#E2E8F0]" />
           <div className="h-4 w-14 animate-pulse rounded bg-[#E2E8F0]" />
+          <div className="h-4 w-20 animate-pulse rounded bg-[#E2E8F0]" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CapitalSummarySkeleton() {
+  return (
+    <div className="divide-y divide-[#E2E8F0]" aria-busy="true">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center gap-4 px-4 py-3">
+          <div className="h-4 w-28 animate-pulse rounded bg-[#E2E8F0]" />
+          <div className="h-4 w-14 animate-pulse rounded bg-[#E2E8F0]" />
+          <div className="h-4 w-20 animate-pulse rounded bg-[#E2E8F0]" />
           <div className="h-4 w-20 animate-pulse rounded bg-[#E2E8F0]" />
         </div>
       ))}
@@ -190,22 +208,42 @@ export default function PartnerDetailPage() {
     staleTime: 30_000,
   });
 
-  // Hook 4 — Capital accounts count
-  const { data: capitalCount = 0 } = useQuery({
-    queryKey: ['partner-capital-count', id],
+  // Hook 4 — Capital accounts (full rows, replaces count-only query)
+  const {
+    data: capitalAccounts = [],
+    isLoading: capitalAccountsLoading,
+  } = useQuery({
+    queryKey: ['partner-capital-accounts-summary', id],
     queryFn: async () => {
-      const { count, error } = await supabaseClient
+      const { data, error } = await supabaseClient
         .from('partner_capital_accounts')
-        .select('*', { count: 'exact', head: true })
+        .select('id, entity_type, entity_id, opening_balance, currency, opening_date')
         .eq('partner_id', id!);
       if (error) throw error;
-      return count ?? 0;
+      return (data ?? []) as PartnerCapitalAccount[];
     },
     enabled: !!id,
     staleTime: 30_000,
   });
 
-  // Hook 5 — Portfolio transactions (for balance calculation)
+  // Hook 5 — Capital transactions (for closing balance computation)
+  const capitalAccountIds = capitalAccounts.map((a) => a.id);
+
+  const { data: allCapitalTxs = [] } = useQuery({
+    queryKey: ['partner-capital-transactions-summary', id],
+    queryFn: async () => {
+      const { data, error } = await supabaseClient
+        .from('capital_transactions')
+        .select('capital_account_id, type, amount, currency, exchange_rate')
+        .in('capital_account_id', capitalAccountIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!id && capitalAccounts.length > 0,
+    staleTime: 30_000,
+  });
+
+  // Hook 6 — Portfolio transactions (for balance calculation)
   const portfolioIds = portfolioMemberships.map((pm) => pm.portfolios.id);
 
   const { data: allPortfolioTxs = [], isLoading: txLoading } = useQuery({
@@ -222,7 +260,7 @@ export default function PartnerDetailPage() {
     staleTime: 30_000,
   });
 
-  // Hook 6 — Partner withdrawals
+  // Hook 7 — Partner withdrawals
   const {
     data: withdrawals = [],
     isLoading: withdrawalsLoading,
@@ -286,6 +324,29 @@ export default function PartnerDetailPage() {
       );
     }, 0);
   }, [withdrawals]);
+
+  const capitalClosingMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const account of capitalAccounts) {
+      const txs = allCapitalTxs.filter(
+        (tx) => tx.capital_account_id === account.id
+      );
+      const breakdown = buildCapitalBreakdown(
+        Number(account.opening_balance),
+        account.currency as 'USD' | 'SYP',
+        null,
+        txs
+      );
+      map.set(account.id, breakdown.closingBalance);
+    }
+    return map;
+  }, [allCapitalTxs, capitalAccounts]);
+
+  const totalCapitalUSD = useMemo(() => {
+    let total = 0;
+    capitalClosingMap.forEach((balance) => { total += balance; });
+    return total;
+  }, [capitalClosingMap]);
 
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
 
@@ -382,7 +443,7 @@ export default function PartnerDetailPage() {
         </div>
         <div className="rounded-lg border border-[#E2E8F0] bg-white p-4 text-center">
           <p className="font-mono tabular-nums text-2xl font-medium text-[#B45309]">
-            {capitalCount}
+            {capitalAccounts.length}
           </p>
           <p className="mt-1 text-xs text-[#475569]">{t('partners.stats.capitalAccounts')}</p>
         </div>
@@ -568,16 +629,98 @@ export default function PartnerDetailPage() {
         )}
       </div>
 
-      {/* Capital Summary stub */}
-      <div className="overflow-hidden rounded-lg border border-[#E2E8F0] bg-white p-4">
-        <div className="flex items-center justify-between">
+      {/* Capital summary section */}
+      <div className="overflow-hidden rounded-lg border border-[#E2E8F0] bg-white">
+
+        <div className="border-b border-[#E2E8F0] px-4 py-3">
           <h2 className="text-base font-medium text-[#1E293B]">
-            {t('partners.stubs.capitalTitle')}
+            {t('partners.capitalSection.title')}
           </h2>
-          <span className="rounded-md bg-[#FEF7EC] px-2 py-0.5 text-xs font-medium text-[#B45309]">
-            {t('partners.stubs.comingSoon')}
-          </span>
         </div>
+
+        {capitalAccountsLoading ? (
+          <CapitalSummarySkeleton />
+        ) : capitalAccounts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-12">
+            <Landmark className="h-10 w-10 text-[#94A3B8]" />
+            <p className="text-sm text-[#475569]">
+              {t('partners.capitalSection.empty')}
+            </p>
+          </div>
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-[#F1F5F9] hover:bg-[#F1F5F9]">
+                  <TableHead className="text-start text-xs font-medium text-[#475569]">
+                    {t('partners.capitalSection.columns.entity')}
+                  </TableHead>
+                  <TableHead className="text-start text-xs font-medium text-[#475569]">
+                    {t('partners.capitalSection.columns.entityType')}
+                  </TableHead>
+                  <TableHead className="text-start text-xs font-medium text-[#475569]">
+                    {t('partners.capitalSection.columns.openingBalance')}
+                  </TableHead>
+                  <TableHead className="text-start text-xs font-medium text-[#475569]">
+                    {t('partners.capitalSection.columns.closingBalance')}
+                  </TableHead>
+                  <TableHead className="text-end text-xs font-medium text-[#475569]">
+                    {t('partners.capitalSection.columns.actions')}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {capitalAccounts.map((account) => {
+                  const entityName    = entityNameMap.get(account.entity_id) ?? '—';
+                  const closingBalance = capitalClosingMap.get(account.id) ?? 0;
+                  return (
+                    <TableRow
+                      key={account.id}
+                      className="text-sm text-[#1E293B] hover:bg-[#F8FAFC]"
+                    >
+                      <TableCell className="font-medium">{entityName}</TableCell>
+                      <TableCell>
+                        <EntityTypeBadge entityType={account.entity_type} t={t} />
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono tabular-nums text-sm text-[#1E293B]">
+                          {formatCurrency(
+                            Number(account.opening_balance),
+                            account.currency as 'USD' | 'SYP'
+                          )}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`font-mono tabular-nums text-sm ${signColor(closingBalance)}`}>
+                          {formatCurrency(closingBalance, 'USD')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-end">
+                        <button
+                          onClick={() => navigate(ROUTES.CAPITAL_DETAIL(account.id))}
+                          aria-label={t('partners.capitalSection.viewStatement')}
+                          title={t('partners.capitalSection.viewStatement')}
+                          className="rounded p-1 text-[#1E5DC4] hover:bg-[#E8F0FB] transition-colors"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+
+            <div className="flex items-center justify-between border-t border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
+              <span className="text-sm text-[#475569]">
+                {t('partners.capitalSection.total')}
+              </span>
+              <span className={`font-mono tabular-nums text-sm font-medium ${signColor(totalCapitalUSD)}`}>
+                {formatCurrency(totalCapitalUSD, 'USD')}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Withdrawals section */}
