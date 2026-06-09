@@ -1227,6 +1227,13 @@ const ar = {
       error:      'فشل تحميل نصيب الشركاء',
       retry:      'إعادة المحاولة',
     },
+    assetChart: {
+      title:           'توزيع الأصول',
+      propertiesLabel: 'العقارات',
+      empty:           'لا توجد أصول بقيمة موجبة لعرضها',
+      tooltipValue:    '{value} USD',
+      tooltipPercent:  '{percent}% من الإجمالي',
+    },
   },
   language: {
     toggle:  'EN',

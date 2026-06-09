@@ -1227,6 +1227,13 @@ const en = {
       error:      'Failed to load partner shares',
       retry:      'Retry',
     },
+    assetChart: {
+      title:           'Asset Distribution',
+      propertiesLabel: 'Properties',
+      empty:           'No assets with positive value to display',
+      tooltipValue:    '{value} USD',
+      tooltipPercent:  '{percent}% of total',
+    },
   },
   language: {
     toggle:  'ع',
