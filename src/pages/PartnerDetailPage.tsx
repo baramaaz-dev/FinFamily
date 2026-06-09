@@ -1,4 +1,4 @@
-import { useMemo }                 from 'react';
+import { useMemo, useState }        from 'react';
 import { useParams, useNavigate }  from 'react-router-dom';
 import { useQuery }                from '@tanstack/react-query';
 import { useTranslation }          from 'react-i18next';
@@ -10,6 +10,7 @@ import {
   Table, TableBody, TableCell,
   TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import AddWithdrawalDialog from '@/components/partners/AddWithdrawalDialog';
 
 // ─── Local interfaces ────────────────────────────────────────────────────────
 
@@ -285,6 +286,8 @@ export default function PartnerDetailPage() {
       );
     }, 0);
   }, [withdrawals]);
+
+  const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
 
   const signColor = (value: number): string => {
     if (value > 0) return 'text-[#1A7D4F]';
@@ -586,8 +589,8 @@ export default function PartnerDetailPage() {
             {t('partners.withdrawalsSection.title')}
           </h2>
           <button
-            disabled
-            className="rounded-md bg-[#1E5DC4] px-3 py-1.5 text-sm text-white opacity-50 cursor-not-allowed"
+            onClick={() => setWithdrawalDialogOpen(true)}
+            className="rounded-md bg-[#1E5DC4] px-3 py-1.5 text-sm text-white hover:bg-[#164399] transition-colors"
           >
             {t('partners.withdrawalsSection.addButton')}
           </button>
@@ -674,6 +677,20 @@ export default function PartnerDetailPage() {
           </>
         )}
       </div>
+
+      <AddWithdrawalDialog
+        open={withdrawalDialogOpen}
+        onOpenChange={setWithdrawalDialogOpen}
+        personId={id!}
+        portfolioOptions={portfolioMemberships.map((pm) => ({
+          id:   pm.portfolios.id,
+          name: pm.portfolios.name,
+        }))}
+        propertyOptions={propertyOwnerships.map((po) => ({
+          id:   po.properties.id,
+          name: po.properties.name,
+        }))}
+      />
 
     </div>
   );
