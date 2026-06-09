@@ -1103,6 +1103,41 @@ const en = {
       },
     },
 
+    withdrawalForm: {
+      dialogTitle: 'Record Withdrawal',
+      cancel:      'Cancel',
+      submit:      'Save',
+      submitting:  'Saving...',
+      form: {
+        entityType:              'Entity Type',
+        entityPortfolio:         'Portfolio',
+        entityProperty:          'Property',
+        entity:                  'Entity',
+        entityPlaceholder:       'Select an entity',
+        noEntities:              'No entities available',
+        amount:                  'Amount',
+        amountPlaceholder:       '0.00',
+        currency:                'Currency',
+        exchangeRate:            'Exchange Rate (SYP/USD)',
+        exchangeRatePlaceholder: 'Enter rate',
+        date:                    'Withdrawal Date',
+        notes:                   'Notes',
+        notesPlaceholder:        'Optional notes...',
+      },
+      validation: {
+        entityTypeRequired:   'Entity type is required',
+        entityRequired:       'Please select an entity',
+        amountRequired:       'Amount is required and must be greater than zero',
+        currencyRequired:     'Currency is required',
+        exchangeRateRequired: 'Exchange rate is required for SYP amounts',
+        dateRequired:         'Date is required',
+      },
+      toast: {
+        success: 'Withdrawal recorded successfully',
+        error:   'Failed to record withdrawal',
+      },
+    },
+
     stubs: {
       capitalTitle:     'Capital Summary',
       withdrawalsTitle: 'Withdrawals',
