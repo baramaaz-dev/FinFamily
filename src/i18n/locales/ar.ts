@@ -1083,6 +1083,26 @@ const ar = {
       },
     },
 
+    withdrawalsSection: {
+      title:     'المسحوبات',
+      addButton: 'إضافة مسحوبات',
+      empty:     'لا توجد مسحوبات مسجّلة لهذا الشريك',
+      total:     'إجمالي المسحوبات (USD)',
+      columns: {
+        date:       'التاريخ',
+        entity:     'الكيان',
+        entityType: 'النوع',
+        amount:     'المبلغ',
+        currency:   'العملة',
+        notes:      'ملاحظات',
+      },
+      entityTypes: {
+        portfolio: 'محفظة',
+        property:  'عقار',
+        project:   'مشروع',
+      },
+    },
+
     stubs: {
       capitalTitle:     'ملخص رأس المال',
       withdrawalsTitle: 'المسحوبات',
