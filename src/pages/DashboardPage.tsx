@@ -5,6 +5,7 @@ import { useTranslation }                   from 'react-i18next';
 import { supabaseClient }                   from '@/lib/supabase';
 import type { Portfolio }                   from '@/types';
 import { ROUTES }                           from '@/router/routes';
+import { buildCapitalBreakdown }            from '@/utils/capital';
 import NetWorthCard                         from '@/components/dashboard/NetWorthCard';
 import PortfolioBalanceCard                 from '@/components/dashboard/PortfolioBalanceCard';
 import PortfolioBalanceCardSkeleton         from '@/components/dashboard/PortfolioBalanceCardSkeleton';
@@ -15,6 +16,9 @@ import UpcomingObligationsSection, {
 import RecentTransactionsTable, {
   type DashboardTransaction,
 }                                           from '@/components/dashboard/RecentTransactionsTable';
+import PartnerSharesSection, {
+  type PartnerShareRow,
+}                                           from '@/components/dashboard/PartnerSharesSection';
 
 // ─── Query functions (outside component per React Query v5 convention) ────────
 
@@ -83,6 +87,31 @@ async function fetchObligationPropertyNames() {
   const { data, error } = await supabaseClient
     .from('properties')
     .select('id, name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function fetchCapitalAccountsForDashboard() {
+  const { data, error } = await supabaseClient
+    .from('partner_capital_accounts')
+    .select('id, partner_id, opening_balance, currency');
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function fetchCapitalTransactionsForDashboard() {
+  const { data, error } = await supabaseClient
+    .from('capital_transactions')
+    .select('capital_account_id, type, amount, currency, exchange_rate');
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function fetchPeopleSlimForDashboard() {
+  const { data, error } = await supabaseClient
+    .from('people')
+    .select('id, name')
+    .order('name', { ascending: true });
   if (error) throw error;
   return data ?? [];
 }
@@ -202,6 +231,39 @@ export default function DashboardPage() {
     staleTime: 30_000,
   });
 
+  const {
+    data:      capitalAccountsData    = [],
+    isLoading: capitalAccountsLoading,
+    isError:   capitalAccountsError,
+    refetch:   refetchCapitalAccounts,
+  } = useQuery({
+    queryKey: ['capital-accounts'],
+    queryFn:  fetchCapitalAccountsForDashboard,
+    staleTime: 30_000,
+  });
+
+  const {
+    data:      capitalTxAllData    = [],
+    isLoading: capitalTxAllLoading,
+    isError:   capitalTxAllError,
+    refetch:   refetchCapitalTxAll,
+  } = useQuery({
+    queryKey: ['capital-transactions-all'],
+    queryFn:  fetchCapitalTransactionsForDashboard,
+    staleTime: 30_000,
+  });
+
+  const {
+    data:      peopleSlimData    = [],
+    isLoading: peopleSlimLoading,
+    isError:   peopleSlimError,
+    refetch:   refetchPeopleSlim,
+  } = useQuery({
+    queryKey: ['people-slim'],
+    queryFn:  fetchPeopleSlimForDashboard,
+    staleTime: 300_000,
+  });
+
   const portfolioBalanceUSD = useMemo(() => {
     return txData.reduce((sum, tx) => {
       const amount = Number(tx.amount);
@@ -255,6 +317,54 @@ export default function DashboardPage() {
   );
 
   const unpaidExpenses = unpaidExpensesData as UnpaidExpense[];
+
+  const { partnerShareRows, grandTotal } = useMemo(() => {
+    const closingBalanceMap = new Map<string, number>();
+    for (const account of capitalAccountsData) {
+      const txsForAccount = capitalTxAllData.filter(
+        (tx) => tx.capital_account_id === account.id
+      );
+      const breakdown = buildCapitalBreakdown(
+        Number(account.opening_balance),
+        account.currency as 'USD' | 'SYP',
+        null,
+        txsForAccount.map((tx) => ({
+          type         : tx.type as 'capital_injection' | 'capital_reduction' | 'drawing' | 'profit_share' | 'loss_share',
+          amount       : Number(tx.amount),
+          currency     : tx.currency as 'USD' | 'SYP',
+          exchange_rate: tx.exchange_rate ? Number(tx.exchange_rate) : null,
+        }))
+      );
+      closingBalanceMap.set(account.id, breakdown.closingBalance);
+    }
+
+    const partnerTotalMap = new Map<string, number>();
+    for (const account of capitalAccountsData) {
+      const closing = closingBalanceMap.get(account.id) ?? 0;
+      partnerTotalMap.set(
+        account.partner_id,
+        (partnerTotalMap.get(account.partner_id) ?? 0) + closing
+      );
+    }
+
+    const total = Array.from(partnerTotalMap.values()).reduce((s, v) => s + v, 0);
+
+    const rows: PartnerShareRow[] = peopleSlimData
+      .filter((p) => partnerTotalMap.has(p.id))
+      .map((p) => ({
+        personId       : p.id,
+        name           : p.name,
+        totalCapitalUSD: partnerTotalMap.get(p.id) ?? 0,
+        sharePercent   : total !== 0
+          ? ((partnerTotalMap.get(p.id) ?? 0) / total) * 100
+          : 0,
+        accentIndex    : 0,
+      }))
+      .sort((a, b) => b.totalCapitalUSD - a.totalCapitalUSD)
+      .map((row, idx) => ({ ...row, accentIndex: idx }));
+
+    return { partnerShareRows: rows, grandTotal: total };
+  }, [capitalAccountsData, capitalTxAllData, peopleSlimData]);
 
   const isLoading = txLoading || propLoading;
   const isError   = txError   || propError;
@@ -360,7 +470,18 @@ export default function DashboardPage() {
         isError={!!recentTxError}
         onRetry={() => void refetchRecentTx()}
       />
-      {/* TODO S-065: Partner shares */}
+      {/* S-065 — Partner Shares */}
+      <PartnerSharesSection
+        rows={partnerShareRows}
+        grandTotal={grandTotal}
+        isLoading={capitalAccountsLoading || capitalTxAllLoading || peopleSlimLoading}
+        isError={!!(capitalAccountsError || capitalTxAllError || peopleSlimError)}
+        onRetry={() => {
+          void refetchCapitalAccounts();
+          void refetchCapitalTxAll();
+          void refetchPeopleSlim();
+        }}
+      />
       {/* TODO S-066: Asset distribution chart */}
       {/* TODO S-067: P&L indicator */}
     </div>
