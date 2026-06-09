@@ -1227,6 +1227,15 @@ const en = {
       error:      'Failed to load partner shares',
       retry:      'Retry',
     },
+    pl: {
+      title:   'Financial Performance',
+      income:  'Total Income',
+      expense: 'Total Expenses',
+      netPL:   'Net P&L',
+      empty:   'No transactions this month',
+      error:   'Failed to load performance data',
+      retry:   'Retry',
+    },
   },
   language: {
     toggle:  'ع',
