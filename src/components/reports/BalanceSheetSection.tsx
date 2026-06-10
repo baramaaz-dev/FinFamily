@@ -418,6 +418,27 @@ export default function BalanceSheetSection() {
 
       {!isLoading && !isError && hasData && (
         <div ref={printRef} className="space-y-4">
+          {/* Print header — hidden in browser, revealed by exportToPDF during capture */}
+          <div className="pdf-show hidden border-b-2 border-[#E2E8F0] pb-4 mb-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-2xl font-medium text-[#0F172A]">FinFamily</p>
+                <p className="text-sm text-[#475569]">إدارة الأصول العائلية</p>
+              </div>
+              <div className="text-end">
+                <p className="text-base font-medium text-[#1E293B]">
+                  {t('reports.balance.title')}
+                </p>
+                <p className="text-xs text-[#94A3B8]">
+                  {t('reports.filters.asOfDate')}: {appliedAsOf}
+                </p>
+                <p className="text-xs text-[#94A3B8]">
+                  تاريخ التصدير: {new Date().toLocaleDateString('ar-SA')}
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Summary cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-lg border border-[#A3D4BC] bg-[#EBF5F0] p-4">
