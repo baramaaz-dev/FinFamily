@@ -20,6 +20,7 @@ import SettlementsPage         from '@/pages/SettlementsPage';
 import SettlementDetailPage    from '@/pages/SettlementDetailPage';
 import LoginPage               from '@/pages/LoginPage';
 import NotFoundPage            from '@/pages/NotFoundPage';
+import ErrorBoundary           from '@/components/ui/ErrorBoundary';
 
 export const router = createBrowserRouter([
   {
@@ -33,30 +34,30 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { index: true,                element: <DashboardPage /> },
-          { path: 'transactions',       element: <TransactionsPage /> },
-          { path: 'portfolios',         element: <PortfoliosPage /> },
-          { path: 'portfolios/:id',     element: <PortfolioDetailPage /> },
-          { path: 'properties',         element: <PropertiesPage /> },
-          { path: 'properties/:id',     element: <PropertyOwnershipPage /> },
-          { path: 'partners',           element: <PartnersPage /> },
-          { path: 'partners/:id',       element: <PartnerDetailPage /> },
-          { path: 'reports',            element: <ReportsPage /> },
-          { path: 'capital',            element: <CapitalAccountsPage /> },
-          { path: 'capital/:accountId', element: <CapitalStatementPage /> },
-          { path: 'settlements',              element: <SettlementsPage /> },
-          { path: 'settlements/:settlementId', element: <SettlementDetailPage /> },
+          { index: true,                element: <ErrorBoundary><DashboardPage /></ErrorBoundary> },
+          { path: 'transactions',       element: <ErrorBoundary><TransactionsPage /></ErrorBoundary> },
+          { path: 'portfolios',         element: <ErrorBoundary><PortfoliosPage /></ErrorBoundary> },
+          { path: 'portfolios/:id',     element: <ErrorBoundary><PortfolioDetailPage /></ErrorBoundary> },
+          { path: 'properties',         element: <ErrorBoundary><PropertiesPage /></ErrorBoundary> },
+          { path: 'properties/:id',     element: <ErrorBoundary><PropertyOwnershipPage /></ErrorBoundary> },
+          { path: 'partners',           element: <ErrorBoundary><PartnersPage /></ErrorBoundary> },
+          { path: 'partners/:id',       element: <ErrorBoundary><PartnerDetailPage /></ErrorBoundary> },
+          { path: 'reports',            element: <ErrorBoundary><ReportsPage /></ErrorBoundary> },
+          { path: 'capital',            element: <ErrorBoundary><CapitalAccountsPage /></ErrorBoundary> },
+          { path: 'capital/:accountId', element: <ErrorBoundary><CapitalStatementPage /></ErrorBoundary> },
+          { path: 'settlements',               element: <ErrorBoundary><SettlementsPage /></ErrorBoundary> },
+          { path: 'settlements/:settlementId', element: <ErrorBoundary><SettlementDetailPage /></ErrorBoundary> },
           {
             path: 'settings',
-            element: <SettingsPage />,
+            element: <ErrorBoundary><SettingsPage /></ErrorBoundary>,
             children: [
-              { index: true,            element: <PeoplePage /> },
-              { path: 'people',         element: <PeoplePage /> },
-              { path: 'exchange-rates', element: <ExchangeRatesPage /> },
-              { path: 'accounts',      element: <AccountsPage /> },
+              { index: true,            element: <ErrorBoundary><PeoplePage /></ErrorBoundary> },
+              { path: 'people',         element: <ErrorBoundary><PeoplePage /></ErrorBoundary> },
+              { path: 'exchange-rates', element: <ErrorBoundary><ExchangeRatesPage /></ErrorBoundary> },
+              { path: 'accounts',       element: <ErrorBoundary><AccountsPage /></ErrorBoundary> },
             ],
           },
-          { path: '*',                  element: <NotFoundPage /> },
+          { path: '*',                  element: <ErrorBoundary><NotFoundPage /></ErrorBoundary> },
         ],
       },
     ],
