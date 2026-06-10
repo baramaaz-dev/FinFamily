@@ -1,8 +1,8 @@
 # FinFamily — Validation Strategy (Zod v4)
 **Document:** STR-005
-**Version:** 1.3
+**Version:** 1.4
 **Status:** ✅ Adopted
-**Last updated:** 2026-06-08
+**Last updated:** 2026-06-10
 
 > **قاعدة إلزامية:** أي نموذج إدخال (form) أو معالجة بيانات خارجية في المشروع
 > يجب أن يستخدم Zod schema موثّق في هذا الملف أو متوافق مع أنماطه.
@@ -348,6 +348,43 @@ resolver: zodResolver(mySchema) as unknown as Resolver<MyFormData>
 
 ---
 
+### 5.8 TypeScript Union Types لـ Interfaces بيانات Supabase
+
+> ⚠️ **مكتشف في S-069، مؤكَّد في S-070:** عند تعريف raw interfaces لنتائج
+> استعلامات Supabase التي ستُمرَّر لدوال مكتوبة بأنواع محددة (كـ
+> `buildCapitalBreakdown()`، يجب أن تُكتب الحقول ذات القيم المحدودة
+> (CHECK constraints في قاعدة البيانات) كـ union types لا كـ `string`.
+
+```ts
+// ❌ ممنوع — يُنتج خطأ TypeScript عند التمرير لـ buildCapitalBreakdown
+interface RawCapitalAccount {
+  currency: string;
+}
+interface RawCapitalTransaction {
+  type: string;
+  currency: string;
+}
+
+// ✅ صحيح — union types تتطابق مع CHECK constraints وتوقيع الدالة
+interface RawCapitalAccount {
+  currency: 'USD' | 'SYP';
+}
+interface RawCapitalTransaction {
+  type: 'capital_injection' | 'capital_reduction' | 'drawing' | 'profit_share' | 'loss_share';
+  currency: 'USD' | 'SYP';
+}
+```
+
+**القاعدة العامة:** أي حقل في interface بيانات Supabase يقابل عمود بـ
+`CHECK IN (...)` في قاعدة البيانات → اكتبه كـ union type بنفس القيم،
+لا كـ `string`. هذا يمنع أخطاء TypeScript الصامتة عند تمرير البيانات
+لدوال المنافع (utility functions) الموجودة في `src/utils/`.
+
+> الأعراض عند المخالفة: خطأ TypeScript على سطر استدعاء الدالة لا على
+> سطر تعريف الـ interface — مما يُصعّب تتبع المصدر.
+
+---
+
 ## 6. Schemas المُعرَّفة لكل وحدة
 
 ### 6.1 People (S-016)
@@ -505,6 +542,215 @@ z.object({
 // لا cast مطلوب: لا z.coerce.number() ولا .superRefine() في هذا الـ schema
 ```
 
+### 6.8 Property Owners (S-035)
+```ts
+// src/components/properties/AddPropertyOwnerForm.tsx (inline form — not dialog)
+const addPropertyOwnerSchema = z.object({
+  person_id:         z.string().min(1, { message: 'properties.validation.ownerRequired' }),
+  share_numerator:   z.coerce.number({ error: 'properties.validation.numeratorInvalid' })
+                       .int().positive(),
+  share_denominator: z.coerce.number({ error: 'properties.validation.denominatorInvalid' })
+                       .int().min(1),
+  ownership_basis:   z.enum(
+    ['إرث', 'شراء', 'هبة', 'وصية', 'شراكة'],
+    { error: 'properties.validation.ownershipBasisRequired' }
+  ),
+})
+// مجموع الحصص يُتحقق منه بـ validateShares() بعد جمع كل الملاك
+// cast إلزامي بسبب z.coerce.number() (§4.1)
+```
+
+### 6.9 Lease Payments (S-040)
+```ts
+// src/components/properties/RecordLeasePaymentDialog.tsx
+const recordLeasePaymentSchema = z.object({
+  amount:        z.coerce.number({ error: 'properties.leases.payment.validation.amountInvalid' })
+                   .positive({ message: 'properties.leases.payment.validation.amountPositive' }),
+  currency:      z.enum(['USD', 'SYP'], {
+                   error: 'properties.leases.payment.validation.currencyRequired',
+                 }),
+  exchange_rate: z.string()
+                   .refine(
+                     (v) => v === '' || v === undefined || !isNaN(parseFloat(v)),
+                     { message: 'properties.leases.payment.validation.exchangeRateInvalid' }
+                   )
+                   .refine(
+                     (v) => v === '' || v === undefined || parseFloat(v) > 0,
+                     { message: 'properties.leases.payment.validation.exchangeRatePositive' }
+                   )
+                   .optional(),
+  paid_date:     z.string().min(1, { message: 'properties.leases.payment.validation.paidDateRequired' }),
+  portfolio_id:  z.preprocess(
+                   (v) => (v === '' || v === null || v === undefined ? undefined : v),
+                   z.string().uuid().optional()
+                 ),
+  notes:         z.string().max(500).optional(),
+})
+
+// defaultValues: amount و currency من الـ lease context (pre-filled)
+// cast إلزامي بسبب z.coerce.number() (§4.1)
+resolver: zodResolver(recordLeasePaymentSchema) as unknown as Resolver<RecordLeasePaymentFormData>
+
+// في onSubmit:
+// exchange_rate: data.currency === 'SYP' && data.exchange_rate
+//   ? parseFloat(data.exchange_rate) : null
+// portfolio_id: data.portfolio_id || null
+// notes: data.notes?.trim() || null
+```
+
+### 6.10 Property Expenses (S-041)
+```ts
+// src/components/properties/AddPropertyExpenseDialog.tsx
+const addPropertyExpenseSchema = z.object({
+  type: z.enum(
+    ['tax', 'maintenance', 'utilities', 'fees'],
+    { error: 'properties.expenses.validation.typeRequired' }
+  ),
+  currency:      z.enum(['USD', 'SYP'], { error: 'properties.expenses.validation.currencyRequired' }),
+  amount:        z.coerce.number({ error: 'properties.expenses.validation.amountInvalid' })
+                   .positive({ message: 'properties.expenses.validation.amountPositive' }),
+  exchange_rate: z.string()
+                   .refine(
+                     (v) => v === '' || v === undefined || !isNaN(parseFloat(v)),
+                     { message: 'properties.expenses.validation.exchangeRateInvalid' }
+                   )
+                   .refine(
+                     (v) => v === '' || v === undefined || parseFloat(v) > 0,
+                     { message: 'properties.expenses.validation.exchangeRatePositive' }
+                   )
+                   .optional(),
+  due_date:      z.string().min(1, { message: 'properties.expenses.validation.dueDateRequired' }),
+  paid_date:     z.preprocess(
+                   (v) => (v === '' || v === null || v === undefined ? undefined : v),
+                   z.string().optional()
+                 ),
+  notes:         z.string().max(500).optional(),
+})
+// cast إلزامي بسبب z.coerce.number() (§4.1)
+```
+
+### 6.11 Capital Accounts (S-048)
+```ts
+// src/components/capital/AddCapitalAccountDialog.tsx
+const addCapitalAccountSchema = z.object({
+  partner_id:      z.string().min(1, { message: 'capital.validation.partnerRequired' }),
+  entity_type:     z.enum(['portfolio', 'property'], {
+                     error: 'capital.validation.entityTypeRequired',
+                   }),
+  entity_id:       z.string().min(1, { message: 'capital.validation.entityRequired' }),
+  opening_balance: z.string()
+                     .refine(
+                       (v) => v === '' || !isNaN(parseFloat(v)),
+                       { message: 'capital.validation.openingBalanceInvalid' }
+                     )
+                     .refine(
+                       (v) => v === '' || parseFloat(v) >= 0,
+                       { message: 'capital.validation.openingBalanceNegative' }
+                     ),
+  currency:        z.enum(['USD', 'SYP'], { error: 'capital.validation.currencyRequired' }),
+  exchange_rate:   z.string()
+                     .refine(
+                       (v) => v === '' || v === undefined || !isNaN(parseFloat(v)),
+                       { message: 'capital.validation.exchangeRateInvalid' }
+                     )
+                     .optional(),
+  opening_date:    z.string().min(1, { message: 'capital.validation.openingDateRequired' }),
+})
+// ملاحظة: opening_balance يقبل 0 — حساب برصيد افتتاحي صفري مسموح
+// cast إلزامي (§4.1) — schema يحتوي z.string().refine() مع منطق رقمي
+// في onSubmit: opening_balance → parseFloat(data.opening_balance) || 0
+```
+
+### 6.12 Capital Transactions (S-049)
+```ts
+// src/components/capital/AddCapitalTransactionDialog.tsx
+const addCapitalTransactionSchema = z.object({
+  type: z.enum(
+    ['capital_injection', 'capital_reduction', 'drawing', 'profit_share', 'loss_share'],
+    { error: 'capital.transactions.validation.typeRequired' }
+  ),
+  amount:        z.string()
+                   .refine(
+                     (v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0,
+                     { message: 'capital.transactions.validation.amountPositive' }
+                   ),
+  currency:      z.enum(['USD', 'SYP'], {
+                   error: 'capital.transactions.validation.currencyRequired',
+                 }),
+  exchange_rate: z.string()
+                   .refine(
+                     (v) => v === '' || v === undefined || !isNaN(parseFloat(v)),
+                     { message: 'capital.transactions.validation.exchangeRateInvalid' }
+                   )
+                   .refine(
+                     (v) => v === '' || v === undefined || parseFloat(v) > 0,
+                     { message: 'capital.transactions.validation.exchangeRatePositive' }
+                   )
+                   .optional(),
+  date:          z.string().min(1, { message: 'capital.transactions.validation.dateRequired' }),
+  reference_no:  z.string().max(100).optional(),
+  notes:         z.string().max(500).optional(),
+}).superRefine((data, ctx) => {
+  if (data.currency === 'SYP' && (!data.exchange_rate || data.exchange_rate === '')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['exchange_rate'],
+      message: 'capital.transactions.validation.exchangeRateRequired',
+    });
+  }
+})
+
+// cast إلزامي: schema يحتوي .superRefine() (§4.1)
+resolver: zodResolver(addCapitalTransactionSchema) as unknown as Resolver<AddCapitalTransactionFormData>
+
+// في onSubmit:
+// amount: parseFloat(data.amount)
+// exchange_rate: data.currency === 'SYP' && data.exchange_rate
+//   ? parseFloat(data.exchange_rate) : null
+// journal_entry_id: null  (hardcoded — STR-006 §11.3, deferred post-MVP)
+```
+
+### 6.13 Profit Settlements (S-052)
+```ts
+// src/components/settlements/AddSettlementDialog.tsx
+const addSettlementSchema = z.object({
+  entity_type:     z.enum(['portfolio', 'property'], {
+                     error: 'settlements.validation.entityTypeRequired',
+                   }),
+  entity_id:       z.string().min(1, { message: 'settlements.validation.entityRequired' }),
+  period_start:    z.string().min(1, { message: 'settlements.validation.periodStartRequired' }),
+  period_end:      z.string().min(1, { message: 'settlements.validation.periodEndRequired' }),
+  total_profit:    z.string()
+                     .refine(
+                       (v) => !isNaN(parseFloat(v)),
+                       { message: 'settlements.validation.totalProfitInvalid' }
+                     )
+                     .refine(
+                       (v) => parseFloat(v) > 0,
+                       { message: 'settlements.validation.totalProfitPositive' }
+                     ),
+  currency:        z.enum(['USD', 'SYP'], {
+                     error: 'settlements.validation.currencyRequired',
+                   }),
+  settlement_date: z.string().min(1, { message: 'settlements.validation.settlementDateRequired' }),
+  notes:           z.string().max(500).optional(),
+}).superRefine((data, ctx) => {
+  if (data.period_end < data.period_start) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['period_end'],
+      message: 'settlements.validation.periodEndBeforeStart',
+    });
+  }
+})
+
+// cast إلزامي: schema يحتوي .superRefine() (§4.1)
+resolver: zodResolver(addSettlementSchema) as unknown as Resolver<AddSettlementFormData>
+
+// ملاحظة: status = 'draft' hardcoded في insert — لا يأتي من النموذج أبداً
+// في onSubmit: total_profit → parseFloat(data.total_profit)
+```
+
 ---
 
 ## 7. قواعد تسمية الـ Schemas
@@ -533,6 +779,7 @@ z.object({
 | `z.string().uuid()` لحقول Shadcn Select | `z.string().min(1)` — رسالة خطأ أوضح (§5.6) |
 | منطق cross-field داخل حقل واحد | `.superRefine()` على مستوى الـ object (§5.7) |
 | `zodResolver(schema)` بدون cast مع `z.coerce.number()` أو `.superRefine()` | `zodResolver(schema) as unknown as Resolver<T>` (§4.1) |
+| `string` type لحقول enum في Supabase interfaces تُمرَّر لـ utility functions | union type يطابق CHECK constraints قاعدة البيانات (§5.8) |
 | تحقق مجموع الحصص داخل الـ schema | `validateShares()` من `@/lib/currency` |
 | تعريف الـ schema داخل الـ component | خارج الـ component دائماً |
 | `any` type في FormData | `z.infer<typeof schema>` |
@@ -555,3 +802,5 @@ z.object({
 | 2026-06-06 | `.superRefine()` للتحقق المتقاطع بين حقلين | اكتُشف في S-028: الحاجة لإلزام exchange_rate عند currency=SYP |
 | 2026-06-06 | تصحيح §6.3 (Transactions schema) | كان يوثّق أنماطاً تتعارض مع §5.2.1 و§5.4؛ حُدّث ليعكس الكود الفعلي |
 | 2026-06-08 | توسيع قاعدة الـ cast لتشمل `z.coerce.number()` | اكتُشف في S-045: TypeScript يرفض `zodResolver` أيضاً عند وجود `z.coerce.number()` وحده بدون `.superRefine()`؛ §4.1 محدَّث ليشمل كلا الحالتين |
+| 2026-06-10 | union types إلزامية في Supabase data interfaces | اكتُشف في S-069/S-070: `string` يُنتج خطأ TypeScript عند تمرير البيانات لـ `buildCapitalBreakdown()`؛ الحقول ذات CHECK constraints تُكتب كـ union types (§5.8) |
+| 2026-06-10 | إضافة §6.8–6.13 (Schemas Sprint 4–6) | توثيق Schemas المُنفَّذة في S-035/S-040/S-041/S-048/S-049/S-052 التي كانت غائبة عن الوثيقة |
