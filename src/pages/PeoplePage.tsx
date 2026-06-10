@@ -250,7 +250,7 @@ export default function PeoplePage() {
                       </span>
                     </TableCell>
                     <TableCell className="font-mono tabular-nums text-[#475569]">
-                      {format(new Date(person.created_at), 'dd/MM/yyyy')}
+                      {person.created_at ? format(new Date(person.created_at), 'dd/MM/yyyy') : '—'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
