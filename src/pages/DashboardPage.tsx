@@ -20,6 +20,9 @@ import PartnerSharesSection, {
   type PartnerShareRow,
 }                                           from '@/components/dashboard/PartnerSharesSection';
 import PLIndicatorCard                      from '@/components/dashboard/PLIndicatorCard';
+import AssetDistributionChart, {
+  type ChartSlice,
+}                                           from '@/components/dashboard/AssetDistributionChart';
 
 // ─── Query functions (outside component per React Query v5 convention) ────────
 
@@ -337,6 +340,20 @@ export default function DashboardPage() {
     return map;
   }, [portfolioTxData]);
 
+  const chartSlices = useMemo((): ChartSlice[] => {
+    const result: ChartSlice[] = [];
+    for (const p of portfoliosData) {
+      const value = portfolioBalanceMap.get(p.id) ?? 0;
+      if (value > 0) {
+        result.push({ name: p.name, type: p.type as ChartSlice['type'], value });
+      }
+    }
+    if (propertyValueUSD > 0) {
+      result.push({ name: t('dashboard.assetChart.property'), type: 'property', value: propertyValueUSD });
+    }
+    return result;
+  }, [portfoliosData, portfolioBalanceMap, propertyValueUSD, t]);
+
   const activeLeases = useMemo(
     () => leasesData.filter(
       (l) => !l.end_date || l.end_date >= today
@@ -533,7 +550,17 @@ export default function DashboardPage() {
           void refetchPeopleSlim();
         }}
       />
-      {/* TODO S-066: Asset distribution chart */}
+      {/* S-066 — Asset Distribution */}
+      <AssetDistributionChart
+        slices={chartSlices}
+        isLoading={portfoliosLoading || portfolioTxLoading || propLoading}
+        isError={!!(portfoliosError || portfolioTxError || propError)}
+        onRetry={() => {
+          void refetchPortfolios();
+          void refetchPortfolioTx();
+          void refetchProps();
+        }}
+      />
       {/* S-067 — P&L Indicator */}
       <PLIndicatorCard
         incomeUSD={incomeUSD}

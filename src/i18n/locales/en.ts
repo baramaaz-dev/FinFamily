@@ -1236,6 +1236,13 @@ const en = {
       error:   'Failed to load performance data',
       retry:   'Retry',
     },
+    assetChart: {
+      title:    'Asset Distribution',
+      empty:    'No assets registered',
+      error:    'Failed to load asset distribution',
+      retry:    'Retry',
+      property: 'Properties',
+    },
   },
   reports: {
     title: 'Reports',
