@@ -1,14 +1,25 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Wallet, Users } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase';
 import { AddPortfolioDialog } from '@/components/portfolios/AddPortfolioDialog';
 import { EditPortfolioDialog } from '@/components/portfolios/EditPortfolioDialog';
 import { PortfolioMembersSheet } from '@/components/portfolios/PortfolioMembersSheet';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Table,
   TableBody,
@@ -118,11 +129,15 @@ function PortfoliosError({ onRetry }: { onRetry: () => void }) {
 
 export default function PortfoliosPage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [editDialogOpen,    setEditDialogOpen]    = useState<boolean>(false);
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null);
   const [membersSheetOpen,  setMembersSheetOpen]  = useState<boolean>(false);
   const [membersPortfolio,  setMembersPortfolio]  = useState<Portfolio | null>(null);
+  const [deletePortfolioId,   setDeletePortfolioId]   = useState<string | null>(null);
+  const [deletePortfolioName, setDeletePortfolioName] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const {
     data: portfolios = [],
@@ -134,6 +149,26 @@ export default function PortfoliosPage() {
     queryFn:  fetchPortfolios,
     staleTime: 60_000,
   });
+
+  const handleDeleteConfirm = async () => {
+    if (!deletePortfolioId) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabaseClient
+        .from('portfolios')
+        .delete()
+        .eq('id', deletePortfolioId);
+      if (error) {
+        toast.error(t('portfolios.toast.deleteError'));
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ['portfolios'] });
+      toast.success(t('portfolios.toast.deleteSuccess'));
+      setDeletePortfolioId(null);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -241,9 +276,12 @@ export default function PortfoliosPage() {
                           <Users className="h-4 w-4" />
                         </button>
                         <button
-                          disabled
-                          title={t('portfolios.comingSoon')}
-                          className="cursor-not-allowed rounded p-1 text-[#C0392B] opacity-40"
+                          onClick={() => {
+                            setDeletePortfolioId(portfolio.id);
+                            setDeletePortfolioName(portfolio.name);
+                          }}
+                          title={t('portfolios.actions.delete')}
+                          className="rounded p-1 text-[#C0392B] hover:bg-[#FDECEA] transition-colors"
                           aria-label={t('portfolios.actions.delete')}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -269,6 +307,36 @@ export default function PortfoliosPage() {
         onOpenChange={setMembersSheetOpen}
         portfolio={membersPortfolio}
       />
+      <AlertDialog
+        open={!!deletePortfolioId}
+        onOpenChange={(open) => { if (!open) setDeletePortfolioId(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('portfolios.delete.confirmTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('portfolios.delete.confirmDescription', { name: deletePortfolioName })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={isDeleting}
+              onClick={() => setDeletePortfolioId(null)}
+            >
+              {t('portfolios.delete.cancelButton')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              className="bg-[#C0392B] hover:bg-[#922B21] text-white focus-visible:ring-[#C0392B]"
+              onClick={handleDeleteConfirm}
+            >
+              {t('portfolios.delete.confirmButton')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -250,6 +250,14 @@ const ar = {
       shareUpdateSuccess:  'تم تعديل الحصة بنجاح',
       shareUpdateError:    'تعذّر تعديل الحصة',
       sharesWarning:       'تحذير: مجموع الحصص ({percent}) لا يساوي 1. راجع حصص المساهمين.',
+      deleteSuccess:       'تم حذف المحفظة بنجاح',
+      deleteError:         'تعذّر حذف المحفظة',
+    },
+    delete: {
+      confirmTitle:       'حذف المحفظة',
+      confirmDescription: 'هل أنت متأكد من حذف «{name}»؟ لا يمكن التراجع عن هذا الإجراء.',
+      confirmButton:      'حذف',
+      cancelButton:       'إلغاء',
     },
     members: {
       sheetTitle:    'أعضاء المحفظة',

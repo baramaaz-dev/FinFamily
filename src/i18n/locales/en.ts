@@ -250,6 +250,14 @@ const en = {
       shareUpdateSuccess:  'Share updated successfully',
       shareUpdateError:    'Failed to update share',
       sharesWarning:       'Warning: Total shares ({percent}) do not equal 1. Please review member shares.',
+      deleteSuccess:       'Portfolio deleted successfully',
+      deleteError:         'Failed to delete portfolio',
+    },
+    delete: {
+      confirmTitle:       'Delete Portfolio',
+      confirmDescription: 'Are you sure you want to delete "{name}"? This action cannot be undone.',
+      confirmButton:      'Delete',
+      cancelButton:       'Cancel',
     },
     members: {
       sheetTitle:    'Portfolio Members',
