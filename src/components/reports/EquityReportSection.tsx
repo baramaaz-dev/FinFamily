@@ -327,6 +327,24 @@ export default function EquityReportSection() {
 
       {!isLoading && !isError && hasData && (
         <div ref={printRef} className="space-y-4">
+          {/* Print header — hidden in browser, revealed by exportToPDF during capture */}
+          <div className="pdf-show hidden border-b-2 border-[#E2E8F0] pb-4 mb-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-2xl font-medium text-[#0F172A]">FinFamily</p>
+                <p className="text-sm text-[#475569]">إدارة الأصول العائلية</p>
+              </div>
+              <div className="text-end">
+                <p className="text-base font-medium text-[#1E293B]">
+                  {t('reports.equity.title')}
+                </p>
+                <p className="text-xs text-[#94A3B8]">
+                  تاريخ التصدير: {new Date().toLocaleDateString('ar-SA')}
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Summary card — grand total */}
           <div className="rounded-lg border border-[#E2E8F0] bg-white p-4 flex
                           items-center justify-between">
