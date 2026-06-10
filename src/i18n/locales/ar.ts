@@ -358,6 +358,10 @@ const ar = {
       submitButton:                 'إضافة العقار',
       cancelButton:                 'إلغاء',
       submitting:                   'جاري الإضافة...',
+      editDialogTitle:              'تعديل بيانات عقار',
+      editDialogDescription:        'تعديل بيانات: {name}',
+      editSubmitButton:             'حفظ التعديلات',
+      editSubmitting:               'جاري الحفظ...',
     },
     validation: {
       nameRequired:           'اسم العقار مطلوب',
@@ -370,8 +374,18 @@ const ar = {
       estimatedValueInvalid:  'القيمة يجب أن تكون رقماً',
     },
     toast: {
-      addSuccess: 'تم إضافة العقار بنجاح',
-      addError:   'تعذّر إضافة العقار',
+      addSuccess:    'تم إضافة العقار بنجاح',
+      addError:      'تعذّر إضافة العقار',
+      editSuccess:   'تم تعديل العقار بنجاح',
+      editError:     'تعذّر تعديل العقار',
+      deleteSuccess: 'تم حذف العقار بنجاح',
+      deleteError:   'تعذّر حذف العقار',
+    },
+    delete: {
+      confirmTitle:       'حذف العقار',
+      confirmDescription: 'هل أنت متأكد من حذف «{name}»؟ لا يمكن التراجع عن هذا الإجراء.',
+      confirmButton:      'حذف',
+      cancelButton:       'إلغاء',
     },
     owners: {
       dialogTitle:      'ملاّك العقار',

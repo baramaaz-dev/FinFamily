@@ -358,6 +358,10 @@ const en = {
       submitButton:                 'Add Property',
       cancelButton:                 'Cancel',
       submitting:                   'Adding...',
+      editDialogTitle:              'Edit Property',
+      editDialogDescription:        'Editing: {name}',
+      editSubmitButton:             'Save Changes',
+      editSubmitting:               'Saving...',
     },
     validation: {
       nameRequired:           'Property name is required',
@@ -370,8 +374,18 @@ const en = {
       estimatedValueInvalid:  'Value must be a number',
     },
     toast: {
-      addSuccess: 'Property added successfully',
-      addError:   'Failed to add property',
+      addSuccess:    'Property added successfully',
+      addError:      'Failed to add property',
+      editSuccess:   'Property updated successfully',
+      editError:     'Failed to update property',
+      deleteSuccess: 'Property deleted successfully',
+      deleteError:   'Failed to delete property',
+    },
+    delete: {
+      confirmTitle:       'Delete Property',
+      confirmDescription: 'Are you sure you want to delete "{name}"? This action cannot be undone.',
+      confirmButton:      'Delete',
+      cancelButton:       'Cancel',
     },
     owners: {
       dialogTitle:      'Property Owners',

@@ -1,11 +1,23 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { AddPropertyDialog } from '@/components/properties/AddPropertyDialog';
+import { EditPropertyDialog } from '@/components/properties/EditPropertyDialog';
 import { PropertyOwnersDialog } from '@/components/properties/PropertyOwnersDialog';
 import { Plus, Pencil, Trash2, Users, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Table,
   TableBody,
@@ -141,9 +153,14 @@ function PropertiesError({ onRetry }: PropertiesErrorProps) {
 
 export function PropertiesPage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [ownersTarget, setOwnersTarget] =
     useState<{ id: string; name: string } | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [deletePropertyId, setDeletePropertyId] = useState<string | null>(null);
+  const [deletePropertyName, setDeletePropertyName] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const {
     data: properties = [],
@@ -155,6 +172,26 @@ export function PropertiesPage() {
     queryFn:  fetchProperties,
     staleTime: 60_000,
   });
+
+  const handleDeleteConfirm = async () => {
+    if (!deletePropertyId) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabaseClient
+        .from('properties')
+        .delete()
+        .eq('id', deletePropertyId);
+      if (error) {
+        toast.error(t('properties.toast.deleteError'));
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ['properties'] });
+      toast.success(t('properties.toast.deleteSuccess'));
+      setDeletePropertyId(null);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -275,9 +312,9 @@ export function PropertiesPage() {
                   <TableCell className="text-end">
                     <div className="flex items-center justify-end gap-1">
                       <button
-                        disabled
-                        title={t('properties.comingSoon')}
-                        className="rounded p-1.5 text-[#1E5DC4] opacity-40 cursor-not-allowed"
+                        onClick={() => setSelectedProperty(property)}
+                        title={t('properties.actions.edit')}
+                        className="rounded p-1.5 text-[#1E5DC4] hover:bg-[#E8F0FB]"
                         aria-label={t('properties.actions.edit')}
                       >
                         <Pencil className="h-4 w-4" />
@@ -291,9 +328,12 @@ export function PropertiesPage() {
                         <Users className="h-4 w-4" />
                       </button>
                       <button
-                        disabled
-                        title={t('properties.comingSoon')}
-                        className="rounded p-1.5 text-[#C0392B] opacity-40 cursor-not-allowed"
+                        onClick={() => {
+                          setDeletePropertyId(property.id);
+                          setDeletePropertyName(property.name);
+                        }}
+                        title={t('properties.actions.delete')}
+                        className="rounded p-1.5 text-[#C0392B] hover:bg-[#FDECEA]"
                         aria-label={t('properties.actions.delete')}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -307,12 +347,46 @@ export function PropertiesPage() {
         </div>
       )}
       <AddPropertyDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <EditPropertyDialog
+        property={selectedProperty}
+        onClose={() => setSelectedProperty(null)}
+      />
       <PropertyOwnersDialog
         open={!!ownersTarget}
         onOpenChange={(o) => { if (!o) setOwnersTarget(null); }}
         propertyId={ownersTarget?.id ?? ''}
         propertyName={ownersTarget?.name ?? ''}
       />
+      <AlertDialog
+        open={!!deletePropertyId}
+        onOpenChange={(open) => { if (!open) setDeletePropertyId(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('properties.delete.confirmTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('properties.delete.confirmDescription', { name: deletePropertyName })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={isDeleting}
+              onClick={() => setDeletePropertyId(null)}
+            >
+              {t('properties.delete.cancelButton')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              className="bg-[#C0392B] hover:bg-[#922B21] text-white focus-visible:ring-[#C0392B]"
+              onClick={handleDeleteConfirm}
+            >
+              {t('properties.delete.confirmButton')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
