@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { supabaseClient } from '@/lib/supabase';
+import { exportToPDF } from '../../utils/exportToPDF';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -176,10 +177,23 @@ export default function PLReportSection() {
   const [entityValue, setEntityValue]               = useState('');
   const [appliedEntityValue, setAppliedEntityValue] = useState('');
 
+  const printRef                      = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
   const handleApply = () => {
     setAppliedFrom(dateFrom);
     setAppliedTo(dateTo);
     setAppliedEntityValue(entityValue);
+  };
+
+  const handleExport = async () => {
+    if (!printRef.current) return;
+    await exportToPDF(
+      printRef.current,
+      `pl-report-${appliedFrom}-${appliedTo}.pdf`,
+      () => setIsExporting(true),
+      () => setIsExporting(false),
+    );
   };
 
   const selectedEntityType = useMemo((): 'all' | 'portfolio' | 'property' => {
@@ -422,11 +436,16 @@ export default function PLReportSection() {
           {t('reports.pl.apply')}
         </button>
         <button
-          disabled
-          className="px-4 py-2 rounded-md text-sm font-medium text-[#94A3B8]
-                     bg-[#F1F5F9] border border-[#E2E8F0] cursor-not-allowed opacity-60 ms-auto"
+          onClick={handleExport}
+          disabled={isExporting || isLoading || !hasData}
+          className={[
+            'px-4 py-2 rounded-md text-sm font-medium transition-colors ms-auto',
+            isExporting || isLoading || !hasData
+              ? 'text-[#94A3B8] bg-[#F1F5F9] border border-[#E2E8F0] cursor-not-allowed opacity-60'
+              : 'text-white bg-[#1E5DC4] hover:bg-[#164399] cursor-pointer',
+          ].join(' ')}
         >
-          {t('reports.pl.exportPdf')}
+          {isExporting ? t('reports.pl.exporting') : t('reports.pl.exportPdf')}
         </button>
       </div>
 
@@ -452,7 +471,7 @@ export default function PLReportSection() {
       )}
 
       {!isLoading && !isError && hasData && (
-        <>
+        <div ref={printRef} className="space-y-4">
           {/* Summary cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-lg border border-[#A3D4BC] bg-[#EBF5F0] p-4">
@@ -601,7 +620,7 @@ export default function PLReportSection() {
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

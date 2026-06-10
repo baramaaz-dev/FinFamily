@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { ExternalLink } from 'lucide-react';
 import { buildCapitalBreakdown } from '../../utils/capital';
 import { supabaseClient } from '@/lib/supabase';
 import { ROUTES } from '../../router/routes';
+import { exportToPDF } from '../../utils/exportToPDF';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -268,6 +269,20 @@ export default function EquityReportSection() {
 
   const hasData = partnerRows.length > 0;
 
+  const printRef                      = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!printRef.current) return;
+    const today = new Date().toISOString().split('T')[0];
+    await exportToPDF(
+      printRef.current,
+      `equity-report-${today}.pdf`,
+      () => setIsExporting(true),
+      () => setIsExporting(false),
+    );
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
@@ -293,8 +308,25 @@ export default function EquityReportSection() {
         </div>
       )}
 
+      {!isLoading && !isError && (
+        <div className="flex justify-end">
+          <button
+            onClick={handleExport}
+            disabled={isExporting || isLoading || !hasData}
+            className={[
+              'px-4 py-2 rounded-md text-sm font-medium transition-colors',
+              isExporting || isLoading || !hasData
+                ? 'text-[#94A3B8] bg-[#F1F5F9] border border-[#E2E8F0] cursor-not-allowed opacity-60'
+                : 'text-white bg-[#1E5DC4] hover:bg-[#164399] cursor-pointer',
+            ].join(' ')}
+          >
+            {isExporting ? t('reports.pl.exporting') : t('reports.pl.exportPdf')}
+          </button>
+        </div>
+      )}
+
       {!isLoading && !isError && hasData && (
-        <>
+        <div ref={printRef} className="space-y-4">
           {/* Summary card — grand total */}
           <div className="rounded-lg border border-[#E2E8F0] bg-white p-4 flex
                           items-center justify-between">
@@ -441,7 +473,7 @@ export default function EquityReportSection() {
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
