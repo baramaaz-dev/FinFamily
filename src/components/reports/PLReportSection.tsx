@@ -74,13 +74,19 @@ interface PLLineItem {
 
 // ── Fetch functions ───────────────────────────────────────────────────────────
 
-async function fetchPLTransactions(dateFrom: string, dateTo: string): Promise<RawTransaction[]> {
-  const { data, error } = await supabaseClient
+async function fetchPLTransactions(
+  dateFrom: string,
+  dateTo: string,
+  portfolioId?: string,
+): Promise<RawTransaction[]> {
+  let q = supabaseClient
     .from('transactions')
     .select('id, portfolio_id, type, amount, currency, exchange_rate, category, date')
     .in('type', ['income', 'expense'])
     .gte('date', dateFrom)
     .lte('date', dateTo);
+  if (portfolioId) q = q.eq('portfolio_id', portfolioId);
+  const { data, error } = await q;
   if (error) throw error;
   return data ?? [];
 }
@@ -95,13 +101,19 @@ async function fetchPLLeasePayments(dateFrom: string, dateTo: string): Promise<R
   return data ?? [];
 }
 
-async function fetchPLPropertyExpenses(dateFrom: string, dateTo: string): Promise<RawPropertyExpense[]> {
-  const { data, error } = await supabaseClient
+async function fetchPLPropertyExpenses(
+  dateFrom: string,
+  dateTo: string,
+  propertyId?: string,
+): Promise<RawPropertyExpense[]> {
+  let q = supabaseClient
     .from('property_expenses')
     .select('id, property_id, type, amount, currency, exchange_rate, paid_date')
     .not('paid_date', 'is', null)
     .gte('paid_date', dateFrom)
     .lte('paid_date', dateTo);
+  if (propertyId) q = q.eq('property_id', propertyId);
+  const { data, error } = await q;
   if (error) throw error;
   return data ?? [];
 }
@@ -161,15 +173,33 @@ export default function PLReportSection() {
   const [dateTo, setDateTo]     = useState(getToday());
   const [appliedFrom, setAppliedFrom] = useState(getFirstDayOfMonth());
   const [appliedTo, setAppliedTo]     = useState(getToday());
+  const [entityValue, setEntityValue]               = useState('');
+  const [appliedEntityValue, setAppliedEntityValue] = useState('');
 
   const handleApply = () => {
     setAppliedFrom(dateFrom);
     setAppliedTo(dateTo);
+    setAppliedEntityValue(entityValue);
   };
 
+  const selectedEntityType = useMemo((): 'all' | 'portfolio' | 'property' => {
+    if (appliedEntityValue.startsWith('portfolio:')) return 'portfolio';
+    if (appliedEntityValue.startsWith('property:'))  return 'property';
+    return 'all';
+  }, [appliedEntityValue]);
+
+  const selectedEntityId = useMemo((): string | null => {
+    const parts = appliedEntityValue.split(':');
+    return parts.length === 2 ? parts[1] : null;
+  }, [appliedEntityValue]);
+
   const txQuery = useQuery({
-    queryKey: ['pl-report-transactions', appliedFrom, appliedTo],
-    queryFn: () => fetchPLTransactions(appliedFrom, appliedTo),
+    queryKey: ['pl-report-transactions', appliedFrom, appliedTo, appliedEntityValue],
+    queryFn: () => fetchPLTransactions(
+      appliedFrom,
+      appliedTo,
+      selectedEntityType === 'portfolio' ? (selectedEntityId ?? undefined) : undefined,
+    ),
     staleTime: 30_000,
   });
 
@@ -180,8 +210,12 @@ export default function PLReportSection() {
   });
 
   const peQuery = useQuery({
-    queryKey: ['pl-report-property-expenses', appliedFrom, appliedTo],
-    queryFn: () => fetchPLPropertyExpenses(appliedFrom, appliedTo),
+    queryKey: ['pl-report-property-expenses', appliedFrom, appliedTo, appliedEntityValue],
+    queryFn: () => fetchPLPropertyExpenses(
+      appliedFrom,
+      appliedTo,
+      selectedEntityType === 'property' ? (selectedEntityId ?? undefined) : undefined,
+    ),
     staleTime: 30_000,
   });
 
@@ -223,6 +257,8 @@ export default function PLReportSection() {
     totalIncomeUSD,
     totalExpensesUSD,
     netPL,
+    showPortfolioSections,
+    showPropertySections,
   } = useMemo(() => {
     if (!txQuery.data || !lpQuery.data || !peQuery.data
         || !portfoliosQuery.data || !leasesQuery.data || !propertiesQuery.data) {
@@ -234,8 +270,13 @@ export default function PLReportSection() {
         totalIncomeUSD:   0,
         totalExpensesUSD: 0,
         netPL:            0,
+        showPortfolioSections: true,
+        showPropertySections:  true,
       };
     }
+
+    const showPortfolioSections = selectedEntityType !== 'property';
+    const showPropertySections  = selectedEntityType !== 'portfolio';
 
     const leaseMap = new Map(leasesQuery.data.map((l) => [l.id, l.propertyName]));
 
@@ -266,8 +307,18 @@ export default function PLReportSection() {
       })
     );
 
+    // Filter lease payments to only the selected property when entity = property
+    const visibleLeaseIds: Set<string> = new Set(
+      selectedEntityType === 'property' && selectedEntityId
+        ? leasesQuery.data
+            .filter((l) => l.property_id === selectedEntityId)
+            .map((l) => l.id)
+        : leasesQuery.data.map((l) => l.id)
+    );
+    const visibleLeasePayments = lpQuery.data.filter((lp) => visibleLeaseIds.has(lp.lease_id));
+
     const rentalByLease = new Map<string, number>();
-    for (const lp of lpQuery.data) {
+    for (const lp of visibleLeasePayments) {
       const usd = toUSD(lp.amount, lp.currency, lp.exchange_rate);
       rentalByLease.set(lp.lease_id, (rentalByLease.get(lp.lease_id) ?? 0) + usd);
     }
@@ -291,11 +342,11 @@ export default function PLReportSection() {
     );
 
     const totalIncomeUSD =
-      portfolioIncomeLines.reduce((s, l) => s + l.amountUSD, 0) +
-      rentalIncomeLines.reduce((s, l) => s + l.amountUSD, 0);
+      (showPortfolioSections ? portfolioIncomeLines.reduce((s, l) => s + l.amountUSD, 0) : 0) +
+      (showPropertySections  ? rentalIncomeLines.reduce((s, l) => s + l.amountUSD, 0) : 0);
     const totalExpensesUSD =
-      portfolioExpenseLines.reduce((s, l) => s + l.amountUSD, 0) +
-      propertyExpenseLines.reduce((s, l) => s + l.amountUSD, 0);
+      (showPortfolioSections ? portfolioExpenseLines.reduce((s, l) => s + l.amountUSD, 0) : 0) +
+      (showPropertySections  ? propertyExpenseLines.reduce((s, l) => s + l.amountUSD, 0) : 0);
     const netPL = totalIncomeUSD - totalExpensesUSD;
 
     return {
@@ -306,15 +357,16 @@ export default function PLReportSection() {
       totalIncomeUSD,
       totalExpensesUSD,
       netPL,
+      showPortfolioSections,
+      showPropertySections,
     };
   }, [txQuery.data, lpQuery.data, peQuery.data,
-      portfoliosQuery.data, leasesQuery.data, propertiesQuery.data, t]);
+      portfoliosQuery.data, leasesQuery.data, propertiesQuery.data,
+      selectedEntityType, selectedEntityId, t]);
 
   const hasData =
-    portfolioIncomeLines.length > 0 ||
-    rentalIncomeLines.length > 0 ||
-    portfolioExpenseLines.length > 0 ||
-    propertyExpenseLines.length > 0;
+    (showPortfolioSections && (portfolioIncomeLines.length > 0 || portfolioExpenseLines.length > 0)) ||
+    (showPropertySections  && (rentalIncomeLines.length > 0    || propertyExpenseLines.length > 0));
 
   return (
     <div className="space-y-4">
@@ -339,6 +391,28 @@ export default function PLReportSection() {
             className="border border-[#E2E8F0] rounded-md px-3 py-2 text-sm text-[#1E293B]
                        focus:outline-none focus:ring-2 focus:ring-[#1E5DC4] bg-white"
           />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-[#475569]">{t('reports.filters.entityLabel')}</label>
+          <select
+            value={entityValue}
+            onChange={(e) => setEntityValue(e.target.value)}
+            className="border border-[#E2E8F0] rounded-md px-3 py-2 text-sm
+                       text-[#1E293B] bg-white focus:outline-none
+                       focus:ring-2 focus:ring-[#1E5DC4] min-w-48"
+          >
+            <option value="">{t('reports.filters.allEntities')}</option>
+            {(portfoliosQuery.data ?? []).map((p) => (
+              <option key={p.id} value={`portfolio:${p.id}`}>
+                {t('reports.filters.portfolioPrefix')} {p.name}
+              </option>
+            ))}
+            {(propertiesQuery.data ?? []).map((p) => (
+              <option key={p.id} value={`property:${p.id}`}>
+                {t('reports.filters.propertyPrefix')} {p.name}
+              </option>
+            ))}
+          </select>
         </div>
         <button
           onClick={handleApply}
@@ -415,7 +489,7 @@ export default function PLReportSection() {
                   </td>
                 </tr>
 
-                {portfolioIncomeLines.length > 0 && (
+                {showPortfolioSections && portfolioIncomeLines.length > 0 && (
                   <>
                     <tr className="bg-[#F8FAFC]">
                       <td colSpan={2} className="ps-6 pe-4 py-1 text-xs text-[#94A3B8] font-medium">
@@ -433,7 +507,7 @@ export default function PLReportSection() {
                   </>
                 )}
 
-                {rentalIncomeLines.length > 0 && (
+                {showPropertySections && rentalIncomeLines.length > 0 && (
                   <>
                     <tr className="bg-[#F8FAFC]">
                       <td colSpan={2} className="ps-6 pe-4 py-1 text-xs text-[#94A3B8] font-medium">
@@ -467,7 +541,7 @@ export default function PLReportSection() {
                   </td>
                 </tr>
 
-                {portfolioExpenseLines.length > 0 && (
+                {showPortfolioSections && portfolioExpenseLines.length > 0 && (
                   <>
                     <tr className="bg-[#F8FAFC]">
                       <td colSpan={2} className="ps-6 pe-4 py-1 text-xs text-[#94A3B8] font-medium">
@@ -485,7 +559,7 @@ export default function PLReportSection() {
                   </>
                 )}
 
-                {propertyExpenseLines.length > 0 && (
+                {showPropertySections && propertyExpenseLines.length > 0 && (
                   <>
                     <tr className="bg-[#F8FAFC]">
                       <td colSpan={2} className="ps-6 pe-4 py-1 text-xs text-[#94A3B8] font-medium">
