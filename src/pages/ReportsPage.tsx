@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import PLReportSection from '../components/reports/PLReportSection';
 import EquityReportSection from '../components/reports/EquityReportSection';
 import PartnerStatementSection from '../components/reports/PartnerStatementSection';
+import BalanceSheetSection from '../components/reports/BalanceSheetSection';
 
 type ReportTab = 'pl' | 'equity' | 'partnerStatement' | 'balance';
 
@@ -36,7 +37,8 @@ export default function ReportsPage() {
       {activeTab === 'pl' && <PLReportSection />}
       {activeTab === 'equity' && <EquityReportSection />}
       {activeTab === 'partnerStatement' && <PartnerStatementSection />}
-      {activeTab !== 'pl' && activeTab !== 'equity' && activeTab !== 'partnerStatement' && (
+      {activeTab === 'balance' && <BalanceSheetSection />}
+      {activeTab !== 'pl' && activeTab !== 'equity' && activeTab !== 'partnerStatement' && activeTab !== 'balance' && (
         <div className="flex items-center justify-center h-48 text-[#94A3B8] text-sm">
           {t('reports.tabs.comingSoon')}
         </div>
