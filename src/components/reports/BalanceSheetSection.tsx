@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Info } from 'lucide-react';
 import { buildCapitalBreakdown } from '../../utils/capital';
 import { supabaseClient } from '@/lib/supabase';
+import { exportToPDF } from '../../utils/exportToPDF';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -341,6 +342,19 @@ export default function BalanceSheetSection() {
 
   const hasData = portfolioRows.length > 0 || propertyRows.length > 0;
 
+  const printRef                      = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!printRef.current) return;
+    await exportToPDF(
+      printRef.current,
+      `balance-sheet-${appliedAsOf}.pdf`,
+      () => setIsExporting(true),
+      () => setIsExporting(false),
+    );
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
@@ -367,6 +381,18 @@ export default function BalanceSheetSection() {
         >
           {t('reports.pl.apply')}
         </button>
+        <button
+          onClick={handleExport}
+          disabled={isExporting || isLoading || !hasData}
+          className={[
+            'px-4 py-2 rounded-md text-sm font-medium transition-colors ms-auto',
+            isExporting || isLoading || !hasData
+              ? 'text-[#94A3B8] bg-[#F1F5F9] border border-[#E2E8F0] cursor-not-allowed opacity-60'
+              : 'text-white bg-[#1E5DC4] hover:bg-[#164399] cursor-pointer',
+          ].join(' ')}
+        >
+          {isExporting ? t('reports.pl.exporting') : t('reports.pl.exportPdf')}
+        </button>
       </div>
 
       {isLoading && <BalanceSheetSkeleton />}
@@ -391,7 +417,7 @@ export default function BalanceSheetSection() {
       )}
 
       {!isLoading && !isError && hasData && (
-        <>
+        <div ref={printRef} className="space-y-4">
           {/* Summary cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-lg border border-[#A3D4BC] bg-[#EBF5F0] p-4">
@@ -600,7 +626,7 @@ export default function BalanceSheetSection() {
             <Info size={12} className="mt-0.5 shrink-0" />
             <p>{t('reports.balance.mvpNote')}</p>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

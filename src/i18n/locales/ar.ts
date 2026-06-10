@@ -1252,6 +1252,7 @@ const ar = {
       periodTo:             'إلى تاريخ',
       apply:                'تحديث',
       exportPdf:            'تصدير PDF',
+      exporting:            'جارٍ التصدير...',
       sectionIncome:        'الدخل',
       sectionExpenses:      'المصروفات',
       totalIncome:          'إجمالي الدخل',

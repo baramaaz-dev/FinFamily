@@ -1252,6 +1252,7 @@ const en = {
       periodTo:             'To Date',
       apply:                'Apply',
       exportPdf:            'Export PDF',
+      exporting:            'Exporting...',
       sectionIncome:        'Income',
       sectionExpenses:      'Expenses',
       totalIncome:          'Total Income',

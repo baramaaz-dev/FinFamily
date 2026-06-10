@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { buildCapitalBreakdown } from '../../utils/capital';
 import { supabaseClient } from '@/lib/supabase';
+import { exportToPDF } from '../../utils/exportToPDF';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -282,6 +283,21 @@ export default function PartnerStatementSection() {
     portfoliosQuery.data, propertiesQuery.data, peopleQuery.data,
   ]);
 
+  const printRef                      = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!printRef.current) return;
+    const safeName = partnerName.replace(/\s+/g, '-');
+    const today    = new Date().toISOString().split('T')[0];
+    await exportToPDF(
+      printRef.current,
+      `statement-${safeName}-${today}.pdf`,
+      () => setIsExporting(true),
+      () => setIsExporting(false),
+    );
+  };
+
   const noAccountsForPartner =
     !!selectedPartnerId && !isTransactionsLoading &&
     !isTransactionsError && accountSections.length === 0;
@@ -316,7 +332,7 @@ export default function PartnerStatementSection() {
 
       {/* Partner selector */}
       {!isBaseLoading && !isBaseError && partnerOptions.length > 0 && (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm font-medium text-[#1E293B]">
             {t('reports.partnerStatement.selectPartner')}
           </label>
@@ -331,6 +347,20 @@ export default function PartnerStatementSection() {
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
+          <div className="flex justify-end ms-auto">
+            <button
+              onClick={handleExport}
+              disabled={isExporting || isTransactionsLoading || accountSections.length === 0}
+              className={[
+                'px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                isExporting || isTransactionsLoading || accountSections.length === 0
+                  ? 'text-[#94A3B8] bg-[#F1F5F9] border border-[#E2E8F0] cursor-not-allowed opacity-60'
+                  : 'text-white bg-[#1E5DC4] hover:bg-[#164399] cursor-pointer',
+              ].join(' ')}
+            >
+              {isExporting ? t('reports.pl.exporting') : t('reports.pl.exportPdf')}
+            </button>
+          </div>
         </div>
       )}
 
@@ -372,7 +402,7 @@ export default function PartnerStatementSection() {
       {/* Statement content */}
       {selectedPartnerId && !isTransactionsLoading && !isTransactionsError &&
        accountSections.length > 0 && (
-        <>
+        <div ref={printRef} className="space-y-4">
           {/* Partner header */}
           <div className="flex items-center justify-between p-4 rounded-lg
                           border border-[#E2E8F0] bg-white">
@@ -538,7 +568,7 @@ export default function PartnerStatementSection() {
               {formatUSD(grandTotal)}
             </span>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
