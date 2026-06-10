@@ -1366,6 +1366,19 @@ const en = {
       asOfDate:        'As of Date',
     },
   },
+  errors: {
+    boundary: {
+      title:   'An unexpected error occurred',
+      message: 'This page could not be loaded. Please try again.',
+      retry:   'Try Again',
+    },
+    query: {
+      generic: 'Failed to load data',
+    },
+    mutation: {
+      generic: 'Operation failed, please try again',
+    },
+  },
   language: {
     toggle:  'ع',
     current: 'English',
