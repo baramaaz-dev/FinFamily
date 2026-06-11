@@ -80,7 +80,7 @@ const addPropertyExpenseSchema = z.object({
 
   portfolio_id: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : v),
-    z.string().uuid().optional()
+    z.string().optional()
   ),
 
   notes: z.string()
