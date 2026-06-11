@@ -161,7 +161,6 @@ export default function EditTransactionDialog({
   const { data: latestRate } = useQuery({
     queryKey: ['latest-exchange-rate'],
     queryFn:  fetchLatestExchangeRate,
-    staleTime: 5 * 60 * 1000,
   });
 
   const {

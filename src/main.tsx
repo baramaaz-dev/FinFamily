@@ -28,6 +28,8 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       staleTime: 1000 * 60 * 5,
+      gcTime: 10 * 60 * 1000,         // keep evicted data 10min (default: 5min)
+      refetchOnWindowFocus: false,     // single-user app — no cross-tab changes
     },
   },
 });

@@ -185,7 +185,6 @@ export default function SettlementDetailPage() {
     queryKey: ['entity-name-settlement', settlement?.entity_type, settlement?.entity_id],
     queryFn:  () => fetchEntityName(settlement!.entity_type, settlement!.entity_id),
     enabled:  !!settlement,
-    staleTime: 5 * 60 * 1000,
   });
 
   async function handleCalculateShares() {

@@ -83,19 +83,16 @@ export default function AddCapitalAccountDialog({
   const { data: people = [] } = useQuery({
     queryKey: ['people-options'],
     queryFn:  fetchPeopleOptions,
-    staleTime: 5 * 60 * 1000,
   });
 
   const { data: portfolios = [] } = useQuery({
     queryKey: ['portfolio-options'],
     queryFn:  fetchPortfolioOptions,
-    staleTime: 5 * 60 * 1000,
   });
 
   const { data: properties = [] } = useQuery({
     queryKey: ['property-options'],
     queryFn:  fetchPropertyOptions,
-    staleTime: 5 * 60 * 1000,
   });
 
   const {

@@ -242,7 +242,6 @@ export default function DashboardPage() {
   } = useQuery({
     queryKey: ['dashboard-obligation-property-names'],
     queryFn:  fetchObligationPropertyNames,
-    staleTime: 300_000,
   });
 
   const {
@@ -286,7 +285,6 @@ export default function DashboardPage() {
   } = useQuery({
     queryKey: ['people-slim'],
     queryFn:  fetchPeopleSlimForDashboard,
-    staleTime: 300_000,
   });
 
   const {
