@@ -520,6 +520,7 @@ export default function PLReportSection() {
 
           {/* Breakdown table */}
           <div className="rounded-lg border border-[#E2E8F0] overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody>
                 {/* ── Income section ── */}
@@ -640,6 +641,7 @@ export default function PLReportSection() {
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}

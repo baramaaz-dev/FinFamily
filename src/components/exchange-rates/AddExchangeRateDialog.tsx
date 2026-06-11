@@ -76,7 +76,7 @@ export default function AddExchangeRateDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-md"
+        className="max-w-[95vw] sm:max-w-md"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

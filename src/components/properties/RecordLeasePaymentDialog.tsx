@@ -196,7 +196,7 @@ export function RecordLeasePaymentDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="sm:max-w-[500px]"
+        className="max-w-[95vw] sm:max-w-[500px]"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

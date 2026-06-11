@@ -170,7 +170,7 @@ export default function AddWithdrawalDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="sm:max-w-[480px]"
+        className="max-w-[95vw] sm:max-w-[480px]"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

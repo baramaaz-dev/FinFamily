@@ -183,7 +183,7 @@ export default function AddCapitalTransactionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-md"
+        className="max-w-[95vw] sm:max-w-md"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

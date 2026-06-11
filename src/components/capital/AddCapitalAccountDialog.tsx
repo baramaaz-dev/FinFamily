@@ -167,7 +167,7 @@ export default function AddCapitalAccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-[95vw] sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t('capital.form.dialogTitle')}</DialogTitle>
           <DialogDescription>{t('capital.form.dialogDescription')}</DialogDescription>

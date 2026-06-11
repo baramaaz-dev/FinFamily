@@ -87,7 +87,7 @@ export function AddPortfolioDialog({ open, onOpenChange }: AddPortfolioDialogPro
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="sm:max-w-[440px]"
+        className="max-w-[95vw] sm:max-w-[440px]"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

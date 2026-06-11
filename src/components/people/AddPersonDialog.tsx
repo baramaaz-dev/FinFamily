@@ -82,7 +82,7 @@ export function AddPersonDialog({ open, onOpenChange }: AddPersonDialogProps) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="w-full max-w-md border-[#E2E8F0] bg-white"
+        className="w-full max-w-[95vw] sm:max-w-md border-[#E2E8F0] bg-white"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

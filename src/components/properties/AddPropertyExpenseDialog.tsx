@@ -206,7 +206,7 @@ export function AddPropertyExpenseDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="sm:max-w-[540px]"
+        className="max-w-[95vw] sm:max-w-[540px]"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

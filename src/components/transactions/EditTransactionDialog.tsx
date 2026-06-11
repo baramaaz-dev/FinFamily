@@ -249,7 +249,7 @@ export default function EditTransactionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-[95vw] sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-lg font-medium text-[#1E293B]">
             {t('transactions.dialog.editTitle')}

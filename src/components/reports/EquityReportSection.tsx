@@ -359,6 +359,7 @@ export default function EquityReportSection() {
 
           {/* Detail table */}
           <div className="rounded-lg border border-[#E2E8F0] overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
@@ -490,6 +491,7 @@ export default function EquityReportSection() {
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
