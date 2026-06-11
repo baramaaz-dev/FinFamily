@@ -180,3 +180,68 @@
 - `S-080` تحسين الأداء (React Query caching)
 - `S-081` اختبار على الموبايل (Responsive)
 - `S-082` مراجعة أمنية نهائية قبل الإنتاج
+
+---
+
+## Sprint 11 — المحرك المحاسبي (القيد المزدوج)
+
+> **المرجع:** STR-006 v1.2 — المرجع الإلزامي لجميع قصص هذا الـ Sprint.
+> **الهدف:** تفعيل نظام القيد المزدوج وربط جميع الكيانات المالية بالأستاذ العام.
+> **الأولوية:** E1 (البنية التحتية) أولاً — يجب إتمام S-084 إلى S-087 قبل البدء بأي قصة أخرى.
+
+### E1 — البنية التحتية والإعداد
+
+- `S-084` Trigger إنشاء حسابات الشركاء تلقائياً
+  - إنشاء دالة `auto_create_partner_accounts()` في PostgreSQL
+  - ربطها بـ `AFTER INSERT ON people`
+  - Migration لإنشاء حسابات `31XX / 32XX` لجميع الأشخاص الحاليين في قاعدة البيانات
+  - التحقق من عدم تكرار الحسابات (idempotent)
+
+- `S-085` RPC ترحيل القيد المفرد — `post_journal_entry`
+  - دالة PostgreSQL تُنفِّذ الخطوات السبع من STR-006 §10.1 في transaction واحدة
+  - دعم جميع أنواع المصادر: `transaction · lease_payment · property_expense · capital_transaction`
+  - تطبيق قوالب القيود من STR-006 §5 حسب `source_type`
+  - منع الترحيل المزدوج + التحقق من التوازن + التحقق من فتح الفترة
+
+- `S-086` RPC ترحيل قيد التسوية المُركَّب — `post_settlement_entry`
+  - دالة PostgreSQL خاصة بـ `profit_settlement` (STR-006 §8.4)
+  - قيد واحد بـ N+1 سطر: مدين واحد للإيرادات الكلية + دائن لكل شريك
+  - إضافة عمود `journal_entry_id` إلى جدول `profit_settlements`
+  - التحقق من: Σ partnerAmount = total_profit قبل الترحيل
+
+- `S-087` RPC حذف حسابات الشريك — `delete_partner_accounts`
+  - دالة PostgreSQL تتحقق من `journal_entry_lines` قبل الحذف
+  - رمي استثناء `ACCOUNTS_HAVE_ENTRIES` عند وجود قيود مرتبطة
+  - تكامل مع زر "حذف الشريك" في صفحة إدارة الأشخاص
+
+### E5 — المعاملات المالية
+
+- `S-088` ربط ترحيل القيود بالمعاملات المالية
+  - إنشاء Hook موحَّد `usePostJournalEntry()`
+  - استدعاء `post_journal_entry` تلقائياً في `onSubmit` نموذج إضافة معاملة
+  - `invalidateQueries` لمفاتيح: `['transactions'] · ['journal-entries'] · ['dashboard']`
+
+### E4 — العقارات والإيجارات
+
+- `S-089` ربط ترحيل القيود بدفعات الإيجار ومصروفات العقار
+  - استدعاء `post_journal_entry` في `onSubmit` نموذج تسجيل دفعة إيجار
+  - استدعاء `post_journal_entry` في `onSubmit` نموذج تسجيل مصروف عقار
+  - `invalidateQueries` لمفاتيح: `['lease-payments', leaseId] · ['property-expenses', propertyId] · ['dashboard']`
+
+### E6 — حسابات رأس المال والتسويات
+
+- `S-090` ربط ترحيل القيود بالحركات الرأسمالية
+  - استدعاء `post_journal_entry` في `onSubmit` نموذج تسجيل حركة رأسمالية
+  - `invalidateQueries` لمفاتيح: `['capital-transactions', accountId] · ['capital-accounts'] · ['dashboard']`
+
+- `S-091` تحديث تأكيد التسوية للقيد المُركَّب
+  - استبدال منطق N قيود منفصلة بـ `post_settlement_entry` (قيد واحد N+1 سطر)
+  - `invalidateQueries` لكل `['capital-accounts', partnerId]` في التسوية
+  - `invalidateQueries` لمفاتيح: `['profit-settlements'] · ['journal-entries'] · ['dashboard']`
+
+### E1 — البنية التحتية والإعداد
+
+- `S-092` مؤشرات حالة الترحيل في الواجهة
+  - شارة "مُرحَّل / غير مُرحَّل" مبنية على `journal_entry_id IS NOT NULL`
+  - تطبيق موحَّد عبر: سجل المعاملات · سجل دفعات الإيجار · سجل مصروفات العقار · كشف الحركات الرأسمالية
+  - رسالة خطأ واضحة عند فشل الترحيل مع إمكانية إعادة المحاولة

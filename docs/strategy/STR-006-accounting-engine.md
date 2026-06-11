@@ -1,8 +1,8 @@
 # FinFamily — المحرك المحاسبي
 **الوثيقة:** STR-006
-**الإصدار:** 1.1
+**الإصدار:** 1.2
 **الحالة:** ✅ معتمدة
-**آخر تحديث:** 2026-06-08
+**آخر تحديث:** 2026-06-11
 
 > **قاعدة إلزامية:** أي قصة (Story) تتعلق بترحيل القيود أو حسابات رأس المال أو التسويات
 > يجب أن تُراجع هذه الوثيقة أولاً. هذا الملف هو المرجع الوحيد لمنطق القيد المزدوج في المشروع.
@@ -164,11 +164,91 @@
 
 ### 2.4 قاعدة إنشاء حسابات الشركاء
 
-لكل شريك جديد يُضاف للنظام، يجب إنشاء حسابين:
-- حساب رأس مال: `31XX` (رقم تسلسلي)
+#### الإنشاء التلقائي
+
+لكل شريك/وريث جديد يُضاف إلى جدول `people`، يُنشأ تلقائياً حسابان في شجرة الحسابات:
+- حساب رأس مال: `31XX` (رقم تسلسلي تصاعدي)
 - حساب مسحوبات: `32XX`
 
-يُنشآن **تلقائياً في الخلفية** عند أول ربط للشريك بكيان — المستخدم لا يتدخل يدوياً.
+**التوقيت:** `AFTER INSERT ON people` — الإنشاء فوري مع إضافة الشخص، قبل أي ربط بكيان.
+**السبب:** ضمان وجود الحسابات قبل أي قيد محاسبي، وتفادي خطر ترحيل قيد لشريك لا حسابات له.
+يبقى الحساب فارغاً دون أي أثر على التقارير حتى تُسجَّل حركة مالية فعلية.
+
+```sql
+CREATE OR REPLACE FUNCTION auto_create_partner_accounts()
+RETURNS TRIGGER AS $$
+DECLARE
+  next_capital_code  text;
+  next_drawings_code text;
+BEGIN
+  -- تحقق: هل للشريك حسابات بالفعل؟
+  IF EXISTS (
+    SELECT 1 FROM accounts
+    WHERE metadata->>'partner_id' = NEW.id::text
+  ) THEN
+    RETURN NEW;
+  END IF;
+
+  -- احسب الرقم التسلسلي التالي
+  SELECT '31' || LPAD((COUNT(*) + 10)::text, 2, '0')
+  INTO next_capital_code
+  FROM accounts WHERE code LIKE '31%' AND is_postable = true;
+
+  SELECT '32' || LPAD((COUNT(*) + 10)::text, 2, '0')
+  INTO next_drawings_code
+  FROM accounts WHERE code LIKE '32%' AND is_postable = true;
+
+  -- أنشئ الحسابَين
+  INSERT INTO accounts (code, name, account_class, normal_balance, is_postable, metadata)
+  VALUES
+    (
+      next_capital_code,
+      'رأس مال ' || NEW.name,
+      'equity', 'credit', true,
+      jsonb_build_object('partner_id', NEW.id)
+    ),
+    (
+      next_drawings_code,
+      'مسحوبات ' || NEW.name,
+      'equity', 'debit', true,
+      jsonb_build_object('partner_id', NEW.id)
+    );
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_auto_create_partner_accounts
+  AFTER INSERT ON people
+  FOR EACH ROW EXECUTE FUNCTION auto_create_partner_accounts();
+```
+
+#### الحذف المشروط
+
+حذف حسابات الشريك مسموح **فقط** إذا لم يكن أي منها مرتبطاً بسطور قيود في `journal_entry_lines`.
+الحذف يتم حصراً عبر RPC — لا يُنفَّذ DELETE مباشر من الواجهة.
+
+```sql
+CREATE OR REPLACE FUNCTION delete_partner_accounts(p_person_id uuid)
+RETURNS void AS $$
+BEGIN
+  -- رفض الحذف إذا كان أي حساب مرتبطاً بقيود
+  IF EXISTS (
+    SELECT 1
+    FROM journal_entry_lines jel
+    JOIN accounts a ON a.id = jel.account_id
+    WHERE a.metadata->>'partner_id' = p_person_id::text
+  ) THEN
+    RAISE EXCEPTION 'ACCOUNTS_HAVE_ENTRIES';
+  END IF;
+
+  DELETE FROM accounts
+  WHERE metadata->>'partner_id' = p_person_id::text;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+> `ACCOUNTS_HAVE_ENTRIES` — يُعرض للمستخدم برسالة: "لا يمكن حذف الشريك — توجد قيود محاسبية مرتبطة بحساباته."
 
 ---
 
@@ -352,10 +432,7 @@ property_expenses.journal_entry_id = journal_entries.id
 ```
 
 #### توزيع أرباح (profit_share) — ينشأ تلقائياً عند تأكيد التسوية
-```
-مدين:  4100/4300  إيرادات الكيان  [partnerAmount]
-دائن:  31XX       رأس مال الشريك  [partnerAmount]
-```
+راجع §8.4 — قيد التسوية مُوحَّد يشمل جميع الشركاء في سطر واحد.
 
 #### تحمُّل خسارة (loss_share)
 ```
@@ -489,7 +566,7 @@ draft ──────────────────────►  (ق
    │  [المستخدم يؤكد التسوية]
    ▼
 confirmed  →  تُنشأ capital_transactions تلقائياً لكل شريك
-              ثم تُرحَّل القيود المحاسبية لكل حركة
+              ثم يُرحَّل قيد واحد مُوحَّد يشمل جميع الشركاء
 ```
 
 ### 8.2 خوارزمية احتساب الحصص
@@ -504,16 +581,47 @@ const partnerAmount = total_profit * (share_numerator / share_denominator);
 ```
 profit_settlements (confirmed)
     └──► settlement_shares (لكل شريك)
-              └──► capital_transactions (type='profit_share')
-                        └──► journal_entries (source_type='capital_transaction')
-                                  └──► journal_entry_lines
+              └──► capital_transactions (type='profit_share', لكل شريك)
+                        └──► journal_entries (قيد واحد مُوحَّد — source_type='profit_settlement')
+                                  └──► journal_entry_lines (سطر مدين + سطر دائن لكل شريك)
 ```
 
-### 8.4 قيد التسوية لكل شريك
+> **تغيير جوهري عن v1.1:** التسوية تُنشئ **قيداً واحداً مُركَّباً** بدلاً من N قيود منفصلة.
+> السبب: توزيع الأرباح حدث مالي واحد — تفتيته إلى N قيود يُكرِّر الدَّيْن على حساب الإيرادات
+> ويُشوِّه الأستاذ العام. القيد الواحد هو الصحيح محاسبياً.
+
+### 8.4 قيد التسوية — قيد واحد مُركَّب (N+1 سطر)
 
 ```
-مدين:  4100/4300  إيرادات الكيان   [partnerAmount]
-دائن:  31XX       رأس مال الشريك   [partnerAmount]
+مدين:  4100/4300  إيرادات الكيان     [total_profit]      ← سطر واحد
+دائن:  31XX       رأس مال شريك أ    [partnerAmount_A]   ← سطر لكل شريك
+دائن:  31XX       رأس مال شريك ب    [partnerAmount_B]
+دائن:  31XX       رأس مال شريك ج    [partnerAmount_C]
+...
+```
+
+**شرط التوازن:**
+```
+total_profit = Σ partnerAmount_i   ← يُتحقق منه قبل الترحيل
+```
+
+**ربط المصدر:**
+```
+source_type = 'profit_settlement' · source_id = profit_settlements.id
+profit_settlements.journal_entry_id = journal_entries.id
+```
+
+> ملاحظة: يُضاف `journal_entry_id` إلى جدول `profit_settlements` — راجع STR-002 عند تنفيذ هذا التغيير.
+
+**تحديث cache بعد ترحيل التسوية:**
+```typescript
+// يجب invalidation لكل شريك في التسوية
+settlementShares.forEach(share => {
+  queryClient.invalidateQueries({ queryKey: ['capital-accounts', share.partnerId] });
+});
+queryClient.invalidateQueries({ queryKey: ['profit-settlements'] });
+queryClient.invalidateQueries({ queryKey: ['journal-entries'] });
+queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 ```
 
 ---
@@ -605,6 +713,14 @@ const isPosted = (record: { journal_entry_id: string | null }): boolean =>
   record.journal_entry_id !== null;
 ```
 
+### 10.4 RPCs المعتمدة
+
+| الدالة | الغرض |
+|--------|-------|
+| `post_journal_entry(source_type, source_id)` | ترحيل قيد من مصدر محدد |
+| `post_settlement_entry(settlement_id)` | ترحيل قيد تسوية أرباح مُركَّب (§8.4) |
+| `delete_partner_accounts(person_id)` | حذف حسابات شريك (مشروط بـ §2.4) |
+
 ---
 
 ## 11. القيود الخاصة بالمشروع
@@ -620,7 +736,13 @@ const isPosted = (record: { journal_entry_id: string | null }): boolean =>
 - USD هي العملة المرجعية في جميع التقارير.
 - التحويل يتم في TypeScript لحظة العرض — لا في قاعدة البيانات.
 
-### 11.3 حدود MVP
+### 11.3 بنية القيود — قاعدة عامة
+
+معظم الحركات المالية في FinFamily تُولِّد **قيداً بسطرين فقط** (مدين واحد + دائن واحد).
+الاستثناء الوحيد هو **قيد تسوية الأرباح** الذي يُولِّد N+1 سطر (سطر مدين واحد للإيرادات الكلية
++ سطر دائن لكل شريك). لا توجد حركات ضريبية مركَّبة في النظام الحالي.
+
+### 11.4 حدود MVP
 
 | الميزة | الحالة |
 |--------|--------|
@@ -630,6 +752,9 @@ const isPosted = (record: { journal_entry_id: string | null }): boolean =>
 | ترحيل `capital_transactions` | ✅ Sprint 6 |
 | قيود يدوية (`manual`) | ✅ Sprint 6 |
 | عكس القيود (Reversal) | ✅ Sprint 6 |
+| إنشاء حسابات الشركاء تلقائياً عند `people INSERT` | 🔄 مُحدَّث في v1.2 |
+| قيد تسوية الأرباح مُوحَّد (N+1 سطر) | 🔄 مُحدَّث في v1.2 |
+| حذف حسابات الشريك عبر RPC | 🔄 مُحدَّث في v1.2 |
 | ترحيل `project_transactions` | ⏸️ ما بعد MVP |
 | إقفال فترات سنوي تلقائي | ⏸️ يدوي في MVP |
 | إدارة دليل الحسابات من الواجهة | 🔒 S-083 — أزرار خاملة في MVP |
@@ -647,7 +772,7 @@ const isPosted = (record: { journal_entry_id: string | null }): boolean =>
 | S-052 | نموذج إنشاء تسوية أرباح | القسم 8 — دورة التسويات |
 | S-053 | احتساب حصص التسوية | القسم 8.2 — الخوارزمية |
 | S-054 | تأكيد التسوية | القسم 8.3 — ربط الجداول |
-| S-055 | ربط settlement_shares | القسم 8.4 — قيود التسوية |
+| S-055 | ربط settlement_shares | القسم 8.4 — قيد التسوية المُركَّب |
 | S-083 | صفحة دليل الحسابات (إعدادات) | القسم 2 — الهيكل الهرمي |
 
 ---
@@ -655,16 +780,18 @@ const isPosted = (record: { journal_entry_id: string | null }): boolean =>
 ## 13. قائمة التحقق قبل كل قيد
 
 ```
-[ ] 1. هل source_type و source_id محددان؟ (أو هو قيد manual؟)
-[ ] 2. هل journal_entry_id IS NULL في المصدر؟ (منع التكرار)
-[ ] 3. هل entry_date يقع ضمن فترة محاسبية مفتوحة؟
-[ ] 4. هل القالب الصحيح مُطبَّق؟ (القسم 5)
-[ ] 5. هل حساب النقدية صحيح؟ (1110 USD · 1120 SYP)
-[ ] 6. هل مجموع debit = مجموع credit؟
-[ ] 7. هل جميع الحسابات is_postable = true؟
-[ ] 8. هل عدد السطور >= 2؟
-[ ] 9. هل تم تحديث journal_entry_id في جدول المصدر بعد الترحيل؟
+[ ] 1.  هل source_type و source_id محددان؟ (أو هو قيد manual؟)
+[ ] 2.  هل journal_entry_id IS NULL في المصدر؟ (منع التكرار)
+[ ] 3.  هل entry_date يقع ضمن فترة محاسبية مفتوحة؟
+[ ] 4.  هل القالب الصحيح مُطبَّق؟ (القسم 5)
+[ ] 5.  هل حساب النقدية صحيح؟ (1110 USD · 1120 SYP)
+[ ] 6.  هل مجموع debit = مجموع credit؟
+[ ] 7.  هل جميع الحسابات is_postable = true؟
+[ ] 8.  هل عدد السطور >= 2؟
+[ ] 9.  هل تم تحديث journal_entry_id في جدول المصدر بعد الترحيل؟
 [ ] 10. هل العملية ملفوفة في transaction واحدة (Supabase RPC)؟
+[ ] 11. [تسوية أرباح فقط] هل Σ partnerAmount = total_profit قبل الترحيل؟
+[ ] 12. [تسوية أرباح فقط] هل تم invalidation لكل ['capital-accounts', partnerId]؟
 ```
 
 ---
@@ -675,3 +802,4 @@ const isPosted = (record: { journal_entry_id: string | null }): boolean =>
 |---------|---------|---------|
 | 2026-06-08 | 1.0 | إنشاء الوثيقة — المحرك المحاسبي الكامل لـ Sprint 6 |
 | 2026-06-08 | 1.1 | تحديث دليل الحسابات وفق IFRS 18: فصل قائمة الدخل إلى ثلاث فئات (4000/7000 تشغيل · 5000/8000 استثمار · 6000/9000 تمويل) · إضافة مجموعة 2200 للخصوم غير المتداولة · إضافة 3300 الأرباح المحتجزة · تحديث جميع قوالب القيود بالأرقام الجديدة · إضافة S-083 لجدول Story Mapping |
+| 2026-06-11 | 1.2 | §2.4: تغيير توقيت إنشاء حسابات الشركاء من "أول ربط بكيان" إلى "AFTER INSERT ON people" مع Trigger كامل · §2.4: إضافة قاعدة الحذف المشروط عبر RPC delete_partner_accounts · §8.3–8.4: تغيير هيكل قيد تسوية الأرباح من N قيود منفصلة إلى قيد واحد مُركَّب N+1 سطر (صحيح محاسبياً) · §8.4: إضافة منطق invalidateQueries لتسوية الأرباح · §10.4: إضافة جدول RPCs المعتمدة · §11.3: توثيق قاعدة "معظم الحركات قيدان فقط" · §11.4: تحديث جدول حدود MVP · §13: إضافة بندَي تحقق 11 و12 لتسوية الأرباح |
