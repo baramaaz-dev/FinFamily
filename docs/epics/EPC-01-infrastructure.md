@@ -1,6 +1,6 @@
 EPC-01 — Infrastructure & Setup
 Epic: E1 — البنية التحتية والإعداد
-Sprint: Sprint 0 & 1 — الإعداد والبنية التحتية
+Sprint: Sprint 0, 1 & 10 — الإعداد والبنية التحتية والإتمام
 Status: ✅ Done
 ---
 Stories Overview
@@ -13,6 +13,14 @@ S-005	Dinero.js Setup & Currency Logic (USD/SYP)			✅ Done
 S-006	Apply Database Migrations for All Tables			✅ Done
 S-007	Verify & Document RLS Policies for All Tables			✅ Done
 S-008	Create Seed Data for Development & Testing			✅ Done
+S-075	Comprehensive Error Handling (Error Boundaries + Toast)		✅ Done
+S-076	Skeleton Loaders (Loading States Standardisation)			✅ Done
+S-077	Form Validation Review (Zod Schemas Audit + suppressGlobalError)	✅ Done
+S-078	RLS Policy Testing (All Tables Verification)			✅ Done
+S-079	Full RTL Compatibility Review + Visual Consistency Fixes		✅ Done
+S-080	Performance Optimisation (React Query Caching)			✅ Done
+S-081	Mobile Responsive Testing & Fixes				✅ Done
+S-082	Final Security Review Before Production				✅ Done
 ---
 S-001 — Development Environment & External Tools Setup
 Status: ✅ Done
@@ -1529,3 +1537,560 @@ feat(s-008): add dev seed data — people, portfolios, properties, transactions 
 | Wipe instructions documented in file | ✅ |
 | Filename uses underscores (no spaces) | ✅ |
 | Squash commit pushed to `main` | ✅ `aa7680d` |
+
+---
+
+S-075 — Comprehensive Error Handling (Error Boundaries + Toast)
+Status: ✅ Done
+Closed: Sprint 10
+
+What Was Built
+
+1. i18n Keys — errors.*
+Added 5 new keys to both src/i18n/locales/ar.ts and src/i18n/locales/en.ts
+under a new top-level errors namespace:
+  errors.boundary.title   — 'حدث خطأ غير متوقع'
+  errors.boundary.message — 'تعذّر تحميل هذه الصفحة. يرجى المحاولة مجدداً.'
+  errors.boundary.retry   — 'إعادة المحاولة'
+  errors.query.generic    — 'تعذّر تحميل البيانات'
+  errors.mutation.generic — 'فشلت العملية، يرجى المحاولة مجدداً'
+
+2. PageErrorFallback — src/components/ui/PageErrorFallback.tsx
+Functional component using useTranslation().
+Props: title?, message?, retryLabel?, onRetry? — all default to i18n keys.
+Layout: min-h-[400px] flex column centered, bg-[#FEF0EF] (danger-50).
+AlertTriangle icon: 48px, text-[#C0392B] (danger-400).
+Title: text-[#C0392B] text-lg font-medium.
+Message: text-[#475569] text-sm max-w-sm.
+Retry button: Shadcn Button, bg-[#1E5DC4] hover:bg-[#164399] text-white.
+onRetry: calls prop handler if provided, else window.location.reload().
+
+3. ErrorBoundary — src/components/ui/ErrorBoundary.tsx
+Class-based React component (mandatory — function components cannot be Error Boundaries).
+Props: children: ReactNode, fallback?: ReactNode.
+State: { hasError: boolean, error: Error | null }.
+getDerivedStateFromError: sets hasError: true, error.
+componentDidCatch: console.error('[ErrorBoundary] Caught:', error, componentStack).
+  Note: no toast call from class component — Sonner requires React context hook.
+resetErrorBoundary: arrow function resetting state to { hasError: false, error: null }.
+render: if hasError → props.fallback ?? <PageErrorFallback onRetry={resetErrorBoundary} />.
+
+4. Router — Route Wrapping
+All 18 leaf page components in src/router/index.tsx wrapped individually with <ErrorBoundary>.
+LoginPage, AppLayout, and ProtectedRoute deliberately left unwrapped.
+Wrapping is per-leaf so one page error does not crash the entire application.
+
+5. main.tsx — Global QueryClient onError Handlers
+QueryClient constructor updated with QueryCache and MutationCache:
+  queryCache: new QueryCache({ onError: (_error, query) => {
+    if (query.meta?.suppressGlobalError) return;
+    toast.error(i18n.t('errors.query.generic'));
+  }})
+  mutationCache: new MutationCache({ onError: (_error, _variables, _context, mutation) => {
+    if (mutation.meta?.suppressGlobalError) return;
+    toast.error(i18n.t('errors.mutation.generic'));
+  }})
+import changed from import '@/i18n' to import i18n from '@/i18n' to allow
+i18n.t() calls outside React component context.
+suppressGlobalError opt-out pattern documented in code comment.
+Per-page toast.error calls noted to double-fire until S-077 standardises the opt-out.
+
+Project Structure after S-075
+
+src/
+├── components/
+│   └── ui/
+│       ├── ErrorBoundary.tsx       ← NEW
+│       └── PageErrorFallback.tsx   ← NEW
+├── i18n/
+│   └── locales/
+│       ├── ar.ts                   ← UPDATED (errors.* namespace)
+│       └── en.ts                   ← UPDATED (errors.* namespace)
+└── main.tsx                        ← UPDATED (QueryCache + MutationCache + i18n import)
+src/router/index.tsx                ← UPDATED (18 routes wrapped with ErrorBoundary)
+
+Commits
+feat(i18n): add errors.* keys for error boundaries and query failures
+feat(error-handling): S-075 — ErrorBoundary, PageErrorFallback, QueryClient global onError
+
+Issues Encountered & Resolved
+
+# | Issue | Resolution
+1 | Sonner toast cannot be called from class component (no hook context) | console.error only in componentDidCatch; PageErrorFallback handles user-visible feedback
+2 | main.tsx used import '@/i18n' side-effect import — i18n instance not accessible | Changed to import i18n from '@/i18n' to access i18n.t() outside React
+
+Final Verification
+
+Check | Result
+npx tsc --noEmit | ✅ Zero errors
+npm run build | ✅ Success
+18 leaf routes wrapped with ErrorBoundary | ✅
+LoginPage/AppLayout/ProtectedRoute unwrapped | ✅
+PageErrorFallback STR-004 colours | ✅
+QueryCache + MutationCache onError wired | ✅
+errors.* keys in ar.ts and en.ts | ✅
+<Toaster> in App.tsx untouched | ✅
+
+---
+
+S-076 — Skeleton Loaders (Loading States Standardisation)
+Status: ✅ Done
+Closed: Sprint 10
+
+What Was Built
+
+1. Skeleton Primitive — src/components/ui/skeleton.tsx
+Shadcn-compatible Skeleton component (created manually — no CLI required).
+Named export: { Skeleton }.
+className: animate-pulse rounded bg-[#E2E8F0] (Slate-200 — matches all
+existing inline skeleton bars added in Sprints 1–9).
+Accepts className prop for height, width, border-radius, and margin overrides.
+bg-[#E2E8F0] is the canonical skeleton fill colour per STR-004 §2.3.
+
+2. TableSkeleton — src/components/ui/TableSkeleton.tsx
+Props: rows (default 5), cols (default 4).
+Header row: flex gap-3 mb-3 with {cols} Skeleton items (h-4 flex-1).
+Data rows: {rows} flex rows, each with {cols} Skeleton cells (h-4 flex-1)
+and bottom border border-[#F1F5F9].
+Default export.
+Usage: if (isLoading) return <TableSkeleton rows={5} cols={5} />;
+
+3. StatCardSkeleton — src/components/ui/StatCardSkeleton.tsx
+Props: lines (default 3).
+Outer: rounded-lg border border-[#E2E8F0] bg-white p-4 space-y-3.
+Line 1 (title): Skeleton h-4 w-1/3.
+Line 2 (main value): Skeleton h-8 w-2/3.
+Lines 3…{lines}: Skeleton h-3 w-1/2 (secondary info).
+Default export.
+
+Phase 0 Audit — All 15 pages with useQuery calls already had inline
+skeleton/loading states from Sprints 1–9. Zero gap files found. Phase 4 skipped.
+
+Project Structure after S-076
+
+src/
+└── components/
+    └── ui/
+        ├── skeleton.tsx          ← NEW
+        ├── TableSkeleton.tsx     ← NEW
+        └── StatCardSkeleton.tsx  ← NEW
+
+Commits
+feat(ui): add Shadcn-compatible Skeleton primitive component
+feat(ui): S-076 — add TableSkeleton and StatCardSkeleton shared components
+
+Issues Encountered & Resolved
+
+None — all 15 pages already had loading states. Commit 3 omitted (no gap files found).
+
+Final Verification
+
+Check | Result
+npx tsc --noEmit | ✅ Zero errors
+npm run build | ✅ Success (pre-existing chunk size warning)
+skeleton.tsx exports { Skeleton } | ✅
+TableSkeleton default export | ✅
+StatCardSkeleton default export | ✅
+bg-[#E2E8F0] used throughout | ✅
+No existing skeleton components modified | ✅
+
+---
+
+S-077 — Form Validation Review (Zod Schemas Audit + suppressGlobalError)
+Status: ✅ Done
+Closed: Sprint 10
+
+What Was Built
+
+Part A — suppressGlobalError Audit
+grep -r "useMutation" src/ returned 0 results.
+The project uses direct async onSubmit + supabaseClient pattern exclusively.
+No useMutation hooks exist anywhere in src/.
+MutationCache global handler (S-075) will never fire a duplicate toast.
+Files updated: none. Total mutations with meta added: 0.
+
+Part B — Zod Schema Audit (STR-005 §8 Anti-patterns)
+All schemas audited across 26 files containing z.object/z.enum/zodResolver.
+
+Violation A — required_error in z.enum(): none found ✅
+Violation B — z.coerce.date(): none found ✅
+Violation C — z.string().uuid() on Select fields: 2 violations fixed
+  RecordLeasePaymentDialog.tsx — portfolio_id: z.preprocess(...z.string().uuid().optional()) → z.string().optional()
+  AddPropertyExpenseDialog.tsx — portfolio_id: z.preprocess(...z.string().uuid().optional()) → z.string().optional()
+Violation D/E — optional numeric z.coerce.number(): none found — all z.coerce.number() usages are required (no .optional()) ✅
+Violation F — hardcoded strings: none found ✅
+Violation G — missing zodResolver cast: none found — all files with z.coerce.number() or .superRefine() already had the cast ✅
+New i18n keys added: none.
+
+Commits
+fix(schemas): S-077 Part B — fix Zod schema violations against STR-005 anti-patterns
+(Commit 1 for Part A omitted — no useMutation found)
+
+Issues Encountered & Resolved
+
+# | Issue | Resolution
+1 | S-075 suppressGlobalError fix expected ~18 mutation files — project uses async onSubmit instead | No useMutation exists; MutationCache handler is a no-op safety net only. No files modified in Part A.
+
+Final Verification
+
+Check | Result
+npx tsc --noEmit | ✅ Zero errors
+npm run build | ✅ Success (3346 modules, 5.57s)
+Part A: useMutation files found | 0 (pattern not used in project)
+Part B: Violation C fixed | 2 files ✅
+All other violations | None found ✅
+
+---
+
+S-078 — RLS Policy Testing (All Tables Verification)
+Status: ✅ Done
+Closed: Sprint 10
+
+What Was Built
+
+1. SQL Audit — Full Re-verification
+Ran the canonical audit query from RLS-POLICY-MATRIX.md v1.0 against
+pg_class + pg_policy in the Supabase SQL Editor.
+
+Results:
+  Total tables in public schema: 23
+  Tables with rls_enabled = true: 23 / 23 ✅
+  Tables with rls_enabled = true + policy_name = null: 0 ✅
+  New tables vs v1.0 matrix: none ✅
+
+Summary check (tables with RLS but no policy) returned 0 rows ✅.
+
+All 23 tables confirmed carrying valid policies:
+  Pattern A (wildcard *): accounting_periods, accounts, journal_entries,
+    journal_entry_lines, project_members, project_transactions, projects, wbs_items
+  Pattern B (4 granular): all remaining 15 tables
+
+2. Unauthenticated Access Test — curl
+Three REST API calls made without Authorization header (anon role only):
+  people       → [] ✅
+  portfolios   → [] ✅
+  transactions → [] ✅
+All three returned empty arrays confirming authenticated_full_access policies
+correctly block the anon role.
+
+3. Documentation — docs/policies/RLS-POLICY-MATRIX.md updated to v1.1
+Version: 1.0 → 1.1
+Audited date: 2026-06-02 → 2026-06-11
+Audited by: S-007 → S-078
+Changelog entry appended.
+git diff confirmed only version, date, and changelog line changed.
+
+Commit: 14141a7 on sprint-10.
+
+Commits
+test(security): S-078 — RLS audit passed · unauthenticated access verified blocked
+docs(rls): update RLS-POLICY-MATRIX.md to v1.1 with Sprint 10 audit results
+
+Issues Encountered & Resolved
+
+None — all 23 tables confirmed clean. No migration patch required.
+
+Final Verification
+
+Check | Result
+SQL audit — 23/23 tables | ✅
+Summary check — 0 rows (no RLS + no policy) | ✅
+people unauthenticated → [] | ✅
+portfolios unauthenticated → [] | ✅
+transactions unauthenticated → [] | ✅
+RLS-POLICY-MATRIX.md v1.1 committed | ✅ 14141a7
+npx tsc --noEmit | ✅ Zero errors
+
+---
+
+S-079 — Full RTL Compatibility Review + Visual Consistency Fixes
+Status: ✅ Done
+Closed: Sprint 10
+
+What Was Built
+
+Part A — amountTextClass Transfer Colour Fix (EPC-07 Deferred Item 4)
+File changed: src/pages/TransactionsPage.tsx (line 50).
+Change: amountTextClass transfer branch 'text-[#475569]' → 'text-[#1E293B]'.
+#475569 is Slate-600 (secondary muted text — incorrect for an amount figure).
+#1E293B is Slate-800 (neutral dark — canonical per STR-004 and matching
+DashboardPage RecentTransactionsTable which already used #1E293B correctly).
+tsc after Part A: 0 errors.
+
+Part B — RTL Audit (5 checks)
+
+Check 1 — text-left occurrences: 0 found. No action needed ✅
+Check 2 — ArrowLeft navigation: 2 matches — both ArrowLeftRight (swap icon
+  used as empty-state illustration in TransactionsPage). Not navigation arrows.
+  0 fixes needed ✅
+Check 3 — Hardcoded Arabic strings: 4 occurrences, all in print-report headers.
+  String 'إدارة الأصول العائلية' is the app tagline adjacent to brand name
+  FinFamily in 4 report section print headers. Same category as a brand name.
+  0 fixes applied ✅
+Check 4 — dir="rtl" root: confirmed on <html lang="ar" dir="rtl"> in index.html ✅
+Check 5 — Physical Tailwind properties (documentation):
+  pl-/pr- count: 12 occurrences across 4 files
+    (DashboardPage, PLReportSection, table.tsx, select.tsx)
+  ml-/mr- count: 0 occurrences
+  Pure RTL app — physical classes work correctly with dir="rtl".
+  No mass-replace needed. Documented ✅
+
+Part B: no violations found — Commit 2 omitted per spec.
+Files changed: src/pages/TransactionsPage.tsx only (1 insertion, 1 deletion).
+
+Commits
+fix(ui): S-079 Part A — standardise amountTextClass transfer colour to text-[#1E293B]
+
+Issues Encountered & Resolved
+
+None — project was already RTL compliant. Single one-line fix applied.
+
+Final Verification
+
+Check | Result
+npx tsc --noEmit | ✅ Zero errors
+npm run build | ✅ Success
+TransactionsPage transfer colour = #1E293B | ✅
+dir="rtl" on <html> in index.html | ✅
+text-left occurrences | 0
+ArrowLeft navigation misuse | 0
+Hardcoded UI strings | 0 (print taglines are brand text — acceptable)
+Files changed | 1 (TransactionsPage.tsx)
+
+---
+
+S-080 — Performance Optimisation (React Query Caching)
+Status: ✅ Done
+Closed: Sprint 10
+
+What Was Built
+
+React Query version confirmed: 5.100.14
+
+1. QueryClient Updates — src/main.tsx
+Two options added inside defaultOptions.queries:
+
+  gcTime: 10 * 60 * 1000
+    Increases evicted query data retention from 5 min (default) to 10 min.
+    Keeps recently-visited page data in memory so navigating back hits warm cache.
+    Located inside defaultOptions.queries (correct position for React Query v5.x).
+
+  refetchOnWindowFocus: false
+    Disables automatic background refetch when the user switches browser tabs.
+    Single-user app — data does not change from another session.
+    Eliminates unnecessary Supabase round-trips and loading flickers on tab return.
+
+Existing options preserved exactly: retry: 1, staleTime: 5 * 60 * 1000,
+QueryCache onError handler (S-075), MutationCache onError handler (S-075).
+
+2. staleTime Audit — 80 occurrences across 26 files
+
+RULE A — Removed redundant (value = global default 5 * 60 * 1000):
+  18 staleTime lines removed across 12 files.
+  All were on reference-data queries: entity names, people/portfolio/property
+  option lists, latest exchange rate, people-slim, obligation property names.
+  These now inherit from the global defaultOptions.queries.staleTime.
+
+RULE B — Kept intentional overrides:
+  44 staleTime values kept (30s, 15s, 60s, 2min, 10min).
+  Present in: DashboardPage, PortfolioDetailPage, TransactionsPage,
+  CapitalStatementPage, CapitalAccountsPage, PartnerDetailPage,
+  SettlementDetailPage, AddSettlementDialog, ExchangeRatesPage, others.
+
+RULE C — Added for volatile queries: 0.
+  All volatile queries (capital-accounts, settlements, recent transactions)
+  already carried explicit short overrides — no additions needed.
+
+RULE D — Report queries unchanged: 23 staleTime values across
+  PLReportSection, PartnerStatementSection, BalanceSheetSection,
+  EquityReportSection — untouched.
+
+Files changed: 14 files — 2 insertions (main.tsx), 18 deletions (staleTime removals).
+
+Commits
+perf(query): S-080 — add gcTime 10min, disable refetchOnWindowFocus, rationalise staleTime overrides
+
+Issues Encountered & Resolved
+
+# | Issue | Resolution
+1 | gcTime location in React Query v5 (top-level vs inside defaultOptions.queries) unclear | Confirmed inside defaultOptions.queries for v5.100.14 — compiled without TypeScript errors
+
+Final Verification
+
+Check | Result
+npx tsc --noEmit | ✅ Zero errors
+npm run build | ✅ Success
+gcTime: 10 * 60 * 1000 in defaultOptions.queries | ✅
+refetchOnWindowFocus: false in defaultOptions.queries | ✅
+18 redundant staleTime overrides removed | ✅
+44 intentional overrides preserved | ✅
+23 report query staleTime values untouched | ✅
+Window focus: no refetch on tab return | ✅
+
+---
+
+S-081 — Mobile Responsive Testing & Fixes
+Status: ✅ Done
+Closed: Sprint 10
+
+What Was Built
+
+Mobile infrastructure confirmed intact from S-003:
+MobileSidebar (Shadcn Sheet, right-side RTL) + hamburger button (md:hidden) ✅
+AppLayout: p-4 mobile / p-6 desktop, md:ms-[260px] margin offset ✅
+
+Phase 0 Audit Findings:
+  Tables: Shadcn <Table> component (table.tsx line 9) already includes
+    overflow-auto internally — all 16+ pages using Shadcn Table were
+    already compliant. Raw <table> elements found: 6 total, 2 already
+    had overflow-x-auto (RecentTransactionsTable, CapitalStatementPage),
+    4 in report sections needed fixes.
+  DialogContent: 20 instances across 18 files — 0 already had max-w-[95vw].
+  Dashboard grids: 2 grid containers — both already grid-cols-1 sm:grid-cols-2
+    lg:grid-cols-3. EPC-07 Deferred Item 5 was already resolved ✅.
+  MobileSidebar hamburger: confirmed intact ✅.
+
+1. Table Overflow Fixes (Phase 1)
+Fixed 4 raw tables in report sections:
+  PLReportSection, EquityReportSection, BalanceSheetSection,
+  PartnerStatementSection — added overflow-x-auto inner wrapper inside
+  existing overflow-hidden container.
+Pattern: <div className="overflow-hidden"><div className="overflow-x-auto"><table>
+
+2. Dialog Responsive Width Fixes (Phase 2)
+Added max-w-[95vw] as first class to 19 files (18 DialogContent + 1 SheetContent):
+  max-w-md → max-w-[95vw] sm:max-w-md (5 files)
+  sm:max-w-[N] → max-w-[95vw] sm:max-w-[N] (11 files)
+  w-full max-w-md → w-full max-w-[95vw] sm:max-w-md (2 people dialogs)
+  SheetContent w-[480px] → max-w-[95vw] w-[480px] (PortfolioMembersSheet)
+MobileSidebar w-[260px]: confirmed fine at 375px — not changed.
+
+3. Dashboard Grid (Phase 3)
+No changes needed — both grids already fully responsive ✅.
+
+4. Report Sections (Phase 4)
+PLReportSection: flex-wrap on control row ✅, grid grid-cols-1 sm:grid-cols-3 ✅
+EquityReportSection: no complex control rows, table overflow fixed ✅
+PartnerStatementSection: partner selector flex-wrap ✅, table overflow fixed ✅
+BalanceSheetSection: flex-wrap on control row ✅, grid grid-cols-1 sm:grid-cols-3 ✅
+
+Files changed: 23 files — 27 insertions, 19 deletions.
+
+Commits
+fix(responsive): S-081 — overflow-x-auto on tables, responsive dialog widths, dashboard grid breakpoints
+
+Issues Encountered & Resolved
+
+# | Issue | Resolution
+1 | EPC-07 Deferred Item 5 (Dashboard mobile grid) — assumed not done | Dashboard grids already had sm:/lg: breakpoints. Deferred item was actually resolved during Sprint 8 implementation. No change needed.
+2 | Shadcn <Table> internal overflow not obvious — 16+ pages risked false positives | Read table.tsx source — overflow-auto confirmed at line 9. Skipped all Shadcn Table users correctly.
+
+Final Verification
+
+Check | Result
+npx tsc --noEmit | ✅ Zero errors
+npm run build | ✅ Success
+No horizontal page scrollbar at 375px | ✅ (all tables scroll within container)
+All 19 dialogs constrained to 95vw on mobile | ✅
+Dashboard grid breakpoints | ✅ (already responsive)
+Report section control rows flex-wrap | ✅
+MobileSidebar + hamburger intact | ✅
+Files changed | 23
+
+---
+
+S-082 — Final Security Review Before Production
+Status: ✅ Done
+Closed: Sprint 10
+
+What Was Built
+
+1. Dependency Vulnerability Audit
+npm audit result: 0 vulnerabilities ✅
+No packages with known CVEs. No npm audit fix required.
+
+2. Console Log Scan
+grep results: 1 console.warn found in src/pages/SettlementDetailPage.tsx line 216.
+Context: dead-code validation block — float-tolerance sum check with no
+functional effect on settlement logic.
+Action: the console.warn and its enclosing dead-code validation block removed
+entirely (6 lines deleted). No functional change.
+After removal: tsc --noEmit → 0 errors ✅.
+
+3. Secrets Scan (4 scans)
+Scan A — service_role key: 0 results ✅
+Scan B — supabase.co in src/ (hardcoded URLs): 0 results ✅
+Scan C — hardcoded tokens (eyJ / sk_ / pk_ / Bearer ): 0 results ✅
+Scan D — .env files in git: .env.example only ✅
+  (.env.local correctly excluded by *.local rule in .gitignore)
+
+4. Dangerous DOM Patterns Scan
+dangerouslySetInnerHTML: 0 occurrences ✅
+eval(): 0 occurrences ✅
+innerHTML: 0 occurrences ✅
+
+5. Vite Build Configuration Review
+vite.config.ts: sourcemap option absent = false (default) ✅
+No define block with embedded secrets ✅
+vercel.json: not present — Vercel auto-detects Vite projects (no SPA rewrite
+  rule file needed). Production deployment confirmed working at
+  fin-family-maaz.vercel.app.
+dist .map files: none ✅
+
+6. Supabase Auth Settings (manual Dashboard verification)
+Email Provider:
+  Confirm email: enabled ✅
+  Secure email change: enabled ✅
+Rate Limits: 2 sign-in attempts per hour ✅
+Users: 1 (single authorised admin) ✅
+OAuth providers: all disabled — email only ✅
+
+7. Security Review Document — docs/SECURITY-REVIEW.md
+Created at docs/SECURITY-REVIEW.md (115 lines).
+Covers all 6 audit areas with actual findings (no placeholder brackets).
+Includes sign-off checklist confirming MVP cleared for production use.
+Signed off: 2026-06-11.
+
+Project Structure after S-082
+
+src/
+└── pages/
+    └── SettlementDetailPage.tsx    ← UPDATED (6 lines dead code removed)
+
+docs/
+└── SECURITY-REVIEW.md             ← NEW (115 lines)
+
+Commits
+fix(security): S-082 — remove console.warn dead-code block from SettlementDetailPage (80cd890)
+docs(security): S-082 — SECURITY-REVIEW.md Sprint 10 final security audit sign-off (c1f1ffd)
+
+Issues Encountered & Resolved
+
+# | Issue | Resolution
+1 | vercel.json absent — expected SPA rewrite rule from S-001 | Vercel auto-detects Vite/React projects and handles SPA routing natively. No vercel.json required. Confirmed deployment working.
+2 | console.warn in dead-code validation block — unclear if safe to remove | Block performed a float-tolerance sum check with no downstream effect (result was only logged, not used). Entire block removed safely.
+
+Final Verification
+
+Check | Result
+npm audit | ✅ 0 vulnerabilities
+console.warn/log/debug in src/ | ✅ 0 remaining (1 removed)
+service_role key in codebase | ✅ 0
+Hardcoded tokens (eyJ/sk_/pk_) | ✅ 0
+dangerouslySetInnerHTML | ✅ 0
+eval() | ✅ 0
+Vite sourcemap | ✅ false (default)
+.env.local in git | ✅ excluded
+Supabase users | ✅ 1
+Email confirmation enabled | ✅
+Rate limiting active | ✅ 2/hour
+docs/SECURITY-REVIEW.md committed | ✅ c1f1ffd
+npx tsc --noEmit | ✅ Zero errors
+npm run build | ✅ Success
+
+============================================================================
+
+Sprint 10 — الإتمام والجودة — Complete ✅
+
+Sprint 10 merged to main. All 8 stories (S-075 through S-082) delivered.
+MVP cleared for production use as of 2026-06-11.
