@@ -47,7 +47,7 @@ function amountTextClass(type: Transaction['type']): string {
   const map: Record<Transaction['type'], string> = {
     income:   'text-[#1A7D4F]',
     expense:  'text-[#C0392B]',
-    transfer: 'text-[#475569]',
+    transfer: 'text-[#1E293B]',
   };
   return map[type];
 }
