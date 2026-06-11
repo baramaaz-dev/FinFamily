@@ -210,12 +210,6 @@ export default function SettlementDetailPage() {
         capital_transaction_id: null,
       }));
 
-      // Validate sum — warn only, do not block (float tolerance per STR-006 §8.2)
-      const sumAmounts = sharesToInsert.reduce((acc, s) => acc + s.amount, 0);
-      if (Math.abs(sumAmounts - settlement.total_profit) > 0.0001) {
-        console.warn('Share sum mismatch:', { sumAmounts, total: settlement.total_profit });
-      }
-
       const { error } = await supabaseClient
         .from('settlement_shares')
         .insert(sharesToInsert);
