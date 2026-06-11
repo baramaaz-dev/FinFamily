@@ -1,8 +1,8 @@
 # FinFamily — RLS Policy Matrix
-**Version:** 1.0
+**Version:** 1.1
 **Status:** ✅ Verified
-**Audited:** 2026-06-02
-**Audited by:** S-007
+**Audited:** 2026-06-11
+**Audited by:** S-078
 
 ---
 
@@ -110,3 +110,4 @@ ORDER BY c.relname, p.polcmd;
 | التاريخ | الإصدار | التغيير |
 |---------|---------|---------|
 | 2026-06-02 | 1.0 | إنشاء الملف — تدقيق 23 جدولاً، جميعها سليمة |
+| 2026-06-11 | 1.1 | Sprint 10 S-078 — re-audit confirmed 23 tables, all RLS policies valid · unauthenticated access blocked on people/portfolios/transactions |
