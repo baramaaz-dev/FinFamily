@@ -114,7 +114,6 @@ export function PropertyOwnersDialog({
       if (error) throw error;
       return data ?? [];
     },
-    staleTime: 5 * 60 * 1000,
     enabled: open,
   });
 
@@ -193,7 +192,7 @@ export function PropertyOwnersDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-[580px] max-h-[85vh] overflow-y-auto"
+        className="max-w-[95vw] sm:max-w-[580px] max-h-[85vh] overflow-y-auto"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

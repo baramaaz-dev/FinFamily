@@ -357,7 +357,7 @@ export function PortfolioMembersSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="left" className="flex w-[480px] flex-col p-0 sm:w-[540px]">
+      <SheetContent side="left" className="flex max-w-[95vw] w-[480px] flex-col p-0 sm:w-[540px]">
 
         {/* Sticky header */}
         <SheetHeader className="sticky top-0 z-10 border-b border-[#E2E8F0] bg-white px-6 py-4">

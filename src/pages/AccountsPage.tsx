@@ -89,7 +89,6 @@ export default function AccountsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['accounts'],
     queryFn:  fetchAccounts,
-    staleTime: 5 * 60 * 1000,
   });
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());

@@ -143,7 +143,7 @@ export function EditPropertyDialog({ property, onClose }: EditPropertyDialogProp
   return (
     <Dialog open={property !== null} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <DialogContent
-        className="sm:max-w-[520px]"
+        className="max-w-[95vw] sm:max-w-[520px]"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

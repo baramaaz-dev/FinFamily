@@ -80,7 +80,7 @@ const addPropertyExpenseSchema = z.object({
 
   portfolio_id: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : v),
-    z.string().uuid().optional()
+    z.string().optional()
   ),
 
   notes: z.string()
@@ -159,14 +159,12 @@ export function AddPropertyExpenseDialog({
       if (error) throw error;
       return data ?? [];
     },
-    staleTime: 5 * 60 * 1000,
     enabled: open,
   });
 
   const { data: latestRate } = useQuery({
     queryKey: ['latest-exchange-rate'],
     queryFn:  fetchLatestExchangeRate,
-    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -208,7 +206,7 @@ export function AddPropertyExpenseDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="sm:max-w-[540px]"
+        className="max-w-[95vw] sm:max-w-[540px]"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

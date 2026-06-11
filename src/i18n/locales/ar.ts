@@ -1366,6 +1366,19 @@ const ar = {
       asOfDate:        'كما في تاريخ',
     },
   },
+  errors: {
+    boundary: {
+      title:   'حدث خطأ غير متوقع',
+      message: 'تعذّر تحميل هذه الصفحة. يرجى المحاولة مجدداً.',
+      retry:   'إعادة المحاولة',
+    },
+    query: {
+      generic: 'تعذّر تحميل البيانات',
+    },
+    mutation: {
+      generic: 'فشلت العملية، يرجى المحاولة مجدداً',
+    },
+  },
   language: {
     toggle:  'EN',
     current: 'العربية',

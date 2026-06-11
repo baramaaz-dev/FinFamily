@@ -204,7 +204,6 @@ export default function CapitalStatementPage() {
     queryKey: ['entity-name', account?.entity_type, account?.entity_id],
     queryFn:  () => fetchEntityName(account!.entity_type, account!.entity_id),
     enabled:  !!account,
-    staleTime: 5 * 60 * 1000,
   });
 
   const breakdown = useMemo(() => {

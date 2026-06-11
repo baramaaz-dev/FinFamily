@@ -454,6 +454,7 @@ export default function PartnerStatementSection() {
               key={section.account.id}
               className="rounded-lg border border-[#E2E8F0] overflow-hidden"
             >
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   {/* Account section header */}
@@ -573,6 +574,7 @@ export default function PartnerStatementSection() {
                   </tr>
                 </tbody>
               </table>
+              </div>
             </div>
           ))}
 

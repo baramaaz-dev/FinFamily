@@ -107,7 +107,6 @@ export default function AddCapitalTransactionDialog({
   const { data: latestRate } = useQuery({
     queryKey: ['latest-exchange-rate'],
     queryFn:  fetchLatestExchangeRate,
-    staleTime: 5 * 60 * 1000,
   });
 
   const {
@@ -184,7 +183,7 @@ export default function AddCapitalTransactionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-md"
+        className="max-w-[95vw] sm:max-w-md"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

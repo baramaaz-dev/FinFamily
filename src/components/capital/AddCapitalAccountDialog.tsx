@@ -83,19 +83,16 @@ export default function AddCapitalAccountDialog({
   const { data: people = [] } = useQuery({
     queryKey: ['people-options'],
     queryFn:  fetchPeopleOptions,
-    staleTime: 5 * 60 * 1000,
   });
 
   const { data: portfolios = [] } = useQuery({
     queryKey: ['portfolio-options'],
     queryFn:  fetchPortfolioOptions,
-    staleTime: 5 * 60 * 1000,
   });
 
   const { data: properties = [] } = useQuery({
     queryKey: ['property-options'],
     queryFn:  fetchPropertyOptions,
-    staleTime: 5 * 60 * 1000,
   });
 
   const {
@@ -170,7 +167,7 @@ export default function AddCapitalAccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-[95vw] sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t('capital.form.dialogTitle')}</DialogTitle>
           <DialogDescription>{t('capital.form.dialogDescription')}</DialogDescription>

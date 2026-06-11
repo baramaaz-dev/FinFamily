@@ -115,7 +115,7 @@ export function AddPropertyDialog({ open, onOpenChange }: AddPropertyDialogProps
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="sm:max-w-[520px]"
+        className="max-w-[95vw] sm:max-w-[520px]"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

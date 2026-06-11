@@ -185,7 +185,6 @@ export default function SettlementDetailPage() {
     queryKey: ['entity-name-settlement', settlement?.entity_type, settlement?.entity_id],
     queryFn:  () => fetchEntityName(settlement!.entity_type, settlement!.entity_id),
     enabled:  !!settlement,
-    staleTime: 5 * 60 * 1000,
   });
 
   async function handleCalculateShares() {
@@ -210,12 +209,6 @@ export default function SettlementDetailPage() {
         amount:                 settlement.total_profit * (m.share_numerator / m.share_denominator),
         capital_transaction_id: null,
       }));
-
-      // Validate sum — warn only, do not block (float tolerance per STR-006 §8.2)
-      const sumAmounts = sharesToInsert.reduce((acc, s) => acc + s.amount, 0);
-      if (Math.abs(sumAmounts - settlement.total_profit) > 0.0001) {
-        console.warn('Share sum mismatch:', { sumAmounts, total: settlement.total_profit });
-      }
 
       const { error } = await supabaseClient
         .from('settlement_shares')

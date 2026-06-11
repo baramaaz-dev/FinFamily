@@ -112,7 +112,7 @@ export function EditPortfolioDialog({ open, onOpenChange, portfolio }: EditPortf
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="sm:max-w-md"
+        className="max-w-[95vw] sm:max-w-md"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

@@ -466,6 +466,7 @@ export default function BalanceSheetSection() {
 
           {/* Balance sheet table */}
           <div className="rounded-lg border border-[#E2E8F0] overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody>
 
@@ -640,6 +641,7 @@ export default function BalanceSheetSection() {
 
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* MVP Note */}

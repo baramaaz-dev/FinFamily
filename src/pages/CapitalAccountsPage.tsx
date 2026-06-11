@@ -179,7 +179,6 @@ export default function CapitalAccountsPage() {
   } = useQuery({
     queryKey: ['entity-names-for-capital'],
     queryFn:  fetchEntityNames,
-    staleTime: 5 * 60 * 1000,
   });
 
   const {
