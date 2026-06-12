@@ -447,7 +447,7 @@ export function PortfolioMembersSheet({
 
                         {/* Joined date cell — unchanged in both modes */}
                         <TableCell className="font-mono tabular-nums text-sm text-[#475569] text-start">
-                          {format(new Date(member.joined_date), 'dd/MM/yyyy')}
+                          {member.joined_date ? format(new Date(member.joined_date), 'dd/MM/yyyy') : '—'}
                         </TableCell>
 
                         {/* Actions cell — conditional */}
