@@ -4,6 +4,7 @@ import { zodResolver }              from '@hookform/resolvers/zod';
 import type { Resolver }            from 'react-hook-form';
 import { z }                        from 'zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePostJournalEntry }      from '@/hooks/usePostJournalEntry';
 import { useTranslation }           from 'react-i18next';
 import { toast }                    from 'sonner';
 import {
@@ -103,6 +104,7 @@ export default function AddCapitalTransactionDialog({
 }: AddCapitalTransactionDialogProps) {
   const { t }       = useTranslation();
   const queryClient = useQueryClient();
+  const { post: postJournalEntry } = usePostJournalEntry('capital_transaction');
 
   const { data: latestRate } = useQuery({
     queryKey: ['latest-exchange-rate'],
@@ -149,7 +151,7 @@ export default function AddCapitalTransactionDialog({
   }
 
   async function onSubmit(data: AddCapitalTransactionFormData) {
-    const { error } = await supabaseClient
+    const { data: inserted, error } = await supabaseClient
       .from('capital_transactions')
       .insert({
         capital_account_id: account!.id,
@@ -162,8 +164,9 @@ export default function AddCapitalTransactionDialog({
         date:               data.date,
         reference_no:       data.reference_no?.trim() || null,
         notes:              data.notes?.trim() || null,
-        journal_entry_id:   null,
-      });
+      })
+      .select()
+      .single();
 
     if (error) {
       toast.error(t('capital.transactions.toast.createError'));
@@ -174,6 +177,9 @@ export default function AddCapitalTransactionDialog({
     toast.success(t('capital.transactions.toast.createSuccess'));
     reset();
     onSuccess();
+    if (inserted?.id) {
+      await postJournalEntry(inserted.id);
+    }
   }
 
   const contextSubtitle = t('capital.transactions.context')
