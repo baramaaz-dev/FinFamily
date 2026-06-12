@@ -304,6 +304,27 @@ export default function SettlementDetailPage() {
 
       setConfirmDialogOpen(false);
       toast.success(t('settlements.detail.confirm.toast.success'));
+
+      // Post compound settlement journal entry (non-blocking)
+      try {
+        const { error: postingError } = await supabaseClient
+          .rpc('post_settlement_entry', { p_settlement_id: settlement.id });
+
+        if (postingError) {
+          // ALREADY_POSTED is non-fatal — settlement may have been posted before
+          if (!postingError.message.includes('ALREADY_POSTED')) {
+            console.error('[S-091] post_settlement_entry error:', postingError);
+            toast.warning(t('settlements.detail.toast.postingWarning'));
+          }
+        } else {
+          // Invalidate additional keys after successful posting
+          queryClient.invalidateQueries({ queryKey: ['journal-entries'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        }
+      } catch (err) {
+        console.error('[S-091] Unexpected posting error:', err);
+        toast.warning(t('settlements.detail.toast.postingWarning'));
+      }
     } catch {
       toast.error(t('settlements.detail.confirm.toast.error'));
     } finally {

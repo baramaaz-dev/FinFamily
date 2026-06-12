@@ -1029,6 +1029,7 @@ const en = {
       toast: {
         calculateSuccess: 'Partner shares calculated successfully',
         calculateError:   'Failed to calculate shares',
+        postingWarning:   'Settlement confirmed but journal entry posting failed.',
       },
       error: 'Failed to load settlement details',
       retry: 'Retry',
