@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePostJournalEntry }      from '@/hooks/usePostJournalEntry';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import type { Resolver } from 'react-hook-form';
@@ -112,6 +113,7 @@ export function RecordLeasePaymentDialog({
 }: RecordLeasePaymentDialogProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { post: postJournalEntry } = usePostJournalEntry('lease_payment');
 
   const { register, handleSubmit, control, reset, watch, setValue,
           formState: { errors, isSubmitting } } =
@@ -174,7 +176,7 @@ export function RecordLeasePaymentDialog({
   };
 
   const onSubmit = async (data: RecordLeasePaymentFormData) => {
-    const { error } = await supabaseClient.from('lease_payments').insert({
+    const { data: inserted, error } = await supabaseClient.from('lease_payments').insert({
       lease_id:      lease.id,
       amount:        data.amount,
       currency:      data.currency,
@@ -182,7 +184,7 @@ export function RecordLeasePaymentDialog({
       paid_date:     data.paid_date,
       portfolio_id:  data.portfolio_id || null,
       notes:         data.notes?.trim() || null,
-    });
+    }).select().single();
     if (error) {
       toast.error(t('properties.leases.payment.toast.addError'));
       return;
@@ -191,6 +193,9 @@ export function RecordLeasePaymentDialog({
     await queryClient.invalidateQueries({ queryKey: ['properties'] });
     toast.success(t('properties.leases.payment.toast.addSuccess'));
     handleOpenChange(false);
+    if (inserted?.id) {
+      await postJournalEntry(inserted.id);
+    }
   };
 
   return (
