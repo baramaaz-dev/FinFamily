@@ -420,7 +420,7 @@ export default function PartnerDetailPage() {
             <p className="mt-2 text-xs text-[#94A3B8]">
               {t('partners.header.memberSince')}:{' '}
               <span className="font-mono tabular-nums">
-                {format(new Date(person.created_at), 'dd/MM/yyyy')}
+                {person.created_at ? format(new Date(person.created_at), 'dd/MM/yyyy') : '—'}
               </span>
             </p>
           </div>
@@ -504,7 +504,7 @@ export default function PartnerDetailPage() {
                     </span>
                   </TableCell>
                   <TableCell className="font-mono tabular-nums text-[#475569]">
-                    {format(new Date(pm.joined_date), 'dd/MM/yyyy')}
+                    {pm.joined_date ? format(new Date(pm.joined_date), 'dd/MM/yyyy') : '—'}
                   </TableCell>
                   <TableCell>
                     {txLoading ? (
@@ -783,7 +783,7 @@ export default function PartnerDetailPage() {
                       className="text-sm text-[#1E293B] hover:bg-[#F8FAFC]"
                     >
                       <TableCell className="font-mono tabular-nums text-[#475569]">
-                        {format(new Date(w.date), 'dd/MM/yyyy')}
+                        {w.date ? format(new Date(w.date), 'dd/MM/yyyy') : '—'}
                       </TableCell>
                       <TableCell className="font-medium">{entityName}</TableCell>
                       <TableCell>

@@ -257,7 +257,7 @@ export default function PortfoliosPage() {
                       </span>
                     </TableCell>
                     <TableCell className="font-mono tabular-nums text-[#475569]">
-                      {format(new Date(portfolio.created_at), 'dd/MM/yyyy')}
+                      {portfolio.created_at ? format(new Date(portfolio.created_at), 'dd/MM/yyyy') : '—'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">

@@ -311,7 +311,7 @@ export default function TransactionsPage() {
 
                   {/* Date */}
                   <TableCell className="font-mono tabular-nums text-[#475569]">
-                    {format(new Date(tx.date), 'dd/MM/yyyy')}
+                    {tx.date ? format(new Date(tx.date), 'dd/MM/yyyy') : '—'}
                   </TableCell>
 
                   {/* Type badge */}
