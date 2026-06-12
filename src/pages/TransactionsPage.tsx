@@ -4,6 +4,7 @@ import { useQuery, useQueryClient }                           from '@tanstack/re
 import { Link }                                               from 'react-router-dom';
 import { toast }                                              from 'sonner';
 import AddTransactionDialog                                   from '@/components/transactions/AddTransactionDialog';
+import { PostingStatusBadge }                                from '@/components/shared/PostingStatusBadge';
 import EditTransactionDialog                                  from '@/components/transactions/EditTransactionDialog';
 import TransactionsFilters                                    from '@/components/transactions/TransactionsFilters';
 import {
@@ -300,6 +301,7 @@ export default function TransactionsPage() {
                 <TableHead className="text-start">{t('transactions.columns.portfolio')}</TableHead>
                 <TableHead className="text-start">{t('transactions.columns.category')}</TableHead>
                 <TableHead className="text-start">{t('transactions.columns.notes')}</TableHead>
+                <TableHead className="text-center">{t('transactions.columns.posting')}</TableHead>
                 <TableHead className="text-end">{t('transactions.columns.actions')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -354,6 +356,11 @@ export default function TransactionsPage() {
                     >
                       {tx.notes || '—'}
                     </span>
+                  </TableCell>
+
+                  {/* Posting status */}
+                  <TableCell className="text-center">
+                    <PostingStatusBadge journalEntryId={tx.journal_entry_id} />
                   </TableCell>
 
                   {/* Actions */}
