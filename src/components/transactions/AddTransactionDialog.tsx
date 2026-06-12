@@ -5,6 +5,7 @@ import type { Resolver }            from 'react-hook-form';
 import { zodResolver }              from '@hookform/resolvers/zod';
 import { z }                        from 'zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePostJournalEntry }      from '@/hooks/usePostJournalEntry';
 import { format }                   from 'date-fns';
 import { toast }                    from 'sonner';
 import { supabaseClient }           from '@/lib/supabase';
@@ -138,6 +139,7 @@ export default function AddTransactionDialog({
 }: AddTransactionDialogProps) {
   const { t }       = useTranslation();
   const queryClient = useQueryClient();
+  const { post: postJournalEntry } = usePostJournalEntry('transaction');
 
   const { data: portfolioOptions = [], isLoading: portfoliosLoading } = useQuery({
     queryKey: ['portfolios-simple'],
@@ -190,7 +192,7 @@ export default function AddTransactionDialog({
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      const { error } = await supabaseClient
+      const { data: inserted, error } = await supabaseClient
         .from('transactions')
         .insert({
           portfolio_id:  data.portfolio_id,
@@ -203,11 +205,16 @@ export default function AddTransactionDialog({
           category:      data.category || null,
           date:          data.date,
           notes:         data.notes || null,
-        });
+        })
+        .select()
+        .single();
       if (error) throw error;
       await queryClient.invalidateQueries({ queryKey: ['transactions'] });
       toast.success(t('transactions.toast.addSuccess'));
       handleClose();
+      if (inserted?.id) {
+        await postJournalEntry(inserted.id);
+      }
     } catch {
       toast.error(t('transactions.toast.addError'));
     }

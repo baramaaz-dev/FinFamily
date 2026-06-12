@@ -8,6 +8,7 @@ import { formatCurrency } from '@/lib/currency';
 import { AddLeaseDialog } from '@/components/properties/AddLeaseDialog';
 import { RecordLeasePaymentDialog } from '@/components/properties/RecordLeasePaymentDialog';
 import { AddPropertyExpenseDialog } from '@/components/properties/AddPropertyExpenseDialog';
+import { PostingStatusBadge }       from '@/components/shared/PostingStatusBadge';
 import {
   Table,
   TableBody,
@@ -39,28 +40,30 @@ interface LeaseRow {
 }
 
 interface LeasePaymentRow {
-  id:            string;
-  lease_id:      string;
-  amount:        number;
-  currency:      'USD' | 'SYP';
-  exchange_rate: number | null;
-  paid_date:     string;
-  notes:         string | null;
+  id:               string;
+  lease_id:         string;
+  amount:           number;
+  currency:         'USD' | 'SYP';
+  exchange_rate:    number | null;
+  paid_date:        string;
+  notes:            string | null;
+  journal_entry_id: string | null;
 }
 
 interface PropertyExpenseRow {
-  id:            string;
-  property_id:   string;
-  type:          'tax' | 'maintenance' | 'utilities' | 'fees';
-  amount:        number;
-  currency:      'USD' | 'SYP';
-  exchange_rate: number | null;
-  due_date:      string;
-  paid_date:     string | null;
-  is_recurring:  boolean;
-  frequency:     'monthly' | 'annual' | 'once';
-  portfolio_id:  string | null;
-  notes:         string | null;
+  id:               string;
+  property_id:      string;
+  type:             'tax' | 'maintenance' | 'utilities' | 'fees';
+  amount:           number;
+  currency:         'USD' | 'SYP';
+  exchange_rate:    number | null;
+  due_date:         string;
+  paid_date:        string | null;
+  is_recurring:     boolean;
+  frequency:        'monthly' | 'annual' | 'once';
+  portfolio_id:     string | null;
+  notes:            string | null;
+  journal_entry_id: string | null;
 }
 
 function typeBadgeClass(type: Property['type']): string {
@@ -197,7 +200,7 @@ export default function PropertyOwnershipPage() {
       if (leaseIds.length === 0) return [];
       const { data, error } = await supabaseClient
         .from('lease_payments')
-        .select('id, lease_id, amount, currency, exchange_rate, paid_date, notes')
+        .select('id, lease_id, amount, currency, exchange_rate, paid_date, notes, journal_entry_id')
         .in('lease_id', leaseIds)
         .order('paid_date', { ascending: false });
       if (error) throw error;
@@ -213,7 +216,7 @@ export default function PropertyOwnershipPage() {
     queryFn: async (): Promise<PropertyExpenseRow[]> => {
       const { data, error } = await supabaseClient
         .from('property_expenses')
-        .select('id, property_id, type, amount, currency, exchange_rate, due_date, paid_date, is_recurring, frequency, portfolio_id, notes')
+        .select('id, property_id, type, amount, currency, exchange_rate, due_date, paid_date, is_recurring, frequency, portfolio_id, notes, journal_entry_id')
         .eq('property_id', id as string)
         .order('due_date', { ascending: false });
       if (error) throw error;
@@ -576,6 +579,9 @@ export default function PropertyOwnershipPage() {
                       {t(`properties.leases.payments.${col}`)}
                     </TableHead>
                   ))}
+                  <TableHead className="text-center text-xs font-medium text-[#475569]">
+                    {t('capital.statement.columns.postingStatus')}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -606,6 +612,9 @@ export default function PropertyOwnershipPage() {
                       title={payment.notes ?? ''}
                     >
                       {payment.notes ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <PostingStatusBadge journalEntryId={payment.journal_entry_id} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -698,6 +707,9 @@ export default function PropertyOwnershipPage() {
                           {t(`properties.expenses.list.${col}`)}
                         </TableHead>
                       ))}
+                      <TableHead className="text-center text-xs font-medium text-[#475569]">
+                        {t('capital.statement.columns.postingStatus')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -735,6 +747,9 @@ export default function PropertyOwnershipPage() {
                           <TableCell className="text-[#475569] max-w-[160px] truncate"
                                      title={expense.notes ?? ''}>
                             {expense.notes ?? '—'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <PostingStatusBadge journalEntryId={expense.journal_entry_id} />
                           </TableCell>
                         </TableRow>
                       );

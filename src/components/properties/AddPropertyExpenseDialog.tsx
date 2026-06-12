@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePostJournalEntry }      from '@/hooks/usePostJournalEntry';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import type { Resolver } from 'react-hook-form';
@@ -129,6 +130,7 @@ export function AddPropertyExpenseDialog({
 }: AddPropertyExpenseDialogProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { post: postJournalEntry } = usePostJournalEntry('property_expense');
 
   const { register, handleSubmit, control, reset, watch, setValue,
           formState: { errors, isSubmitting } } =
@@ -181,7 +183,7 @@ export function AddPropertyExpenseDialog({
   };
 
   const onSubmit = async (data: AddPropertyExpenseFormData) => {
-    const { error } = await supabaseClient.from('property_expenses').insert({
+    const { data: inserted, error } = await supabaseClient.from('property_expenses').insert({
       property_id:   propertyId,
       type:          data.type,
       amount:        data.amount,
@@ -193,7 +195,7 @@ export function AddPropertyExpenseDialog({
       frequency:     data.frequency,
       portfolio_id:  data.portfolio_id || null,
       notes:         data.notes?.trim() || null,
-    });
+    }).select().single();
     if (error) {
       toast.error(t('properties.expenses.toast.addError'));
       return;
@@ -201,6 +203,9 @@ export function AddPropertyExpenseDialog({
     await queryClient.invalidateQueries({ queryKey: ['property_expenses', propertyId] });
     toast.success(t('properties.expenses.toast.addSuccess'));
     handleOpenChange(false);
+    if (inserted?.id) {
+      await postJournalEntry(inserted.id);
+    }
   };
 
   return (

@@ -155,6 +155,22 @@ export default function PeoplePage() {
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
+
+    const { error: accountsError } = await supabaseClient
+      .rpc('delete_partner_accounts', { p_person_id: deleteTarget.id });
+
+    if (accountsError) {
+      setIsDeleting(false);
+      if (accountsError.message.includes('ACCOUNTS_HAVE_ENTRIES')) {
+        toast.error(
+          'لا يمكن حذف الشريك — توجد قيود محاسبية مرتبطة بحساباته.'
+        );
+      } else {
+        toast.error('حدث خطأ أثناء حذف حسابات الشريك.');
+      }
+      return;
+    }
+
     const { error } = await supabaseClient
       .from('people')
       .delete()
@@ -165,6 +181,7 @@ export default function PeoplePage() {
       return;
     }
     await queryClient.invalidateQueries({ queryKey: ['people'] });
+    await queryClient.invalidateQueries({ queryKey: ['people-slim'] });
     toast.success(t('people.toast.deleteSuccess'));
     setDeleteDialogOpen(false);
   };

@@ -638,6 +638,7 @@ const ar = {
       portfolio: 'المحفظة',
       category:  'التصنيف',
       notes:     'الملاحظات',
+      posting:   'الترحيل',
       actions:   'الإجراءات',
     },
     types: {
@@ -1029,6 +1030,7 @@ const ar = {
       toast: {
         calculateSuccess: 'تم احتساب حصص الشركاء بنجاح',
         calculateError:   'حدث خطأ أثناء احتساب الحصص',
+        postingWarning:   'تمت الموافقة على التسوية لكن فشل ترحيل القيد المحاسبي.',
       },
       error: 'تعذَّر تحميل تفاصيل التسوية',
       retry: 'إعادة المحاولة',
