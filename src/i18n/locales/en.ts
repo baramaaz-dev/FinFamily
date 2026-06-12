@@ -638,6 +638,7 @@ const en = {
       portfolio: 'Portfolio',
       category:  'Category',
       notes:     'Notes',
+      posting:   'Posting',
       actions:   'Actions',
     },
     types: {

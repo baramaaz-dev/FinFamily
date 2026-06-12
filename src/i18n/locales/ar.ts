@@ -638,6 +638,7 @@ const ar = {
       portfolio: 'المحفظة',
       category:  'التصنيف',
       notes:     'الملاحظات',
+      posting:   'الترحيل',
       actions:   'الإجراءات',
     },
     types: {
