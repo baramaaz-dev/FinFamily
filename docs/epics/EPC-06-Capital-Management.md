@@ -19,7 +19,7 @@ S-053   Auto-Calculate Partner Settlement Shares             ✅ Done
 S-054   Confirm Settlement                                   ✅ Done
 S-055   Display Settlement–Capital Transaction Link          ✅ Done
 S-090   Wire post_journal_entry to Capital Transactions      ✅ Done
-S-091   Update Settlement Confirmation — Compound Entry      ⏳ Pending
+S-091   Update Settlement Confirmation — Compound Entry      ✅ Done
 
 ---
 
@@ -111,8 +111,8 @@ Closed: Sprint 6
 
 Note: Settlement confirmation in Sprint 6 created N separate
 capital_transactions (one per partner) with journal_entry_id = NULL.
-Sprint 11 (S-091) replaces this with a single compound journal entry
-via post_settlement_entry RPC per STR-006 §8.3–8.4 v1.2.
+Sprint 11 (S-091) adds a compound journal entry via post_settlement_entry
+RPC per STR-006 §8.3–8.4 v1.2 — appended after existing flow, not replacing it.
 
 [Remaining content unchanged from original EPC-06 — see git history]
 Final Verification (S-054): All checks ✅
@@ -130,9 +130,9 @@ E6 — Canonical Rules Established in Sprint 6
 [Content unchanged from original EPC-06 — see git history]
 
 Canonical Rule 5 update (Sprint 11):
-  journal_entry_id = NULL throughout E6 MVP is now partially resolved.
+  journal_entry_id = NULL throughout E6 MVP is now fully resolved for new records.
   New capital_transactions are posted automatically via S-090.
-  Settlement journal entries are posted via S-091 (pending).
+  Settlement confirmation posts a compound N+1 entry via S-091.
   Historical pre-Sprint-11 capital_transactions retain journal_entry_id = NULL.
 
 ================================================================================
@@ -201,48 +201,21 @@ Change 1 — Import added:
 
 Change 2 — Hook call added BEFORE null guard (Canonical Rule 8):
   const { post: postJournalEntry } = usePostJournalEntry('capital_transaction');
-  // Placed before: if (!account) return null
-  All hooks must be declared unconditionally per React rules.
+  Placed before: if (!account) return null
 
-Change 3 — .select().single() added to INSERT chain:
-  const { data: inserted, error } = await supabaseClient
-    .from('capital_transactions')
-    .insert({ ... })
-    .select()
-    .single();
+Change 3 — .select().single() added to INSERT chain to obtain inserted.id.
 
-Change 4 — journal_entry_id: null REMOVED from INSERT payload:
-  This field was hardcoded null in S-049 per STR-006 §11.3 (Sprint 6 scope).
-  It must not be set by the UI — the DB default is NULL and the RPC
-  updates it after posting. Explicitly setting it to null before the RPC
-  runs is harmless but contradicts the intent and could mask future issues.
+Change 4 — journal_entry_id: null REMOVED from INSERT payload.
+  DB default handles NULL; the RPC updates it after posting.
 
-Change 5 — Posting call added as LAST step in success path:
-  // Existing code runs first:
-  // invalidateQueries · toast.success · reset() · onSuccess()
-  // Then:
-  if (inserted?.id) {
-    await postJournalEntry(inserted.id);
-  }
+Change 5 — Posting call as LAST step in success path:
+  if (inserted?.id) { await postJournalEntry(inserted.id); }
 
 3. Cache Invalidation (via hook CACHE_KEYS)
 
-  capital_transaction: ['capital-transactions'] · ['capital-accounts'] ·
-                       ['journal-entries'] · ['dashboard']
+  ['capital-transactions'] · ['capital-accounts'] · ['journal-entries'] · ['dashboard']
 
-  All invalidated automatically by usePostJournalEntry on successful posting.
-  No manual invalidateQueries calls added in this story.
-
-4. Project Structure after S-090
-
-  src/
-  ├── hooks/
-  │   └── usePostJournalEntry.ts          ← UNCHANGED (reused from S-088)
-  └── components/
-      └── capital/
-          └── AddCapitalTransactionDialog.tsx  ← UPDATED (5 changes)
-
-5. Commits
+4. Commits
 
   feat(capital): wire post_journal_entry to capital transactions (S-090)
 
@@ -251,15 +224,9 @@ Change 5 — Posting call added as LAST step in success path:
 Issues Encountered & Resolved (S-090)
 
 #   Issue                                   Resolution
-1   journal_entry_id: null present in       Removed from INSERT payload —
-    INSERT payload from S-049              DB default handles NULL; RPC
-                                            sets the value after posting
-2   Hook declared after if (!account)       Hook call moved above null guard
-    return null null guard — violates       per Canonical Rule 8 (all hooks
-    React rules                             unconditional before early returns)
-3   Browser verification requires           Dev server must be started by Barakat
-    dev server                              to confirm journal_entries rows created
-                                            with source_type='capital_transaction'
+1   journal_entry_id: null in INSERT        Removed — DB default handles NULL
+2   Hook after null guard                   Moved above guard per Canonical Rule 8
+3   Browser verification requires server    Dev server started by Barakat post-commit
 
 ---
 
@@ -271,7 +238,7 @@ AddCapitalTransactionDialog: hook call before null guard	✅
 AddCapitalTransactionDialog: .select().single() added	✅
 AddCapitalTransactionDialog: journal_entry_id: null removed	✅
 AddCapitalTransactionDialog: postJournalEntry called last	✅
-posting failure: toast.warning, transaction saved	✅ (non-blocking by design)
+posting failure: toast.warning, transaction saved	✅ (non-blocking)
 npx tsc --noEmit	✅ Zero errors
 
 ================================================================================
@@ -280,12 +247,134 @@ S-091 — Update Settlement Confirmation — Compound Journal Entry
 تحديث تأكيد التسوية للقيد المُركَّب
 Epic  : E6 — حسابات رأس المال والتسويات
 Sprint: Sprint 11 — Accounting Engine Integration
-Status: ⏳ Pending
+Status: ✅ Done
+Closed: Sprint 11
 Depends on: S-086 (post_settlement_entry RPC), S-054 (handleConfirmSettlement)
 Blocks: S-092 (Posting Status Indicators)
 
-Implementation pending. See STR-006 v1.2 §8.3–8.4 for the compound entry spec
-and the S-091 story files for full implementation details.
+---
+
+Overview
+
+Appends a non-blocking call to post_settlement_entry RPC at the end of the
+handleConfirmSettlement function in SettlementDetailPage.tsx.
+
+The existing confirmation flow (S-054) remains COMPLETELY UNCHANGED:
+  - Sum check (blocking guard)
+  - Per-partner capital_transaction creation loop
+  - profit_settlements.status → 'confirmed'
+  - AlertDialog UI
+  - Existing cache invalidations
+
+The posting call is purely additive — one new try/catch block appended after
+the existing success path. It creates the compound journal entry per
+STR-006 §8.3–8.4 v1.2:
+  1 DEBIT line  → revenue account (4100/4300 by entity_type), total_profit
+  N CREDIT lines → one per partner's 31XX capital account, share amount
+
+Posting is non-blocking: if the RPC fails, the settlement remains confirmed
+and capital_transactions exist — only the journal entry is missing.
+
+No SQL migrations. No schema changes.
+
+---
+
+What Was Built
+
+1. Audit Findings (Phase 0)
+
+  - Settlement id variable: settlement.id (from fetched query data, used throughout handler)
+  - Existing invalidateQueries in handleConfirmSettlement:
+      ['settlement', settlementId]
+      ['settlements']              ← already present — SKIPPED in new block
+      ['capital-accounts']         ← already present — SKIPPED in new block
+      ['capital-transactions-all']
+  - npx tsc --noEmit: 0 errors at baseline
+
+2. SettlementDetailPage.tsx — 1 Additive Block
+
+File: src/pages/SettlementDetailPage.tsx
+
+Posting block appended inside the outer try of handleConfirmSettlement,
+after toast.success and setConfirmDialogOpen(false):
+
+  // Post compound settlement journal entry (non-blocking)
+  try {
+    const { error: postingError } = await supabaseClient
+      .rpc('post_settlement_entry', { p_settlement_id: settlement.id });
+
+    if (postingError) {
+      if (!postingError.message.includes('ALREADY_POSTED')) {
+        console.error('[S-091] post_settlement_entry error:', postingError);
+        toast.warning(t('settlements.detail.toast.postingWarning'));
+      }
+      // ALREADY_POSTED is non-fatal — silent skip
+    } else {
+      // Invalidate non-duplicate keys only
+      queryClient.invalidateQueries({ queryKey: ['journal-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    }
+  } catch (err) {
+    console.error('[S-091] Unexpected posting error:', err);
+    toast.warning(t('settlements.detail.toast.postingWarning'));
+  }
+
+Cache keys added (non-duplicates only):
+  ['journal-entries'] · ['dashboard']
+
+Cache keys already present in existing flow (NOT duplicated):
+  ['settlement', settlementId] · ['settlements'] · ['capital-accounts'] ·
+  ['capital-transactions-all']
+
+3. i18n — 1 Key Added
+
+  settlements.detail.toast.postingWarning added to both locale files:
+
+  ar.ts: 'تمت الموافقة على التسوية لكن فشل ترحيل القيد المحاسبي.'
+  en.ts: 'Settlement confirmed but journal entry posting failed.'
+
+  Note: Arabic string in TypeScript (.ts) file — allowed per POL-003.
+
+4. Project Structure after S-091
+
+  src/
+  ├── pages/
+  │   └── SettlementDetailPage.tsx   ← UPDATED (1 additive block)
+  └── i18n/locales/
+      ├── ar.ts                      ← UPDATED (postingWarning key)
+      └── en.ts                      ← UPDATED (postingWarning key)
+
+5. Commits
+
+  feat(settlements): wire post_settlement_entry on confirmation (S-091)
+
+---
+
+Issues Encountered & Resolved (S-091)
+
+#   Issue                                   Resolution
+1   ['settlements'] and ['capital-accounts'] Both already present in existing
+    would be duplicated in new block        invalidations — skipped in posting
+                                            block; only new keys added
+2   Browser verification requires server    Dev server started by Barakat;
+                                            compound entry (1 debit + N credits)
+                                            confirmed after confirmation flow
+
+---
+
+Final Verification (S-091)
+
+Check	Result
+SettlementDetailPage: posting block appended after success path	✅
+ALREADY_POSTED handled as non-fatal (silent skip)	✅
+posting failure: toast.warning (non-blocking)	✅
+['journal-entries'] invalidated on success	✅
+['dashboard'] invalidated on success	✅
+No duplicate cache invalidations	✅ (settlements + capital-accounts already present)
+postingWarning key in ar.ts	✅
+postingWarning key in en.ts	✅
+Existing handleConfirmSettlement logic unchanged	✅
+npx tsc --noEmit	✅ Zero errors
 
 ================================================================================
 
@@ -295,15 +384,14 @@ E6 — Deferred Items Status
 
 Deferred Item 1 — Accounting Posting Layer
 
-Status: ✅ PARTIALLY RESOLVED — Sprint 11
+Status: ✅ RESOLVED — Sprint 11
 
-  S-090 (done): New capital_transactions are now posted automatically on save.
-                journal_entry_id is populated for all new capital transactions.
-  S-091 (pending): Settlement confirmation will post a compound N+1 entry via
-                   post_settlement_entry RPC.
+  S-090: New capital_transactions posted automatically on save.
+  S-091: Settlement confirmation posts compound N+1 entry via post_settlement_entry.
 
-Historical capital_transactions from Sprint 6 retain journal_entry_id = NULL.
-Backfill migration can be applied post-MVP if needed.
+  All new capital-related financial events are now reflected in the general
+  ledger. Historical pre-Sprint-11 records retain journal_entry_id = NULL.
+  Backfill migration can be applied post-MVP if needed.
 
 ---
 
@@ -320,8 +408,7 @@ Deferred Item 3 — Unique Constraint on settlement_shares
 
 Status: ⏳ Deferred — post-MVP
 
-No UNIQUE constraint on (settlement_id, partner_id). setQueryData pattern
-mitigates duplicate-click risk. Full fix: ADD UNIQUE constraint.
+No UNIQUE constraint on (settlement_id, partner_id). Full fix: ADD UNIQUE.
 
 ---
 
@@ -329,8 +416,7 @@ Deferred Item 4 — Edit / Delete on Capital Accounts and Transactions
 
 Status: ⏳ Deferred — post-MVP
 
-Edit/Delete buttons rendered as disabled stubs. Activation requires
-reversal pattern (STR-006 §4.3) for posted transactions.
+Edit/Delete buttons disabled. Activation requires reversal pattern (STR-006 §4.3).
 
 ---
 
