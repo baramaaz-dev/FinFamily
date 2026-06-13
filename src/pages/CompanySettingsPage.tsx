@@ -214,13 +214,6 @@ export default function CompanySettingsPage() {
 
   function onAddMember(values: AddMemberFormValues) {
     if (!company) return;
-    const newDecimal    = values.share_numerator / values.share_denominator;
-    const existingSum   = sharesSum(members);
-    const newTotal      = existingSum + newDecimal;
-    if (Math.abs(newTotal - 1) > 0.0001) {
-      toast.error(t('settings.company.members.shareSumError'));
-      return;
-    }
     addMember(
       {
         company_id:        company.id,
@@ -233,22 +226,26 @@ export default function CompanySettingsPage() {
         onSuccess: () => {
           setAddDialogOpen(false);
           addForm.reset();
-          toast.success(t('settings.company.members.saveSuccess'));
+          const newTotal =
+            sharesSum(members) +
+            values.share_numerator / values.share_denominator;
+          if (Math.abs(newTotal - 1) < 0.0001) {
+            toast.success('تمت إضافة الشريك بنجاح — إجمالي الحصص 100%');
+          } else {
+            toast.warning(
+              'تمت إضافة الشريك — إجمالي الحصص ' +
+                (newTotal * 100).toFixed(1) +
+                '% (يجب أن يبلغ 100%)'
+            );
+          }
         },
-        onError: () => toast.error(t('settings.company.members.saveError')),
+        onError: () => toast.error('حدث خطأ أثناء الإضافة، يرجى المحاولة مجدداً'),
       }
     );
   }
 
   function onEditMember(values: EditMemberFormValues) {
     if (!selectedMember) return;
-    const updatedDecimal = values.share_numerator / values.share_denominator;
-    const otherSum       = sharesSum(members.filter((m) => m.id !== selectedMember.id));
-    const newTotal       = otherSum + updatedDecimal;
-    if (Math.abs(newTotal - 1) > 0.0001) {
-      toast.error(t('settings.company.members.shareSumError'));
-      return;
-    }
     updateMember(
       {
         id: selectedMember.id,
@@ -261,9 +258,23 @@ export default function CompanySettingsPage() {
       {
         onSuccess: () => {
           setEditDialogOpen(false);
-          toast.success(t('settings.company.members.updateSuccess'));
+          const otherMembersSum = sharesSum(
+            members.filter((m) => m.id !== selectedMember!.id)
+          );
+          const newTotal =
+            otherMembersSum +
+            values.share_numerator / values.share_denominator;
+          if (Math.abs(newTotal - 1) < 0.0001) {
+            toast.success('تم تحديث الحصة بنجاح — إجمالي الحصص 100%');
+          } else {
+            toast.warning(
+              'تم تحديث الحصة — إجمالي الحصص ' +
+                (newTotal * 100).toFixed(1) +
+                '% (يجب أن يبلغ 100%)'
+            );
+          }
         },
-        onError: () => toast.error(t('settings.company.members.updateError')),
+        onError: () => toast.error('حدث خطأ أثناء التحديث، يرجى المحاولة مجدداً'),
       }
     );
   }
