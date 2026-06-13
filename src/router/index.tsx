@@ -14,6 +14,7 @@ import SettingsPage            from '@/pages/SettingsPage';
 import PeoplePage              from '@/pages/PeoplePage';
 import ExchangeRatesPage       from '@/pages/ExchangeRatesPage';
 import AccountsPage            from '@/pages/AccountsPage';
+import CompanySettingsPage     from '@/pages/CompanySettingsPage';
 import CapitalAccountsPage     from '@/pages/CapitalAccountsPage';
 import CapitalStatementPage    from '@/pages/CapitalStatementPage';
 import SettlementsPage         from '@/pages/SettlementsPage';
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
               { path: 'people',         element: <ErrorBoundary><PeoplePage /></ErrorBoundary> },
               { path: 'exchange-rates', element: <ErrorBoundary><ExchangeRatesPage /></ErrorBoundary> },
               { path: 'accounts',       element: <ErrorBoundary><AccountsPage /></ErrorBoundary> },
+              { path: 'company',        element: <ErrorBoundary><CompanySettingsPage /></ErrorBoundary> },
             ],
           },
           { path: '*',                  element: <ErrorBoundary><NotFoundPage /></ErrorBoundary> },
