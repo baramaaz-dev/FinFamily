@@ -5,13 +5,14 @@ import { BookOpen, Lock }       from 'lucide-react';
 import { supabaseClient }       from '@/lib/supabase';
 import type { Account, AccountNode } from '@/types';
 import AccountTreeNode          from '@/components/settings/accounts/AccountTreeNode';
+import { useCompany }           from '@/hooks/useCompany';
 
 // ─── Data helpers ─────────────────────────────────────────────────────────────
 
 async function fetchAccounts(): Promise<Account[]> {
   const { data, error } = await supabaseClient
     .from('accounts')
-    .select('id, parent_id, code, name, account_class, normal_balance, level, is_postable, is_active, created_at')
+    .select('id, company_id, parent_id, code, name, account_class, normal_balance, level, is_postable, is_active, created_at')
     .eq('is_active', true)
     .order('code', { ascending: true });
   if (error) throw error;
@@ -85,6 +86,7 @@ function AccountsError({ onRetry }: { onRetry: () => void }) {
 
 export default function AccountsPage() {
   const { t } = useTranslation();
+  const { data: company, isLoading: companyLoading } = useCompany();
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['accounts'],
@@ -133,6 +135,19 @@ export default function AccountsPage() {
           {t('settings.accounts.addAccount')}
         </button>
       </div>
+
+      {/* Company badge */}
+      {companyLoading ? (
+        <div className="h-5 w-48 bg-slate-200 rounded animate-pulse" />
+      ) : company ? (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-500 bg-slate-100 rounded-full px-3 py-0.5">
+            {company.name}
+          </span>
+          <span className="text-slate-300">•</span>
+          <span className="text-sm text-slate-400">{company.base_currency}</span>
+        </div>
+      ) : null}
 
       {/* IFRS 18 category banner */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
