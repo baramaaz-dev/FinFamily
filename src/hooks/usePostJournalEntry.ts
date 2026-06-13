@@ -39,6 +39,7 @@ export function usePostJournalEntry(sourceType: SourceType) {
       keys.forEach(key =>
         queryClient.invalidateQueries({ queryKey: key })
       );
+      queryClient.invalidateQueries({ queryKey: ['journal-entries-pending'] });
 
     } catch (err) {
       console.error('[usePostJournalEntry] Unexpected error:', err);

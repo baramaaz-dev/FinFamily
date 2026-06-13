@@ -15,6 +15,7 @@ export const ROUTES = {
   SETTLEMENTS:        '/settlements',
   SETTLEMENT_DETAIL: (id: string) => `/settlements/${id}`,
   JOURNAL:           '/journal',
+  JOURNAL_REVIEW:    '/journal-review',
   SETTINGS:          '/settings',
   SETTINGS_PEOPLE:   '/settings/people',
   SETTINGS_EXCHANGE: '/settings/exchange-rates',
