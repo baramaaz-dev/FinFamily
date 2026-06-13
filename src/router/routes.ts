@@ -14,7 +14,9 @@ export const ROUTES = {
   CAPITAL_DETAIL:    (accountId: string) => `/capital/${accountId}`,
   SETTLEMENTS:        '/settlements',
   SETTLEMENT_DETAIL: (id: string) => `/settlements/${id}`,
+  JOURNAL:           '/journal',
   SETTINGS:          '/settings',
   SETTINGS_PEOPLE:   '/settings/people',
   SETTINGS_EXCHANGE: '/settings/exchange-rates',
+  SETTINGS_COMPANY:  '/settings/company',
 } as const;

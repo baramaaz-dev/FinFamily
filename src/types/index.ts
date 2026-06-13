@@ -269,6 +269,7 @@ export interface AccountingPeriod {
 
 export interface Account {
   id: string
+  company_id: string
   parent_id: string | null            // null = root account
   code: string
   name: string
@@ -313,6 +314,7 @@ export interface JournalEntryLine {
 // ─── General Ledger VIEW row shape ───────────────────────────────────────────
 
 export interface GeneralLedgerRow {
+  company_id: string
   account_code: string
   account_name: string
   account_class: Account['account_class']
@@ -330,6 +332,7 @@ export interface GeneralLedgerRow {
   exchange_rate: number | null
   source_type: JournalEntry['source_type']
   source_id: string | null
+  entry_status: JournalEntry['status']
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────

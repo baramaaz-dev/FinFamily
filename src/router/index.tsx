@@ -14,8 +14,10 @@ import SettingsPage            from '@/pages/SettingsPage';
 import PeoplePage              from '@/pages/PeoplePage';
 import ExchangeRatesPage       from '@/pages/ExchangeRatesPage';
 import AccountsPage            from '@/pages/AccountsPage';
+import CompanySettingsPage     from '@/pages/CompanySettingsPage';
 import CapitalAccountsPage     from '@/pages/CapitalAccountsPage';
 import CapitalStatementPage    from '@/pages/CapitalStatementPage';
+import JournalPage             from '@/pages/JournalPage';
 import SettlementsPage         from '@/pages/SettlementsPage';
 import SettlementDetailPage    from '@/pages/SettlementDetailPage';
 import LoginPage               from '@/pages/LoginPage';
@@ -42,6 +44,7 @@ export const router = createBrowserRouter([
           { path: 'properties/:id',     element: <ErrorBoundary><PropertyOwnershipPage /></ErrorBoundary> },
           { path: 'partners',           element: <ErrorBoundary><PartnersPage /></ErrorBoundary> },
           { path: 'partners/:id',       element: <ErrorBoundary><PartnerDetailPage /></ErrorBoundary> },
+          { path: 'journal',            element: <ErrorBoundary><JournalPage /></ErrorBoundary> },
           { path: 'reports',            element: <ErrorBoundary><ReportsPage /></ErrorBoundary> },
           { path: 'capital',            element: <ErrorBoundary><CapitalAccountsPage /></ErrorBoundary> },
           { path: 'capital/:accountId', element: <ErrorBoundary><CapitalStatementPage /></ErrorBoundary> },
@@ -55,6 +58,7 @@ export const router = createBrowserRouter([
               { path: 'people',         element: <ErrorBoundary><PeoplePage /></ErrorBoundary> },
               { path: 'exchange-rates', element: <ErrorBoundary><ExchangeRatesPage /></ErrorBoundary> },
               { path: 'accounts',       element: <ErrorBoundary><AccountsPage /></ErrorBoundary> },
+              { path: 'company',        element: <ErrorBoundary><CompanySettingsPage /></ErrorBoundary> },
             ],
           },
           { path: '*',                  element: <ErrorBoundary><NotFoundPage /></ErrorBoundary> },
