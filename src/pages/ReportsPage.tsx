@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Scale } from 'lucide-react';
 import PLReportSection from '../components/reports/PLReportSection';
 import EquityReportSection from '../components/reports/EquityReportSection';
 import PartnerStatementSection from '../components/reports/PartnerStatementSection';
 import BalanceSheetSection from '../components/reports/BalanceSheetSection';
+import { ROUTES } from '@/router/routes';
 
 type ReportTab = 'pl' | 'equity' | 'partnerStatement' | 'balance';
 
@@ -11,6 +14,7 @@ const TABS: ReportTab[] = ['pl', 'equity', 'partnerStatement', 'balance'];
 
 export default function ReportsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ReportTab>('pl');
 
   return (
@@ -32,6 +36,17 @@ export default function ReportsPage() {
             {t(`reports.tabs.${tab}`)}
           </button>
         ))}
+      </div>
+
+      {/* Trial balance shortcut card */}
+      <div className="pb-2">
+        <button
+          onClick={() => navigate(ROUTES.TRIAL_BALANCE)}
+          className="flex items-center gap-3 px-4 py-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-right w-full sm:w-auto"
+        >
+          <Scale className="h-5 w-5 text-[#1E5DC4] shrink-0" />
+          <span className="text-sm font-medium text-slate-700">{t('trialBalance.title')}</span>
+        </button>
       </div>
 
       {activeTab === 'pl' && <PLReportSection />}
