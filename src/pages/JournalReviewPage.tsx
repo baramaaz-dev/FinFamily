@@ -1,14 +1,26 @@
-import React, { useState, useMemo }          from 'react';
-import { useTranslation }                     from 'react-i18next';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useTranslation }                      from 'react-i18next';
 import { ChevronDown, ChevronUp, CheckCircle, AlertTriangle } from 'lucide-react';
-import { Input }                              from '@/components/ui/input';
-import { Button }                             from '@/components/ui/button';
+import { toast }                               from 'sonner';
+import { useQueryClient }                      from '@tanstack/react-query';
+import { Input }                               from '@/components/ui/input';
+import { Button }                              from '@/components/ui/button';
 import {
   Select, SelectContent, SelectItem,
   SelectTrigger, SelectValue,
-}                                             from '@/components/ui/select';
-import { usePendingJournalEntries }           from '@/hooks/useJournalReview';
-import { formatCurrency }                     from '@/lib/currency';
+}                                              from '@/components/ui/select';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+}                                              from '@/components/ui/alert-dialog';
+import { Checkbox }                            from '@/components/ui/checkbox';
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+}                                              from '@/components/ui/tooltip';
+import { usePendingJournalEntries }            from '@/hooks/useJournalReview';
+import { usePostSingleEntry, postEntriesBulk } from '@/hooks/useJournalPosting';
+import { formatCurrency }                      from '@/lib/currency';
 import type { JournalEntrySourceType, PendingJournalEntry } from '@/types/journalReview';
 
 const SOURCE_TYPE_KEYS: Record<JournalEntrySourceType, string> = {
@@ -63,11 +75,24 @@ export default function JournalReviewPage() {
   const { t } = useTranslation();
   const { data: entries = [], isLoading, isError, refetch } = usePendingJournalEntries();
 
-  const [expandedId,      setExpandedId]      = useState<string | null>(null);
-  const [dateFrom,        setDateFrom]        = useState('');
-  const [dateTo,          setDateTo]          = useState('');
+  const [expandedId,       setExpandedId]       = useState<string | null>(null);
+  const [dateFrom,         setDateFrom]         = useState('');
+  const [dateTo,           setDateTo]           = useState('');
   const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('all');
-  const [accountSearch,   setAccountSearch]   = useState('');
+  const [accountSearch,    setAccountSearch]    = useState('');
+
+  const queryClient        = useQueryClient();
+  const postSingleMutation = usePostSingleEntry();
+
+  const [confirmSingleId, setConfirmSingleId] = useState<string | null>(null);
+  const [selectedIds,     setSelectedIds]     = useState<Set<string>>(new Set());
+  const [confirmBulk,     setConfirmBulk]     = useState(false);
+  const [bulkProgress,    setBulkProgress]    = useState<{ current: number; total: number } | null>(null);
+  const [isBulkPosting,   setIsBulkPosting]   = useState(false);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [dateFrom, dateTo, sourceTypeFilter, accountSearch]);
 
   const filteredEntries = useMemo<PendingJournalEntry[]>(() => {
     const q = accountSearch.trim().toLowerCase();
@@ -88,8 +113,64 @@ export default function JournalReviewPage() {
   const totalDebitSum   = useMemo(() => filteredEntries.reduce((s, e) => s + e.total_debit, 0),  [filteredEntries]);
   const unbalancedCount = useMemo(() => filteredEntries.filter(e => !e.is_balanced).length,       [filteredEntries]);
 
-  const toggleExpand = (id: string) =>
-    setExpandedId(prev => (prev === id ? null : id));
+  const balancedIds = useMemo(
+    () => new Set(filteredEntries.filter(e => e.is_balanced).map(e => e.id)),
+    [filteredEntries]
+  );
+  const allBalancedSelected =
+    balancedIds.size > 0 && [...balancedIds].every(id => selectedIds.has(id));
+
+  const toggleExpand = (id: string) => setExpandedId(prev => (prev === id ? null : id));
+
+  function handleSelectAll(checked: boolean) {
+    if (checked) {
+      setSelectedIds(prev => new Set([...prev, ...balancedIds]));
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        balancedIds.forEach(id => next.delete(id));
+        return next;
+      });
+    }
+  }
+
+  function handleSelectRow(id: string, checked: boolean) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      checked ? next.add(id) : next.delete(id);
+      return next;
+    });
+  }
+
+  async function handleBulkPost() {
+    const ids = [...selectedIds];
+    setConfirmBulk(false);
+    setIsBulkPosting(true);
+    setBulkProgress({ current: 0, total: ids.length });
+
+    const { posted, failed } = await postEntriesBulk(ids, (current, total) => {
+      setBulkProgress({ current, total });
+    });
+
+    setIsBulkPosting(false);
+    setBulkProgress(null);
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ['journal-entries-pending'] });
+    queryClient.invalidateQueries({ queryKey: ['journal-entries'] });
+
+    if (failed) {
+      toast.error(t('journalReview.post.errorBulkPartial').replace('{ref}', failed));
+    } else {
+      toast.success(t('journalReview.post.successBulk').replace('{n}', String(posted)));
+    }
+  }
+
+  function handleSingleConfirm() {
+    if (!confirmSingleId) return;
+    postSingleMutation.mutate(confirmSingleId, {
+      onSettled: () => setConfirmSingleId(null),
+    });
+  }
 
   if (isLoading) return <LoadingSkeleton />;
 
@@ -177,6 +258,36 @@ export default function JournalReviewPage() {
         )}
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-[#E8F0FB] rounded-lg border border-[#B8CFF5]">
+          <span className="text-sm text-[#1E5DC4] font-medium">
+            {t('journalReview.post.selectedCount').replace('{n}', String(selectedIds.size))}
+          </span>
+          <Button
+            size="sm"
+            className="bg-[#1E5DC4] hover:bg-[#164399] text-white text-xs"
+            onClick={() => setConfirmBulk(true)}
+            disabled={isBulkPosting}
+          >
+            {isBulkPosting && bulkProgress
+              ? t('journalReview.post.bulkProgress')
+                  .replace('{i}', String(bulkProgress.current))
+                  .replace('{n}', String(bulkProgress.total))
+              : t('journalReview.post.bulkAction')}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-slate-500 text-xs"
+            onClick={() => setSelectedIds(new Set())}
+            disabled={isBulkPosting}
+          >
+            {t('journalReview.post.clearSelection')}
+          </Button>
+        </div>
+      )}
+
       {/* Table or empty state */}
       {filteredEntries.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-400">
@@ -189,6 +300,14 @@ export default function JournalReviewPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
+                <th className="px-4 py-3 w-10">
+                  <Checkbox
+                    checked={allBalancedSelected}
+                    onCheckedChange={(v) => handleSelectAll(Boolean(v))}
+                    disabled={balancedIds.size === 0}
+                    aria-label={t('journalReview.selectAll')}
+                  />
+                </th>
                 <th className="px-4 py-3 text-start font-medium text-slate-500 w-8" />
                 <th className="px-4 py-3 text-start font-medium text-slate-500">{t('journalReview.columns.date')}</th>
                 <th className="px-4 py-3 text-start font-medium text-slate-500">{t('journalReview.columns.source')}</th>
@@ -204,9 +323,18 @@ export default function JournalReviewPage() {
                 <React.Fragment key={entry.id}>
                   {/* Main row */}
                   <tr
-                    className="cursor-pointer hover:bg-slate-50 transition-colors"
+                    className={`border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors
+                      ${!entry.is_balanced ? 'bg-[#FEF0EF]' : ''}`}
                     onClick={() => toggleExpand(entry.id)}
                   >
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedIds.has(entry.id)}
+                        onCheckedChange={(v) => handleSelectRow(entry.id, Boolean(v))}
+                        disabled={!entry.is_balanced}
+                        aria-label={t('journalReview.selectEntry')}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-slate-400">
                       {expandedId === entry.id
                         ? <ChevronUp className="w-4 h-4" />
@@ -239,18 +367,35 @@ export default function JournalReviewPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
-                      <span title={t('journalReview.postActionTooltip')}>
-                        <Button size="sm" disabled className="text-xs opacity-50 cursor-not-allowed">
-                          {t('journalReview.postAction')}
-                        </Button>
-                      </span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                disabled={!entry.is_balanced || postSingleMutation.isPending}
+                                onClick={() => setConfirmSingleId(entry.id)}
+                              >
+                                {t('journalReview.action.post')}
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          {!entry.is_balanced && (
+                            <TooltipContent>
+                              <p className="text-xs">{t('journalReview.post.disabledUnbalanced')}</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
                     </td>
                   </tr>
 
                   {/* Expanded lines row */}
                   {expandedId === entry.id && (
                     <tr className="bg-slate-50/60">
-                      <td colSpan={8} className="px-6 py-3">
+                      <td colSpan={9} className="px-6 py-3">
                         {entry.lines.length === 0 ? (
                           <p className="text-xs text-slate-400 text-center py-2">{t('journalReview.noLines')}</p>
                         ) : (
@@ -292,6 +437,60 @@ export default function JournalReviewPage() {
           </table>
         </div>
       )}
+
+      {/* Single-entry confirmation */}
+      <AlertDialog
+        open={confirmSingleId !== null}
+        onOpenChange={(open) => { if (!open) setConfirmSingleId(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="text-right">
+            <AlertDialogTitle>{t('journalReview.post.confirmSingleTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('journalReview.post.confirmSingleBody')
+                .replace('{ref}', confirmSingleId?.slice(0, 8) ?? '')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-[#1E5DC4] hover:bg-[#164399] text-white"
+              onClick={handleSingleConfirm}
+              disabled={postSingleMutation.isPending}
+            >
+              {t('journalReview.action.post')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk posting confirmation */}
+      <AlertDialog
+        open={confirmBulk}
+        onOpenChange={(open) => { if (!open) setConfirmBulk(false); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="text-right">
+            <AlertDialogTitle>
+              {t('journalReview.post.confirmBulkTitle')
+                .replace('{n}', String(selectedIds.size))}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('journalReview.post.confirmBulkBody')
+                .replace('{n}', String(selectedIds.size))}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-[#1E5DC4] hover:bg-[#164399] text-white"
+              onClick={handleBulkPost}
+            >
+              {t('journalReview.post.confirmBulkAction')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
