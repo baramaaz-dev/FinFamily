@@ -23,6 +23,8 @@ export function useReverseJournalEntry() {
         queryClient.invalidateQueries({ queryKey: POSTED_ENTRIES_KEY });
       } else if (error.message === 'NOT_POSTED') {
         toast.error(t('journalReview.reversal.errorNotPosted'));
+      } else if (error.message === 'CANNOT_REVERSE_REVERSAL') {
+        toast.error(t('journalReview.reversal.errorCannotReverseReversal'));
       } else if (error.message.includes('NO_OPEN_PERIOD')) {
         toast.error(t('journalReview.post.errorNoPeriod'));
       } else {

@@ -1552,6 +1552,7 @@ const en = {
       successToast:           'Reversal entry created successfully',
       errorAlreadyReversed:   'Entry has already been reversed',
       errorNotPosted:         'Cannot reverse an entry that is not posted',
+      errorCannotReverseReversal: 'Cannot reverse a reversal entry',
       errorGeneric:           'Reversal failed — please try again',
     },
     sourceTypes: {

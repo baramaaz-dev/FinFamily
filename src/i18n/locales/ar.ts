@@ -1552,6 +1552,7 @@ const ar = {
       successToast:           'تم إنشاء القيد العكسي بنجاح',
       errorAlreadyReversed:   'القيد مُعكَس مسبقاً',
       errorNotPosted:         'لا يمكن عكس قيد غير مُرحَّل',
+      errorCannotReverseReversal: 'لا يمكن عكس قيد عكسي',
       errorGeneric:           'فشل القيد العكسي — حاول مرة أخرى',
     },
     sourceTypes: {
