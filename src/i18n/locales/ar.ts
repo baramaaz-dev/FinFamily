@@ -962,7 +962,9 @@ const ar = {
       settlementBadge: 'تسوية',
       postingStatus: {
         posted:   'مُرحَّل',
-        unposted: 'غير مُرحَّل',
+        pending:  'معلّق',
+        reversed: 'مُعكوس',
+        unposted: 'بدون قيد',
       },
       empty: {
         title:    'لا توجد حركات رأسمالية',

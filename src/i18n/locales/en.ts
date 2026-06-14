@@ -962,7 +962,9 @@ const en = {
       settlementBadge: 'Settlement',
       postingStatus: {
         posted:   'Posted',
-        unposted: 'Unposted',
+        pending:  'Pending',
+        reversed: 'Reversed',
+        unposted: 'No Entry',
       },
       empty: {
         title:    'No capital transactions',
