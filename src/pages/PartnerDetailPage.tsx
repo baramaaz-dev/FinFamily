@@ -23,6 +23,14 @@ import { ROUTES }                 from '@/router/routes';
 
 // ─── Local interfaces ────────────────────────────────────────────────────────
 
+interface PartnerBalanceSummary {
+  capital:    number;
+  drawings:   number;
+  netEquity:  number;
+  loans:      number;
+  totalClaim: number;
+}
+
 interface PortfolioMembership {
   share_numerator:   number;
   share_denominator: number;
@@ -323,10 +331,92 @@ export default function PartnerDetailPage() {
     staleTime: 300_000,
   });
 
+  // Hook 9 — Partner's three chart-of-accounts accounts (31XX, 32XX, 23XX)
+  const { data: partnerAccounts, isLoading: loadingPartnerAccounts } = useQuery({
+    queryKey: ['partner-all-accounts', id],
+    queryFn: async () => {
+      const { data, error } = await supabaseClient
+        .from('accounts')
+        .select('id, code, name, account_class, normal_balance')
+        .filter('metadata->>partner_id', 'eq', id!)
+        .order('code');
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!id,
+    staleTime: 300_000,
+  });
+
+  const partnerAccountIds = useMemo(
+    () => (partnerAccounts ?? []).map(a => a.id),
+    [partnerAccounts]
+  );
+
+  // Hook 10 — Posted journal lines on those accounts
+  const { data: partnerJournalLines, isLoading: loadingPartnerBalances } = useQuery({
+    queryKey: ['partner-account-balances', id, partnerAccountIds.join(',')],
+    queryFn: async () => {
+      const { data, error } = await supabaseClient
+        .from('journal_entry_lines')
+        .select(`
+          account_id,
+          debit_amount,
+          credit_amount,
+          currency,
+          exchange_rate,
+          journal_entries!inner ( status )
+        `)
+        .in('account_id', partnerAccountIds)
+        .eq('journal_entries.status', 'posted');
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: partnerAccountIds.length > 0,
+    staleTime: 30_000,
+  });
+
   const cashAccountOptions = useMemo(
     () => (cashAccounts ?? []).map((a) => ({ id: a.id, code: a.code, name: a.name })),
     [cashAccounts]
   );
+
+  const partnerBalanceSummary = useMemo<PartnerBalanceSummary>(() => {
+    const zero: PartnerBalanceSummary = {
+      capital: 0, drawings: 0, netEquity: 0, loans: 0, totalClaim: 0,
+    };
+
+    if (!partnerAccounts || !partnerJournalLines) return zero;
+
+    const accountMap = new Map(partnerAccounts.map(a => [a.id, a]));
+
+    const netBalances = new Map<string, number>();
+    for (const line of partnerJournalLines) {
+      const account = accountMap.get(line.account_id);
+      if (!account) continue;
+
+      const debit  = toUSD(line.debit_amount  ?? 0, line.currency as 'USD' | 'SYP', line.exchange_rate ?? 1);
+      const credit = toUSD(line.credit_amount ?? 0, line.currency as 'USD' | 'SYP', line.exchange_rate ?? 1);
+
+      const prev = netBalances.get(line.account_id) ?? 0;
+      if (account.normal_balance === 'credit') {
+        netBalances.set(line.account_id, prev + credit - debit);
+      } else {
+        netBalances.set(line.account_id, prev + debit - credit);
+      }
+    }
+
+    const capital31  = partnerAccounts.find(a => a.code.startsWith('31'));
+    const drawings32 = partnerAccounts.find(a => a.code.startsWith('32'));
+    const loans23    = partnerAccounts.find(a => a.code.startsWith('23'));
+
+    const capital    = capital31  ? (netBalances.get(capital31.id)  ?? 0) : 0;
+    const drawings   = drawings32 ? (netBalances.get(drawings32.id) ?? 0) : 0;
+    const loans      = loans23    ? (netBalances.get(loans23.id)    ?? 0) : 0;
+    const netEquity  = capital - drawings;
+    const totalClaim = netEquity + loans;
+
+    return { capital, drawings, netEquity, loans, totalClaim };
+  }, [partnerAccounts, partnerJournalLines]);
 
   // Portfolio balance map — net USD balance per portfolio id
   const portfolioBalanceMap = useMemo(() => {
@@ -495,6 +585,98 @@ export default function PartnerDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Partner Balance Statement — skeleton */}
+      {(loadingPartnerAccounts || loadingPartnerBalances) && (
+        <div className="bg-white rounded-lg border border-[#E2E8F0] p-4">
+          <div className="h-4 bg-[#F1F5F9] rounded w-48 mb-4 animate-pulse" />
+          <div className="grid grid-cols-3 gap-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-3 bg-[#F1F5F9] rounded w-24 animate-pulse" />
+                <div className="h-5 bg-[#F1F5F9] rounded w-32 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Partner Balance Statement */}
+      {!loadingPartnerAccounts && !loadingPartnerBalances && (
+        <div className="bg-white rounded-lg border border-[#E2E8F0] p-4">
+
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-medium text-[#1E293B]">
+              {t('partners.balanceStatement.title')}
+            </h3>
+            <span className="text-xs text-[#94A3B8]">
+              {t('partners.balanceStatement.postedOnly')}
+            </span>
+          </div>
+
+          {/* Top row: capital · drawings · net equity */}
+          <div className="grid grid-cols-3 gap-4 mb-4">
+
+            <div className="bg-[#F8FAFC] rounded-md p-3">
+              <p className="text-xs text-[#475569] mb-1">
+                {t('partners.balanceStatement.capital')}
+              </p>
+              <p className="font-mono tabular-nums text-lg font-medium text-[#1A7D4F]">
+                {formatCurrency(partnerBalanceSummary.capital, 'USD')}
+              </p>
+            </div>
+
+            <div className="bg-[#F8FAFC] rounded-md p-3">
+              <p className="text-xs text-[#475569] mb-1">
+                {t('partners.balanceStatement.drawings')}
+              </p>
+              <p className="font-mono tabular-nums text-lg font-medium text-[#C0392B]">
+                {formatCurrency(partnerBalanceSummary.drawings, 'USD')}
+              </p>
+            </div>
+
+            <div className="bg-[#F8FAFC] rounded-md p-3 border border-[#E2E8F0]">
+              <p className="text-xs text-[#475569] mb-1">
+                {t('partners.balanceStatement.netEquity')}
+              </p>
+              <p className={`font-mono tabular-nums text-lg font-medium ${signColor(partnerBalanceSummary.netEquity)}`}>
+                {partnerBalanceSummary.netEquity < 0 ? '-' : ''}
+                {formatCurrency(Math.abs(partnerBalanceSummary.netEquity), 'USD')}
+              </p>
+            </div>
+
+          </div>
+
+          <div className="border-t border-[#E2E8F0] mb-4" />
+
+          {/* Bottom row: loans · total claim */}
+          <div className="grid grid-cols-2 gap-4">
+
+            <div className="bg-[#FEF7EC] rounded-md p-3">
+              <p className="text-xs text-[#B45309] mb-1">
+                {t('partners.balanceStatement.loans')}
+              </p>
+              <p className="font-mono tabular-nums text-lg font-medium text-[#B45309]">
+                {formatCurrency(partnerBalanceSummary.loans, 'USD')}
+              </p>
+              <p className="text-xs text-[#B45309] mt-1 opacity-70">
+                {t('partners.balanceStatement.asOf')}
+              </p>
+            </div>
+
+            <div className="bg-[#F8FAFC] rounded-md p-3 border-2 border-[#E2E8F0]">
+              <p className="text-xs text-[#475569] mb-1">
+                {t('partners.balanceStatement.totalClaim')}
+              </p>
+              <p className={`font-mono tabular-nums text-xl font-semibold ${signColor(partnerBalanceSummary.totalClaim)}`}>
+                {partnerBalanceSummary.totalClaim < 0 ? '-' : ''}
+                {formatCurrency(Math.abs(partnerBalanceSummary.totalClaim), 'USD')}
+              </p>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Statistics strip */}
       <div className="grid grid-cols-3 gap-3">
