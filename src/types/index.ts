@@ -55,6 +55,7 @@ export interface Transaction {
   date:             string;
   notes:            string | null;
   journal_entry_id: string | null;
+  journal_status:   string | null;   // derived — from journal_entries(status) embed
   created_at:       string;
 }
 
@@ -100,6 +101,7 @@ export interface LeasePayment {
   paid_date: string
   portfolio_id: string | null
   journal_entry_id: string | null     // null until posted to GL (M-03)
+  journal_status:   string | null     // derived — from journal_entries(status) embed
   notes: string | null
   created_at: string
 }
@@ -117,6 +119,7 @@ export interface PropertyExpense {
   frequency: 'monthly' | 'annual' | 'once' | null
   portfolio_id: string | null
   journal_entry_id: string | null     // null until posted to GL (M-03)
+  journal_status:   string | null     // derived — from journal_entries(status) embed
   notes: string | null
   created_at: string
 }
@@ -154,6 +157,7 @@ export interface CapitalTransaction {
   date: string
   reference_no: string | null
   journal_entry_id: string | null     // null until posted to GL (M-03)
+  journal_status:   string | null     // derived — from journal_entries(status) embed
   notes: string | null
   created_at: string
 }
