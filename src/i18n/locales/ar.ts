@@ -1179,6 +1179,17 @@ const ar = {
       },
     },
 
+    balanceStatement: {
+      title:      'بيان رصيد الشريك',
+      capital:    'رأس المال',
+      drawings:   'المسحوبات',
+      netEquity:  'صافي حقوق الشريك',
+      loans:      'قروض الشريك',
+      totalClaim: 'إجمالي مطالبة الشريك',
+      asOf:       'كما في تاريخ اليوم',
+      postedOnly: 'القيود المرحّلة فقط',
+    },
+
     withdrawalForm: {
       dialogTitle: 'تسجيل مسحوبات',
       cancel:      'إلغاء',

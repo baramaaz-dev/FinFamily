@@ -1179,6 +1179,17 @@ const en = {
       },
     },
 
+    balanceStatement: {
+      title:      'Partner Balance Statement',
+      capital:    'Capital',
+      drawings:   'Drawings',
+      netEquity:  'Net Partner Equity',
+      loans:      'Partner Loans',
+      totalClaim: 'Total Partner Claim',
+      asOf:       'As of today',
+      postedOnly: 'Posted entries only',
+    },
+
     withdrawalForm: {
       dialogTitle: 'Record Withdrawal',
       cancel:      'Cancel',
