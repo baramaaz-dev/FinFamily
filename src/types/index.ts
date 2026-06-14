@@ -188,7 +188,7 @@ export interface SettlementShare {
 export interface Distribution {
   id: string
   partner_id: string
-  entity_type: 'portfolio' | 'property' | 'project'
+  entity_type: 'portfolio' | 'property' | 'project' | 'cash'
   entity_id: string
   amount: number
   currency: SupportedCurrency
