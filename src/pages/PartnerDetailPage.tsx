@@ -55,6 +55,7 @@ function EntityTypeBadge({
     portfolio: 'bg-[#E8F0FB] text-[#1E5DC4]',
     property:  'bg-[#EBF5F0] text-[#1A7D4F]',
     project:   'bg-[#FEF7EC] text-[#B45309]',
+    cash:      'bg-[#F1F5F9] text-[#475569]',
   };
   const style = styles[entityType] ?? 'bg-[#F1F5F9] text-[#475569]';
   const label = t(`partners.withdrawalsSection.entityTypes.${entityType}`);
@@ -279,6 +280,27 @@ export default function PartnerDetailPage() {
     staleTime: 30_000,
   });
 
+  // Hook 8 — Cash accounts for withdrawals
+  const { data: cashAccounts } = useQuery({
+    queryKey: ['cash-accounts-for-withdrawals'],
+    queryFn: async () => {
+      const { data, error } = await supabaseClient
+        .from('accounts')
+        .select('id, code, name')
+        .like('code', '111%')
+        .eq('is_postable', true)
+        .order('code');
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 300_000,
+  });
+
+  const cashAccountOptions = useMemo(
+    () => (cashAccounts ?? []).map((a) => ({ id: a.id, code: a.code, name: a.name })),
+    [cashAccounts]
+  );
+
   // Portfolio balance map — net USD balance per portfolio id
   const portfolioBalanceMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -309,8 +331,11 @@ export default function PartnerDetailPage() {
     propertyOwnerships.forEach((po) =>
       map.set(po.properties.id, po.properties.name)
     );
+    (cashAccounts ?? []).forEach((a) =>
+      map.set(a.id, `${a.code} — ${a.name}`)
+    );
     return map;
-  }, [portfolioMemberships, propertyOwnerships]);
+  }, [portfolioMemberships, propertyOwnerships, cashAccounts]);
 
   const totalWithdrawalsUSD = useMemo(() => {
     return withdrawals.reduce((sum, w) => {
@@ -833,6 +858,7 @@ export default function PartnerDetailPage() {
           id:   po.properties.id,
           name: po.properties.name,
         }))}
+        cashAccountOptions={cashAccountOptions}
       />
 
     </div>
