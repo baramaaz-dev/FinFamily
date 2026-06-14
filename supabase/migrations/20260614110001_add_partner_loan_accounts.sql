@@ -23,7 +23,7 @@
 --    Level 2 · child of 2000 الخصوم · non-postable header
 -- =========================================================================
 
-INSERT INTO accounts (parent_id, code, name, account_class, normal_balance, level, is_postable)
+INSERT INTO accounts (parent_id, code, name, account_class, normal_balance, level, is_postable, company_id)
 SELECT
   p.id,
   '2300',
@@ -31,7 +31,8 @@ SELECT
   'liability',
   'credit',
   2,
-  false
+  false,
+  (SELECT id FROM company LIMIT 1)
 FROM accounts p
 WHERE p.code = '2000'
 ON CONFLICT (code) DO NOTHING;
@@ -51,6 +52,7 @@ DECLARE
   v_capital_parent_id   uuid;
   v_drawings_parent_id  uuid;
   v_loan_parent_id      uuid;
+  v_company_id          uuid;
   v_next_capital_code   text;
   v_next_drawings_code  text;
   v_next_loan_code      text;
@@ -66,10 +68,11 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Fetch parent account IDs
+  -- Fetch parent account IDs and company
   SELECT id INTO v_capital_parent_id  FROM accounts WHERE code = '3100' LIMIT 1;
   SELECT id INTO v_drawings_parent_id FROM accounts WHERE code = '3200' LIMIT 1;
   SELECT id INTO v_loan_parent_id     FROM accounts WHERE code = '2300' LIMIT 1;
+  SELECT id INTO v_company_id         FROM company                      LIMIT 1;
 
   -- MAX+1 code generation — monotonic, handles any partner count
   SELECT COALESCE(MAX(code::integer), 3100)
@@ -94,37 +97,40 @@ BEGIN
   -- U&'\0631\0623\0633\0020\0645\0627\0644\0020' = 'رأس مال '
   INSERT INTO accounts (
     code, name, account_class, normal_balance,
-    level, is_postable, parent_id, metadata
+    level, is_postable, parent_id, metadata, company_id
   ) VALUES (
     v_next_capital_code,
     U&'\0631\0623\0633\0020\0645\0627\0644\0020' || NEW.name,
     'equity', 'credit', 3, true,
     v_capital_parent_id,
-    jsonb_build_object('partner_id', NEW.id::text)
+    jsonb_build_object('partner_id', NEW.id::text),
+    v_company_id
   );
 
   -- U&'\0645\0633\062D\0648\0628\0627\062A\0020' = 'مسحوبات '
   INSERT INTO accounts (
     code, name, account_class, normal_balance,
-    level, is_postable, parent_id, metadata
+    level, is_postable, parent_id, metadata, company_id
   ) VALUES (
     v_next_drawings_code,
     U&'\0645\0633\062D\0648\0628\0627\062A\0020' || NEW.name,
     'equity', 'debit', 3, true,
     v_drawings_parent_id,
-    jsonb_build_object('partner_id', NEW.id::text)
+    jsonb_build_object('partner_id', NEW.id::text),
+    v_company_id
   );
 
   -- U&'\0642\0631\0636\0020' = 'قرض '
   INSERT INTO accounts (
     code, name, account_class, normal_balance,
-    level, is_postable, parent_id, metadata
+    level, is_postable, parent_id, metadata, company_id
   ) VALUES (
     v_next_loan_code,
     U&'\0642\0631\0636\0020' || NEW.name,
     'liability', 'credit', 3, true,
     v_loan_parent_id,
-    jsonb_build_object('partner_id', NEW.id::text)
+    jsonb_build_object('partner_id', NEW.id::text),
+    v_company_id
   );
 
   RETURN NEW;
@@ -146,10 +152,12 @@ DO $$
 DECLARE
   rec              RECORD;
   v_loan_parent_id uuid;
+  v_company_id     uuid;
   v_max_loan_code  integer;
   v_next_loan_code text;
 BEGIN
   SELECT id INTO v_loan_parent_id FROM accounts WHERE code = '2300' LIMIT 1;
+  SELECT id INTO v_company_id     FROM company                      LIMIT 1;
 
   FOR rec IN
     SELECT p.id, p.name
@@ -171,7 +179,7 @@ BEGIN
     -- U&'\0642\0631\0636\0020' = 'قرض '
     INSERT INTO accounts (
       code, name, account_class, normal_balance,
-      level, is_postable, parent_id, metadata
+      level, is_postable, parent_id, metadata, company_id
     ) VALUES (
       v_next_loan_code,
       U&'\0642\0631\0636\0020' || rec.name,
@@ -180,7 +188,8 @@ BEGIN
       3,
       true,
       v_loan_parent_id,
-      jsonb_build_object('partner_id', rec.id::text)
+      jsonb_build_object('partner_id', rec.id::text),
+      v_company_id
     );
   END LOOP;
 END $$;
