@@ -1,6 +1,6 @@
 import { useTranslation }    from 'react-i18next';
 import { NavLink, Outlet }   from 'react-router-dom';
-import { BookOpen, Building2 } from 'lucide-react';
+import { BookOpen, Building2, CalendarDays } from 'lucide-react';
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -58,6 +58,19 @@ export default function SettingsPage() {
         >
           <Building2 size={16} />
           {t('settings.company.title')}
+        </NavLink>
+        <NavLink
+          to="/settings/periods"
+          className={({ isActive }) =>
+            `inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              isActive
+                ? 'border-[#1E5DC4] text-[#1E5DC4]'
+                : 'border-transparent text-[#475569] hover:text-[#1E293B]'
+            }`
+          }
+        >
+          <CalendarDays size={16} />
+          {t('periodClosing.pageTitle')}
         </NavLink>
       </nav>
 

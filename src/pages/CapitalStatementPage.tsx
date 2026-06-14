@@ -7,6 +7,7 @@ import { supabaseClient }          from '@/lib/supabase';
 import { formatCurrency, type SupportedCurrency } from '@/lib/currency';
 import type { CapitalTransaction } from '@/types';
 import { buildCapitalBreakdown }   from '../utils/capital';
+import { PostingStatusBadge }      from '@/components/shared/PostingStatusBadge';
 
 // ─── Fetch helpers ────────────────────────────────────────────────────────────
 
@@ -519,15 +520,7 @@ export default function CapitalStatementPage() {
 
                           {/* posting status */}
                           <td className="px-4 py-3 whitespace-nowrap">
-                            {tx.journal_entry_id !== null ? (
-                              <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium text-[#1A7D4F] bg-[#EBF5F0]">
-                                {t('capital.statement.postingStatus.posted')}
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium text-[#94A3B8] bg-[#F1F5F9]">
-                                {t('capital.statement.postingStatus.unposted')}
-                              </span>
-                            )}
+                            <PostingStatusBadge journalEntryId={tx.journal_entry_id} />
                           </td>
 
                           {/* source */}

@@ -6,19 +6,18 @@ interface PostingStatusBadgeProps {
 
 export function PostingStatusBadge({ journalEntryId }: PostingStatusBadgeProps) {
   const { t } = useTranslation();
-  const isPosted = journalEntryId !== null;
+  const hasDraftEntry = journalEntryId !== null;
 
+  if (hasDraftEntry) {
+    return (
+      <span className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium text-[#B45309] bg-[#FEF7EC]">
+        {t('journal.status.draft')}
+      </span>
+    );
+  }
   return (
-    <span
-      className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
-        isPosted
-          ? 'bg-[#EBF5F0] text-[#1A7D4F]'
-          : 'bg-[#F1F5F9] text-[#94A3B8]'
-      }`}
-    >
-      {isPosted
-        ? t('capital.statement.postingStatus.posted')
-        : t('capital.statement.postingStatus.unposted')}
+    <span className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium text-slate-500 bg-slate-100">
+      {t('journal.status.noEntry')}
     </span>
   );
 }

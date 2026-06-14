@@ -265,6 +265,9 @@ export interface AccountingPeriod {
   end_date: string
   status: 'open' | 'closed' | 'locked'
   created_at: string
+  closed_at:         string | null
+  locked_at:         string | null
+  closing_entry_id:  string | null
 }
 
 export interface Account {

@@ -1,7 +1,7 @@
 EPC-01 — Infrastructure & Setup
 Epic: E1 — البنية التحتية والإعداد
-Sprint: Sprint 0, 1, 10 & 11 — الإعداد والبنية التحتية والإتمام والمحرك المحاسبي
-Status: ✅ Done
+Sprint: Sprint 0, 1, 10, 11 & 13 — الإعداد والبنية التحتية والإتمام والمحرك المحاسبي ودورة المراجعة
+Status: 🔄 In Progress (Sprint 13)
 ---
 Stories Overview
 Story	Title	Status
@@ -23,9 +23,13 @@ S-081	Mobile Responsive Testing & Fixes				✅ Done
 S-082	Final Security Review Before Production				✅ Done
 S-084	Auto-create Partner Ledger Accounts on people INSERT		✅ Done
 S-085	RPC — post_journal_entry (Single-Source Posting)		✅ Done
-S-086	RPC — post_settlement_entry (Compound Settlement Entry)	✅ Done
+S-086	RPC — post_settlement_entry (Compound Settlement Entry)		✅ Done
 S-087	RPC — delete_partner_accounts (Conditional Deletion + UI Guard)	✅ Done
 S-092	Posting Status Indicators in UI				✅ Done
+S-098	Convert Posting from Automatic to Draft (Manual Review Gate)	✅ Done
+S-099	Pending Journal Review Page (/journal-review)			✅ Done
+S-100	Journal Posting Interface (CFO Gate)				✅ Done
+S-101	Journal Entry Reversal with Mandatory Reason			✅ Done
 ---
 
 Sprint 11 Context — Double-Entry Accounting Engine
@@ -161,67 +165,33 @@ What Was Built
 
 3. TransactionsPage.tsx — 3 Targeted Changes
 
-File: src/pages/TransactionsPage.tsx
+  Change 1 — Import added: PostingStatusBadge
+  Change 2 — Column header added (before Actions column): transactions.columns.posting
+  Change 3 — Cell added per row: <PostingStatusBadge journalEntryId={tx.journal_entry_id} />
 
-Change 1 — Import added:
-  import { PostingStatusBadge } from '@/components/shared/PostingStatusBadge';
-
-Change 2 — Column header added (before Actions column):
-  <TableHead className="text-center">{t('transactions.columns.posting')}</TableHead>
-
-Change 3 — Cell added per row (before Actions cell):
-  <TableCell className="text-center">
-    <PostingStatusBadge journalEntryId={tx.journal_entry_id} />
-  </TableCell>
-
-journal_entry_id was already present in the Transaction interface (S-026) and
-in fetchTransactions() SELECT — no data layer changes needed.
+  journal_entry_id was already present in the Transaction interface (S-026) and
+  in fetchTransactions() SELECT — no data layer changes needed.
 
 4. PropertyOwnershipPage.tsx — Changes to Both Sections
 
-File: src/pages/PropertyOwnershipPage.tsx
+  Interface updates:
+    LeasePaymentRow: journal_entry_id: string | null  ← added
+    PropertyExpenseRow: journal_entry_id: string | null  ← added
 
-Interface updates:
-  LeasePaymentRow: journal_entry_id: string | null  ← added
-  PropertyExpenseRow: journal_entry_id: string | null  ← added
+  SELECT query updates:
+    ['lease_payments', id] query: journal_entry_id added to SELECT
+    ['property_expenses', id] query: journal_entry_id added to SELECT
 
-SELECT query updates:
-  ['lease_payments', id] query: journal_entry_id added to SELECT
-  ['property_expenses', id] query: journal_entry_id added to SELECT
-
-Import added:
-  import { PostingStatusBadge } from '@/components/shared/PostingStatusBadge';
-
-Lease payments section — column header and cell added:
-  Header: {t('capital.statement.columns.postingStatus')}  (reused from S-050)
-  Cell: <PostingStatusBadge journalEntryId={payment.journal_entry_id} />
-
-Property expenses section — column header and cell added:
-  Header: {t('capital.statement.columns.postingStatus')}  (reused from S-050)
-  Cell: <PostingStatusBadge journalEntryId={expense.journal_entry_id} />
+  Lease payments section — column header and cell added.
+  Property expenses section — column header and cell added.
+  Header reuses: capital.statement.columns.postingStatus (from S-050)
 
 5. i18n — 1 Key Added
 
-  transactions.columns.posting added to both locale files:
-  ar.ts: 'الترحيل'
-  en.ts: 'Posting'
-
+  transactions.columns.posting: ar → 'الترحيل' / en → 'Posting'
   All other badge labels reused from S-050 capital.statement.postingStatus.*
 
-6. Project Structure after S-092
-
-  src/
-  ├── components/
-  │   └── shared/
-  │       └── PostingStatusBadge.tsx        ← NEW
-  ├── pages/
-  │   ├── TransactionsPage.tsx              ← UPDATED (import + header + cell)
-  │   └── PropertyOwnershipPage.tsx         ← UPDATED (interfaces + queries + header + cell ×2)
-  └── i18n/locales/
-      ├── ar.ts                             ← UPDATED (transactions.columns.posting)
-      └── en.ts                             ← UPDATED (transactions.columns.posting)
-
-7. Commits
+6. Commits
 
   feat(ui): add posting status indicators across financial tables (S-092)
 
@@ -230,37 +200,16 @@ Property expenses section — column header and cell added:
 Issues Encountered & Resolved (S-092)
 
 #   Issue                                   Resolution
-1   journal_entry_id absent from            Added to both interfaces (LeasePaymentRow,
-    PropertyOwnershipPage row interfaces    PropertyExpenseRow) and both SELECT queries
-    and SELECT queries
-2   colSpan update expected by prompt       Neither TransactionsPage nor
-    but not applicable                      PropertyOwnershipPage uses table-row
-                                            colSpan — div/paragraph empty states.
-                                            No colSpan changes needed.
+1   journal_entry_id absent from            Added to both interfaces and SELECT queries
+    PropertyOwnershipPage row interfaces
+2   colSpan update not applicable           Neither page uses table-row colSpan
 3   capital.statement.columns.postingStatus Reused directly — no duplication
     already existed from S-050
 
 ---
 
-Final Verification (S-092)
-
-Check	Result
-src/components/shared/PostingStatusBadge.tsx created	✅
-STR-004 hex colors in badge	✅ success-50/400 and slate-100/400
-TransactionsPage: import added	✅
-TransactionsPage: Posting column header added	✅
-TransactionsPage: PostingStatusBadge per row	✅
-PropertyOwnershipPage: LeasePaymentRow.journal_entry_id added	✅
-PropertyOwnershipPage: PropertyExpenseRow.journal_entry_id added	✅
-PropertyOwnershipPage: lease payments SELECT updated	✅
-PropertyOwnershipPage: property expenses SELECT updated	✅
-PropertyOwnershipPage: badge in payments table	✅
-PropertyOwnershipPage: badge in expenses table	✅
-transactions.columns.posting key in ar.ts + en.ts	✅
-i18n keys reused from S-050	✅ postingStatus.* + columns.postingStatus
-CapitalStatementPage untouched	✅
-npx tsc --noEmit	✅ Zero errors
-npm run build	✅ Success
+Final Verification (S-092): All checks ✅
+Sprint 11 merged to main: 2026-06-12
 
 ============================================================================
 
@@ -294,4 +243,472 @@ Outstanding STR-002 Updates Required (identified during Sprint 11):
   - profit_settlements.journal_entry_id column (added in S-086)
   - journal_entries.source_type CHECK extended (added in S-086)
 
-Sprint 11 merged to main: 2026-06-12
+============================================================================
+
+============================================================================
+Sprint 13 — Review Cycle & Manual Posting Gate (E1 Stories)
+============================================================================
+
+Sprint 13 Context
+
+Sprint 13 converts the accounting workflow from automatic instant-posting
+(Sprint 11) to a two-phase manual review cycle:
+  Phase 1 (S-098): All RPCs save journal entries as 'draft' — not 'posted'.
+  Phase 2 (S-099–S-101): CFO reviews, posts, and reverses entries via a
+  dedicated /journal-review page.
+
+The four E1 stories in Sprint 13 affect:
+  - Supabase RPC behaviour (S-098)
+  - A new review page with full CRUD on journal entry status (S-099–S-101)
+  - The shared PostingStatusBadge component (updated in S-098/S-099)
+
+Reference documents: STR-006 v1.2, POL-001 v1.0
+
+---
+
+S-098 — Convert Posting from Automatic to Draft (Manual Review Gate)
+تحويل الترحيل من آلي إلى يدوي
+Epic: E1 — البنية التحتية والإعداد
+Sprint: Sprint 13
+Status: ✅ Done
+Closed: Sprint 13
+Depends on: S-085, S-086, S-088, S-089, S-090, S-091, S-092
+Blocks: S-099 (journal review page)
+
+---
+
+Overview
+
+Sprint 11 wired all financial entry points to RPCs that created journal entries
+with status = 'posted' immediately on user submission. S-098 changes this so that
+all new journal entries land as status = 'draft', awaiting CFO review.
+
+Three change areas:
+  1. Supabase RPC update: remove step 6 (status → 'posted') from both RPCs.
+  2. Hook update: add ['journal-entries-pending'] invalidation.
+  3. Badge copy: "غير مُرحَّل" → "معلّق" / "بدون قيد" across four registers.
+
+---
+
+What Was Built
+
+1. Migration — supabase/migrations/20260613000004_draft_posting_mode.sql
+
+  post_journal_entry RPC: rebuilt from scratch (original not in repo).
+    Implements STR-006 §5 templates for all 4 source types.
+    Step 6 (UPDATE ... SET status = 'posted') absent — entries remain 'draft'.
+    Step 7 (source_table.journal_entry_id link) retained.
+
+  post_settlement_entry RPC: copied from 20260612000002 with step 12
+    (SET status = 'posted') removed.
+
+2. Hook — src/hooks/usePostJournalEntry.ts
+
+  Added: queryClient.invalidateQueries({ queryKey: ['journal-entries-pending'] })
+  so S-099's pending review list refreshes on every new entry creation.
+  No other changes.
+
+3. Shared Badge — src/components/shared/PostingStatusBadge.tsx
+
+  Updated to three-state logic:
+    journal_entry_id IS NULL          → "بدون قيد"   (slate neutral)
+    journal_entry_id IS NOT NULL      → "معلّق"       (warning #B45309 / #FEF7EC)
+    (third state "مُرحَّل" prepared as stub for S-100)
+
+  Applied across all four registers (S-092 badge locations):
+    TransactionsPage · Lease payments log · Property expenses log ·
+    CapitalStatementPage (replaced inline badge with shared component)
+
+4. CapitalStatementPage.tsx
+
+  Replaced inline badge code with <PostingStatusBadge /> — now uses the
+  shared component consistently with all other three registers.
+
+5. i18n — ar.ts / en.ts
+
+  journal.status.draft  → 'معلّق' / 'Pending'
+  journal.status.posted → 'مُرحَّل' / 'Posted'   (updated)
+  journal.status.noEntry → 'بدون قيد' / 'No Entry'  (added)
+
+---
+
+Key Decisions
+
+- source_table.journal_entry_id link retained (step 7) — required for badge
+  rendering and S-099 source reference display.
+- "معلّق" replaces "غير مُرحَّل": semantics changed from "not linked" to
+  "linked but awaiting review".
+- Existing 'posted' entries (from Sprint 11 test data) unaffected — S-098
+  only changes behaviour for new entries created after migration.
+
+---
+
+Issues Encountered & Resolved (S-098)
+
+#   Issue                                   Resolution
+1   post_journal_entry original body not    Implemented from scratch per STR-006 §5
+    in repo (lived only in Supabase)        and §10.1 specification
+2   Arabic text in badge rendered reversed  Terminal display artifact for RTL strings.
+    in Claude Code completion summary       Actual values in code confirmed correct
+                                            by TypeScript 0-error check
+
+---
+
+Final Verification (S-098)
+
+Check	Result
+Migration 20260613000004 applied	✅
+post_journal_entry: new entries status = 'draft'	✅
+post_settlement_entry: settlement entries status = 'draft'	✅
+source_table.journal_entry_id still written	✅
+usePostJournalEntry: ['journal-entries-pending'] invalidation added	✅
+PostingStatusBadge: three-state logic	✅
+Badge "معلّق" in TransactionsPage	✅
+Badge "معلّق" in lease payments log	✅
+Badge "معلّق" in property expenses log	✅
+Badge "معلّق" in CapitalStatementPage (now uses shared component)	✅
+journal.status.* i18n keys updated	✅
+npx tsc --noEmit	✅ Zero errors
+
+---
+
+S-099 — Pending Journal Review Page (/journal-review)
+صفحة مراجعة القيود المعلّقة
+Epic: E1 — البنية التحتية والإعداد
+Sprint: Sprint 13
+Status: ✅ Done
+Closed: Sprint 13
+Depends on: S-098 (draft-first posting)
+Blocks: S-100 (posting interface), S-101 (reversal UI)
+
+---
+
+Overview
+
+Builds the pending journal review page at /journal-review — an inbox aggregating
+all draft journal entries from all sources for CFO review. Read-only in this story;
+posting (S-100) and reversal (S-101) added subsequently.
+
+---
+
+What Was Built
+
+1. New Files (4)
+
+  src/types/journalReview.ts
+    JournalEntrySourceType union (6 values)
+    PendingJournalLine interface
+    PendingJournalEntry interface with derived fields:
+      total_debit, total_credit, is_balanced
+
+  src/lib/supabase/journalReview.ts
+    getPendingJournalEntries(): three-step query
+      Step 1: journal_entries WHERE status = 'draft'
+      Step 2: journal_entry_lines batch fetch via .in('journal_entry_id', ids)
+      Step 3: accounts lookup via .in('id', accountIds)
+    Client-side Map assembly → PendingJournalEntry[]
+    is_balanced = |total_debit - total_credit| < 0.001 && total_debit > 0
+
+  src/hooks/useJournalReview.ts
+    PENDING_ENTRIES_KEY = ['journal-entries-pending']
+    usePendingJournalEntries(): staleTime = 0
+
+  src/pages/JournalReviewPage.tsx
+    Filter bar: date range (from/to) · source type Select · account search Input
+    Summary strip: total count · total debit (USD) · unbalanced count (danger)
+    Expandable table: React.Fragment key={entry.id} for main + detail rows
+    One-at-a-time expansion (expandedId state)
+    Detail panel: full journal_entry_lines with account code, class, amounts
+    Disabled "ترحيل" stub with tooltip (placeholder for S-100)
+    Empty state: CheckCircle icon + message
+    Loading skeleton: 5 animated rows
+    Client-side filtering via useMemo
+
+2. Modified Files (5)
+
+  src/router/routes.ts — JOURNAL_REVIEW: '/journal-review'
+  src/router/index.tsx — { path: 'journal-review', element: <JournalReviewPage /> }
+  src/layouts/components/navItems.ts — Clock icon nav item after journal
+  src/i18n/locales/ar.ts — nav.journalReview + full journalReview.* namespace
+  src/i18n/locales/en.ts — English mirror
+
+  Additionally re-applied S-098 changes that had been lost:
+    src/components/shared/PostingStatusBadge.tsx — warning amber for draft
+    src/hooks/usePostJournalEntry.ts — ['journal-entries-pending'] invalidation
+    src/pages/CapitalStatementPage.tsx — replaced inline badge with <PostingStatusBadge />
+
+---
+
+Key Decisions
+
+- staleTime: 0 — pending queue must always reflect latest state.
+- queryKey ['journal-entries-pending'] matches S-098 invalidation exactly.
+- general_ledger VIEW not used here (it filters posted only); queries
+  journal_entries and journal_entry_lines tables directly.
+- Client-side filtering: expected volume < 100 entries at any time.
+- React.Fragment with key on two-row tbody pattern (main + expanded).
+
+---
+
+Final Verification (S-099)
+
+Check	Result
+/journal-review renders for authenticated users	✅
+Sidebar "مراجعة القيود" link with Clock icon	✅
+Draft entries listed, ordered by created_at DESC	✅
+Expandable rows: one at a time	✅
+Filter bar: date · source type · account search	✅
+Summary strip: count · debit sum · unbalanced count	✅
+Empty state renders when no results	✅
+"ترحيل" button visible but disabled	✅
+npx tsc --noEmit	✅ Zero errors
+12 files, 552 insertions	✅
+
+---
+
+S-100 — Journal Posting Interface (CFO Gate)
+واجهة ترحيل القيود
+Epic: E1 — البنية التحتية والإعداد
+Sprint: Sprint 13
+Status: ✅ Done
+Closed: Sprint 13
+Depends on: S-099 (JournalReviewPage with disabled posting stub)
+Blocks: S-101 (reversal UI — needs posted entries to reverse)
+
+---
+
+Overview
+
+Activates the disabled "ترحيل" posting buttons from S-099. Adds checkbox
+bulk selection and a bulk posting action bar. Posting promotes a draft
+journal entry to status = 'posted' via a direct Supabase UPDATE (not RPC).
+
+---
+
+What Was Built
+
+1. New Files (3)
+
+  src/lib/supabase/journalPosting.ts
+    postJournalEntry(entryId: string): Promise<void>
+      Guard 1: open accounting period check (.lte/.gte on start_date/end_date)
+      Guard 2: entry status = 'draft' verification
+      UPDATE journal_entries SET status = 'posted'
+        .eq('id', entryId).eq('status', 'draft')  ← race-condition guard
+
+  src/hooks/useJournalPosting.ts
+    usePostSingleEntry(): useMutation with toast feedback per error type:
+      NO_OPEN_PERIOD → toast.error (no open period)
+      ALREADY_POSTED → toast.error + invalidate pending cache
+      generic        → toast.error
+    postEntriesBulk(ids, onProgress): plain async function
+      for…of loop (sequential, not Promise.all)
+      Returns { posted: number, failed: string | null }
+      Stops on first error, reports which entry failed
+
+  src/components/ui/checkbox.tsx — Radix-based Checkbox (Shadcn API)
+  src/components/ui/tooltip.tsx  — Radix Tooltip/Provider/Trigger/Content
+
+2. Modified Files
+
+  src/pages/JournalReviewPage.tsx
+    Checkbox column in thead/tbody (header selects all balanced entries)
+    Unbalanced rows: disabled checkbox + bg-[#FEF0EF] red tint
+    Active "ترحيل" button with Tooltip (disabled + tooltip for unbalanced)
+    Bulk action bar (appears when ≥ 1 selected): count · post · clear
+    Progress indicator during bulk posting: "جارٍ الترحيل {i} من {n}…"
+    useEffect: selection resets when any filter changes
+    Single-entry AlertDialog (with 8-char entry ref in body)
+    Bulk posting AlertDialog (with entry count in title and body)
+
+  src/i18n/locales/ar.ts + en.ts
+    journalReview.post.* (14 keys each): success/error toasts, dialog text,
+    progress, selection labels
+
+  package.json + package-lock.json
+    @radix-ui/react-checkbox, @radix-ui/react-tooltip added
+
+---
+
+Key Decisions
+
+- Direct UPDATE on journal_entries.status (not RPC): S-085 RPC creates new
+  entries from source records; S-100 promotes already-created draft entries.
+  A direct UPDATE is cleaner and more explicit.
+- Double guard: period check + .eq('status','draft') on UPDATE prevents
+  race conditions from simultaneous browser sessions.
+- Sequential bulk (for…of not Promise.all): low volume, progress tracking,
+  clear error attribution, respects Supabase rate limits.
+- onInteractOutside not needed on AlertDialog: Radix AlertDialog blocks
+  outside-click dismissal by design (semantic difference from Dialog).
+
+---
+
+Final Verification (S-100)
+
+Check	Result
+"ترحيل" enabled for balanced entries only	✅
+Unbalanced entries: disabled button + red row tint	✅
+Single-entry confirmation dialog with entry ref	✅
+Post confirmed: entry status = 'posted' in DB	✅
+Posted entry disappears from pending list	✅
+general_ledger row count increases after posting	✅
+Checkbox: header selects all balanced entries	✅
+Bulk action bar appears when ≥ 1 selected	✅
+Bulk post: sequential, progress shown, single success toast	✅
+Filter change: selection resets automatically	✅
+No open period: toast.error blocks posting	✅
+npx tsc --noEmit	✅ Zero errors
+
+---
+
+S-101 — Journal Entry Reversal with Mandatory Reason
+القيد العكسي مع سبب إلزامي
+Epic: E1 — البنية التحتية والإعداد
+Sprint: Sprint 13
+Status: ✅ Done
+Closed: Sprint 13
+Depends on: S-100 (entries can now reach 'posted' status)
+Blocks: S-102 (Trial Balance — reversal entries appear in general_ledger)
+
+---
+
+Overview
+
+Adds reversal capability to JournalReviewPage and restructures the page
+into two tabs: "المعلّقة" (draft entries + posting) and "المُرحَّلة" (posted
+entries + reversal). A reversal creates a mirror journal entry with swapped
+debit/credit amounts and marks the original as 'reversed'.
+
+---
+
+What Was Built
+
+1. Type Changes — src/types/journalReview.ts
+
+  JournalEntrySourceType: added 'reversal' value
+  PostedJournalEntry interface: same shape as PendingJournalEntry but
+    status: 'posted' | 'reversed'
+    is_reversed: boolean  (true if a reversal entry exists for this id)
+
+2. New Query — src/lib/supabase/journalReview.ts (extended)
+
+  getPostedJournalEntries(): three-step assembly + fourth reversal-detection step
+    Step 4: fetch journal_entries WHERE source_type = 'reversal'
+            AND source_id IN (postedIds) → build reversedSet
+    Returns PostedJournalEntry[] with is_reversed computed
+
+3. New Files (2)
+
+  src/lib/supabase/journalReversal.ts
+    reverseJournalEntry(originalId, reason): Promise<void>
+      5-step sequential with manual rollback:
+        1. Fetch original + verify status = 'posted'
+        2. Fetch original lines
+        3. Check no existing reversal (ALREADY_REVERSED guard)
+        4. INSERT reversal header: source_type='reversal', status='posted'
+        5. INSERT reversed lines (debit ↔ credit swapped)
+           description prefix: '\u0639\u0643\u0633: ' (عكس:)
+           Rollback on line insert failure: delete header
+        6. UPDATE original status = 'reversed'
+           Rollback on failure: delete reversal lines + header
+      Reversal entries saved as status = 'posted' immediately
+      (CFO performing reversal is the authorizer — no second review needed)
+
+  src/hooks/useJournalReversal.ts
+    useReverseJournalEntry(): useMutation
+      onSuccess: invalidate POSTED_ENTRIES_KEY + PENDING_ENTRIES_KEY +
+                 ['journal-entries'] + toast.success
+      onError: per-type toast (ALREADY_REVERSED · NOT_POSTED · generic)
+
+4. Hook Extension — src/hooks/useJournalReview.ts
+
+  POSTED_ENTRIES_KEY = ['journal-entries-posted']
+  usePostedJournalEntries(): staleTime = 60_000
+
+5. Page Restructure — src/pages/JournalReviewPage.tsx
+
+  Shadcn Tabs added (TabsList / TabsTrigger / TabsContent)
+  Tab 1 "المعلّقة": all existing S-099/S-100 content unchanged
+  Tab 2 "المُرحَّلة": posted entries table
+    Same column structure as Tab 1 minus checkbox column
+    Additional "الحالة" column:
+      'posted'   → "مُرحَّل"  success green
+      'reversed' → "معكوس"   danger red + 60% opacity row
+    "عكس" button: enabled for non-reversed entries, disabled otherwise
+    Reversal Dialog (not AlertDialog — requires text input + line preview):
+      Warning banner (amber)
+      Reason textarea: minLength 10, inline error if < 10 chars
+      Swapped-lines preview table (credit shown as debit, debit as credit)
+      "تأكيد العكس" button: danger red, disabled until reason ≥ 10 chars
+      onInteractOutside blocked (e.preventDefault())
+
+  Tab count badges: pending count (warning amber) · posted count (success green)
+  'reversal' added to sourceLabel() map → "قيد عكسي"
+
+6. New UI Component — src/components/ui/tabs.tsx (Radix Tabs wrapper)
+
+7. i18n — ar.ts + en.ts
+  journalReview.tabs.* (pending · posted · emptyPosted)
+  journalReview.col.status
+  journalReview.sourceType.reversal
+  journalReview.reversal.* (12 keys: dialog, warning, reason, preview,
+    buttons, badge, tooltips, toasts)
+  journalReview.action.reverse
+
+---
+
+Key Decisions
+
+- Reversal entries posted immediately (status = 'posted'): CFO performing
+  reversal is the authorizer — draft step adds no value.
+- Dialog (not AlertDialog): reversal requires user text input and a line
+  preview table; AlertDialog's simple yes/no structure is insufficient.
+- Manual rollback (not RPC): consistent with project convention from S-097.
+  Sequential steps with explicit cleanup on each failure point.
+- Unicode escapes for Arabic string literals in .ts files
+  ('\u0639\u0643\u0633' = 'عكس') per POL-003 spirit.
+- is_reversed detection: separate query for source_type='reversal' entries
+  (not relying solely on original entry's status field) — double safety.
+
+---
+
+Issues Encountered & Resolved (S-101)
+
+#   Issue                                   Resolution
+1   Shadcn Tabs component missing           Created src/components/ui/tabs.tsx
+                                            using Radix Tabs pattern matching
+                                            existing Shadcn components
+
+---
+
+Final Verification (S-101)
+
+Check	Result
+Two tabs on /journal-review	✅
+Tab 1 unchanged from S-100	✅
+Tab 2 lists posted entries ordered by created_at DESC	✅
+"عكس" enabled for non-reversed, disabled for reversed	✅
+"معكوس" badge on reversed entries	✅
+Reversal Dialog: warning banner + reason textarea + line preview	✅
+"تأكيد العكس" disabled when reason < 10 chars	✅
+Reversal creates new entry: source_type='reversal', status='posted'	✅
+Lines inserted with debit ↔ credit swapped	✅
+Original entry status → 'reversed'	✅
+general_ledger reflects reversal entry lines	✅
+Manual rollback: header cleaned up on line insert failure	✅
+npx tsc --noEmit	✅ Zero errors
+8 files changed	✅
+
+============================================================================
+
+Sprint 13 E1 Stories — In Progress
+
+Remaining E1 stories in Sprint 13:
+  S-099 ✅  S-100 ✅  S-101 ✅
+  S-098 ✅ (foundation)
+
+Non-E1 stories in Sprint 13 (documented in other EPCs):
+  S-102 — Trial Balance Page (E8 — EPC-08)
+  S-103 — Accounting Period Closing (E9 — EPC-09)
+  S-104 — Rebuild Reports from General Ledger (E8 — EPC-08)
