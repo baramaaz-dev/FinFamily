@@ -4,7 +4,8 @@ export type JournalEntrySourceType =
   | 'property_expense'
   | 'capital_transaction'
   | 'settlement'
-  | 'manual';
+  | 'manual'
+  | 'reversal';
 
 export interface PendingJournalLine {
   id: string;
@@ -18,6 +19,22 @@ export interface PendingJournalLine {
   description: string | null;
   currency: 'USD' | 'SYP';
   exchange_rate: number | null;
+}
+
+export interface PostedJournalEntry {
+  id: string;
+  source_type: JournalEntrySourceType;
+  source_id: string | null;
+  status: 'posted' | 'reversed';
+  entry_date: string;
+  reference_no: string | null;
+  description: string;
+  created_at: string;
+  lines: PendingJournalLine[];
+  total_debit: number;
+  total_credit: number;
+  is_balanced: boolean;
+  is_reversed: boolean;
 }
 
 export interface PendingJournalEntry {
