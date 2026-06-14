@@ -1,8 +1,8 @@
 # FinFamily — المحرك المحاسبي
 **الوثيقة:** STR-006
-**الإصدار:** 1.2
+**الإصدار:** 1.3
 **الحالة:** ✅ معتمدة
-**آخر تحديث:** 2026-06-11
+**آخر تحديث:** 2026-06-14
 
 > **قاعدة إلزامية:** أي قصة (Story) تتعلق بترحيل القيود أو حسابات رأس المال أو التسويات
 > يجب أن تُراجع هذه الوثيقة أولاً. هذا الملف هو المرجع الوحيد لمنطق القيد المزدوج في المشروع.
@@ -93,6 +93,9 @@
     2130  إيرادات مؤجلة                   [liability · credit · is_postable=true ]
   2200  الخصوم غير المتداولة              [liability · credit · is_postable=false]
     2210  التزامات طويلة الأجل             [liability · credit · is_postable=true ]
+  2300  قروض الشركاء                      [liability · credit · is_postable=false]
+    23XX  قرض شريك أ                       [liability · credit · is_postable=true ] ★
+    23XX  قرض شريك ب                       [liability · credit · is_postable=true ] ★
 
 3000  حقوق الشركاء                        [equity    · credit · is_postable=false]
   3100  رأس المال                          [equity    · credit · is_postable=false]
@@ -166,9 +169,10 @@
 
 #### الإنشاء التلقائي
 
-لكل شريك/وريث جديد يُضاف إلى جدول `people`، يُنشأ تلقائياً حسابان في شجرة الحسابات:
+لكل شريك/وريث جديد يُضاف إلى جدول `people`، يُنشأ تلقائياً ثلاثة حسابات في شجرة الحسابات:
 - حساب رأس مال: `31XX` (رقم تسلسلي تصاعدي)
 - حساب مسحوبات: `32XX`
+- حساب قرض الشريك: `23XX` (رقم تسلسلي تصاعدي)
 
 **التوقيت:** `AFTER INSERT ON people` — الإنشاء فوري مع إضافة الشخص، قبل أي ربط بكيان.
 **السبب:** ضمان وجود الحسابات قبل أي قيد محاسبي، وتفادي خطر ترحيل قيد لشريك لا حسابات له.
@@ -178,8 +182,15 @@
 CREATE OR REPLACE FUNCTION auto_create_partner_accounts()
 RETURNS TRIGGER AS $$
 DECLARE
-  next_capital_code  text;
-  next_drawings_code text;
+  v_capital_parent_id   uuid;
+  v_drawings_parent_id  uuid;
+  v_loan_parent_id      uuid;
+  v_next_capital_code   text;
+  v_next_drawings_code  text;
+  v_next_loan_code      text;
+  v_max_capital_code    integer;
+  v_max_drawings_code   integer;
+  v_max_loan_code       integer;
 BEGIN
   -- تحقق: هل للشريك حسابات بالفعل؟
   IF EXISTS (
@@ -189,34 +200,67 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- احسب الرقم التسلسلي التالي
-  SELECT '31' || LPAD((COUNT(*) + 10)::text, 2, '0')
-  INTO next_capital_code
-  FROM accounts WHERE code LIKE '31%' AND is_postable = true;
+  -- جلب معرِّفات الحسابات الأم
+  SELECT id INTO v_capital_parent_id  FROM accounts WHERE code = '3100' LIMIT 1;
+  SELECT id INTO v_drawings_parent_id FROM accounts WHERE code = '3200' LIMIT 1;
+  SELECT id INTO v_loan_parent_id     FROM accounts WHERE code = '2300' LIMIT 1;
 
-  SELECT '32' || LPAD((COUNT(*) + 10)::text, 2, '0')
-  INTO next_drawings_code
-  FROM accounts WHERE code LIKE '32%' AND is_postable = true;
+  -- احسب الرقم التسلسلي التالي (MAX+1 — لا يفيض مع أي عدد من الشركاء)
+  SELECT COALESCE(MAX(code::integer), 3100)
+  INTO   v_max_capital_code
+  FROM   accounts WHERE code LIKE '31%' AND is_postable = true;
 
-  -- أنشئ الحسابَين
-  INSERT INTO accounts (code, name, account_class, normal_balance, is_postable, metadata)
-  VALUES
-    (
-      next_capital_code,
-      'رأس مال ' || NEW.name,
-      'equity', 'credit', true,
-      jsonb_build_object('partner_id', NEW.id)
-    ),
-    (
-      next_drawings_code,
-      'مسحوبات ' || NEW.name,
-      'equity', 'debit', true,
-      jsonb_build_object('partner_id', NEW.id)
-    );
+  SELECT COALESCE(MAX(code::integer), 3200)
+  INTO   v_max_drawings_code
+  FROM   accounts WHERE code LIKE '32%' AND is_postable = true;
+
+  SELECT COALESCE(MAX(code::integer), 2300)
+  INTO   v_max_loan_code
+  FROM   accounts WHERE code LIKE '23%' AND is_postable = true;
+
+  v_next_capital_code  := (v_max_capital_code  + 1)::text;
+  v_next_drawings_code := (v_max_drawings_code + 1)::text;
+  v_next_loan_code     := (v_max_loan_code     + 1)::text;
+
+  -- أنشئ حساب رأس المال
+  INSERT INTO accounts (
+    code, name, account_class, normal_balance,
+    level, is_postable, parent_id, metadata
+  ) VALUES (
+    v_next_capital_code,
+    'رأس مال ' || NEW.name,
+    'equity', 'credit', 3, true,
+    v_capital_parent_id,
+    jsonb_build_object('partner_id', NEW.id::text)
+  );
+
+  -- أنشئ حساب المسحوبات
+  INSERT INTO accounts (
+    code, name, account_class, normal_balance,
+    level, is_postable, parent_id, metadata
+  ) VALUES (
+    v_next_drawings_code,
+    'مسحوبات ' || NEW.name,
+    'equity', 'debit', 3, true,
+    v_drawings_parent_id,
+    jsonb_build_object('partner_id', NEW.id::text)
+  );
+
+  -- أنشئ حساب القرض
+  INSERT INTO accounts (
+    code, name, account_class, normal_balance,
+    level, is_postable, parent_id, metadata
+  ) VALUES (
+    v_next_loan_code,
+    'قرض ' || NEW.name,
+    'liability', 'credit', 3, true,
+    v_loan_parent_id,
+    jsonb_build_object('partner_id', NEW.id::text)
+  );
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE TRIGGER trg_auto_create_partner_accounts
   AFTER INSERT ON people
@@ -774,6 +818,7 @@ const isPosted = (record: { journal_entry_id: string | null }): boolean =>
 | S-054 | تأكيد التسوية | القسم 8.3 — ربط الجداول |
 | S-055 | ربط settlement_shares | القسم 8.4 — قيد التسوية المُركَّب |
 | S-083 | صفحة دليل الحسابات (إعدادات) | القسم 2 — الهيكل الهرمي |
+| S-10002 | إضافة حسابات قروض الشركاء (23XX) | القسم 2.2 و2.4 |
 
 ---
 
@@ -803,3 +848,4 @@ const isPosted = (record: { journal_entry_id: string | null }): boolean =>
 | 2026-06-08 | 1.0 | إنشاء الوثيقة — المحرك المحاسبي الكامل لـ Sprint 6 |
 | 2026-06-08 | 1.1 | تحديث دليل الحسابات وفق IFRS 18: فصل قائمة الدخل إلى ثلاث فئات (4000/7000 تشغيل · 5000/8000 استثمار · 6000/9000 تمويل) · إضافة مجموعة 2200 للخصوم غير المتداولة · إضافة 3300 الأرباح المحتجزة · تحديث جميع قوالب القيود بالأرقام الجديدة · إضافة S-083 لجدول Story Mapping |
 | 2026-06-11 | 1.2 | §2.4: تغيير توقيت إنشاء حسابات الشركاء من "أول ربط بكيان" إلى "AFTER INSERT ON people" مع Trigger كامل · §2.4: إضافة قاعدة الحذف المشروط عبر RPC delete_partner_accounts · §8.3–8.4: تغيير هيكل قيد تسوية الأرباح من N قيود منفصلة إلى قيد واحد مُركَّب N+1 سطر (صحيح محاسبياً) · §8.4: إضافة منطق invalidateQueries لتسوية الأرباح · §10.4: إضافة جدول RPCs المعتمدة · §11.3: توثيق قاعدة "معظم الحركات قيدان فقط" · §11.4: تحديث جدول حدود MVP · §13: إضافة بندَي تحقق 11 و12 لتسوية الأرباح |
+| 2026-06-14 | 1.3 | §2.2: إضافة مجموعة 2300 قروض الشركاء تحت الخصوم · §2.4: تغيير "حسابان" إلى "ثلاثة حسابات" مع إضافة حساب القرض 23XX · §2.4: تحديث كتلة SQL للـ Trigger لإنشاء ثلاثة حسابات بدلاً من اثنين · §12: إضافة S-10002 لجدول Story Mapping |
