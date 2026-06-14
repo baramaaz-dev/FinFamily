@@ -1,7 +1,7 @@
 EPC-08 — Reports & Export
 Epic  : E8 — التقارير والتصدير
-Sprint: Sprint 9
-Status: ✅ Done
+Sprint: Sprint 9 & 13
+Status: 🔄 In Progress (Sprint 13)
 
 ---
 
@@ -16,6 +16,8 @@ S-071   Simplified Balance Sheet                         ✅ Done
 S-072   Period & Entity Filters for Reports              ✅ Done
 S-073   PDF Export for All Report Sections               ✅ Done
 S-074   PDF RTL Formatting (Print Header + Page Numbers) ✅ Done
+S-102   Trial Balance Page                               ✅ Done
+S-104   Rebuild Reports from General Ledger              ✅ Done
 
 ---
 
@@ -110,10 +112,8 @@ Disabled "تصدير PDF" button (placeholder — wired in S-073).
 
 5. Commits
 
-```
 feat(reports): S-068 — P&L report with period filter
 feat(i18n): add reports.* namespace (tabs + pl keys) to ar and en locales
-```
 
 ---
 
@@ -207,10 +207,8 @@ Sub-components: EquityReportSkeleton (internal), error state, empty state.
 
 4. Commits
 
-```
 feat(reports): S-069 — partner equity statement
 feat(i18n): add reports.equity.* keys to ar and en locales
-```
 
 ---
 
@@ -315,10 +313,8 @@ Sub-components: PartnerStatementSkeleton (internal), error states, empty states.
 
 4. Commits
 
-```
 feat(reports): S-070 — partner account statement
 feat(i18n): add reports.partnerStatement.* keys to ar and en locales
-```
 
 ---
 
@@ -412,10 +408,8 @@ Sub-component: BalanceSheetSkeleton (internal).
 
 4. Commits
 
-```
 feat(reports): S-071 — simplified balance sheet
 feat(i18n): add reports.balance.* keys to ar and en locales
-```
 
 ---
 
@@ -527,8 +521,8 @@ New state: asOfDate (controlled) + appliedAsOf (committed). Default: today.
 handleApplyAsOf commits the date.
 
 Three queries updated with appliedAsOf filter + as 4th key element:
-  balance-report-transactions:        .lte('date', appliedAsOf)
-  balance-report-unpaid-expenses:     .lte('due_date', appliedAsOf)  [+ existing .is('paid_date',null)]
+  balance-report-transactions:         .lte('date', appliedAsOf)
+  balance-report-unpaid-expenses:      .lte('due_date', appliedAsOf)
   balance-report-capital-transactions: .lte('date', appliedAsOf)
 
 Static queries (portfolios / properties / people / capital-accounts)
@@ -538,13 +532,11 @@ unchanged — no date filter.
 
 6. Commits
 
-```
 feat(i18n): add reports.filters.* keys for S-072 entity and period filters
 feat(reports): S-072 — add entity filter to PLReportSection
 feat(reports): S-072 — add period filter to PartnerStatementSection
 feat(reports): S-072 — add as-of-date filter to BalanceSheetSection
 feat(reports): S-072 — import BalanceSheetSection in ReportsPage
-```
 
 ---
 
@@ -600,20 +592,18 @@ What Was Built
 
 2. i18n — 1 key added
 
-  reports.pl.exporting = 'جارٍ التصدير...'  (under existing exportPdf key)
+  reports.pl.exporting = 'جارٍ التصدير...'
 
 ---
 
 3. src/utils/exportToPDF.ts (NEW)
 
-```typescript
 export async function exportToPDF(
   element: HTMLElement,
   fileName: string,
   onStart?: () => void,
   onEnd?: () => void
 ): Promise<void>
-```
 
 html2canvas options: scale 2 · useCORS true · logging false ·
 backgroundColor '#ffffff'.
@@ -636,10 +626,6 @@ Button state:
   Active:   text-white bg-[#1E5DC4] cursor-pointer
   Disabled: text-[#94A3B8] bg-[#F1F5F9] opacity-60 cursor-not-allowed
 
-EquityReportSection and PartnerStatementSection: export button added
-(was not present in S-069/S-070).
-PLReportSection and BalanceSheetSection: disabled placeholder replaced.
-
 Filename conventions:
   PL         : pl-report-{appliedFrom}-{appliedTo}.pdf
   Equity     : equity-report-{today}.pdf
@@ -650,10 +636,8 @@ Filename conventions:
 
 5. Commits
 
-```
 feat(reports): S-073 — PDF export for all report sections
 feat(i18n): add reports.pl.exporting key
-```
 
 ---
 
@@ -710,7 +694,7 @@ Addition 1 — .pdf-show reveal/restore:
   pdfShowEls declared OUTSIDE try (so finally can access).
   Before html2canvas: querySelectorAll('.pdf-show') → style.setProperty
     ('display','block','important') on each.
-  After canvas captured (before PDF build): style.removeProperty('display').
+  After canvas captured: style.removeProperty('display').
   finally: safety restore + onEnd?.().
 
 Addition 2 — Page numbers (before pdf.save()):
@@ -732,27 +716,13 @@ Context line per section:
   PartnerStatementSection : "{partnerName} · {appliedFrom} — {appliedTo}"
   BalanceSheetSection     : "{t('reports.filters.asOfDate')}: {appliedAsOf}"
 
-Export date: new Date().toLocaleDateString('ar-SA') — Arabic locale format.
-
-Tailwind 'hidden' = display:none. The !important override in
-style.setProperty beats Tailwind during capture. style.removeProperty
-restores Tailwind control after capture.
+Export date: new Date().toLocaleDateString('ar-SA').
 
 ---
 
-4. i18n — no new keys
+4. Commits
 
-Existing t('reports.pl.title') · t('reports.equity.title') ·
-t('reports.partnerStatement.title') · t('reports.balance.title') ·
-t('reports.filters.asOfDate') reused in print headers.
-
----
-
-5. Commits
-
-```
 feat(reports): S-074 — print header and page numbers for PDF export
-```
 
 ---
 
@@ -769,128 +739,368 @@ Final Verification (S-074): All checks ✅
 Post-Story Update — STR-005 v1.4
 Status: ✅ Applied (2026-06-10)
 
-Two additions relative to v1.3:
-
 §5.8 (NEW) — Union Types for Supabase Data Interfaces
-  When Supabase query result interfaces are passed to typed utility functions
-  (e.g. buildCapitalBreakdown), fields with database CHECK constraints must
-  be typed as union types, not string.
-  Discovered S-069 / confirmed S-070:
-    currency: 'USD' | 'SYP'  (not string)
-    capital_transactions.type: full 5-value union  (not string)
-  Anti-pattern added to §8.
+  When Supabase query result interfaces are passed to typed utility functions,
+  fields with database CHECK constraints must be typed as union types, not string.
+  Discovered S-069 / confirmed S-070.
 
 §6.8–6.13 (NEW) — Missing schemas documented
-  Schemas for S-035/S-040/S-041/S-048/S-049/S-052 (Sprints 4–6) were
-  absent from §6. All six added with exact field types and cast notes.
+  Schemas for S-035/S-040/S-041/S-048/S-049/S-052 added with exact field
+  types and cast notes.
 
 ================================================================================
 
-E8 — Canonical Rules Established This Sprint
+E8 — Canonical Rules Established in Sprint 9
 
 1. Report query key prefixes — cache isolation
-   Every report section uses a unique prefix for its query keys to prevent
-   cache pollution of shared operational caches:
+   Every report section uses a unique prefix for its query keys:
      PLReportSection         : pl-report-*
      EquityReportSection     : equity-report-*
      PartnerStatementSection : statement-report-*
      BalanceSheetSection     : balance-report-*
-   Using generic keys ['portfolios'] or ['capital-accounts'] in report
-   sections overwrites the shared cache used by operational pages with
-   date-filtered or column-reduced subsets — a silent data bug.
 
 2. buildCapitalBreakdown() — correct field names
-   Return fields: injections · profitShares · lossShares · drawings ·
-   reductions · openingBalance · closingBalance
-   NOT: capitalInjection · profitShare · lossShare · drawing · capitalReduction
-   These field names appear correctly only in src/utils/capital.ts —
-   specs and prompts must be validated against the source file in Phase 0.
+   injections · profitShares · lossShares · drawings · reductions ·
+   openingBalance · closingBalance
 
 3. Union types for Supabase interfaces (→ STR-005 §5.8)
-   Fields with CHECK IN (...) constraints in DB must be typed as union types
-   in TypeScript interfaces, not string, when data is passed to typed utility
-   functions. Failure is a TypeScript error at the call site, not the
-   interface definition — harder to trace.
+   Fields with CHECK IN (...) constraints must be union types, not string.
 
 4. Apply button pattern — committed state
-   All report filters follow: controlled input state + separate applied/committed
-   state. queryKey includes the applied value. Queries refetch only on Apply,
-   not on every keystroke.
+   Queries refetch only on Apply, not on every keystroke.
 
 5. Large prompt splitting rule
-   When a single story requires modifying 3+ large existing files, split into
-   one focused prompt per file. Single combined prompts on large contexts cause
-   Claude Code to stall (20+ minutes, 22k+ tokens). Each focused prompt
-   completes in under 3 minutes.
+   3+ large existing files in one story → one focused prompt per file.
 
 6. html2canvas image-based PDF — RTL handling
-   The html2canvas approach captures the browser's visual output as a 2×
-   resolution image. Arabic RTL text is preserved automatically — the browser
-   renders it correctly and the image captures it as-is. No Arabic font
-   embedding in jsPDF is needed. This is the canonical approach for RTL PDF
-   export in this project.
+   Browser renders RTL correctly; image captures it as-is. No Arabic font
+   embedding in jsPDF needed.
 
 7. .pdf-show reveal mechanism
-   Print-only elements use Tailwind class 'hidden' (display:none) in the browser.
-   exportToPDF.ts overrides with style.setProperty('display','block','important')
-   before html2canvas, then style.removeProperty('display') restores Tailwind
-   control. pdfShowEls array declared outside try so finally can safely restore
-   even on error.
+   'hidden' overridden with style.setProperty('display','block','important').
+   Declared outside try so finally can safely restore on error.
 
-8. CapitalBreakdown signed amount convention (confirmed from S-050)
-   capital_injection + profit_share → positive amounts (+, #1A7D4F)
-   capital_reduction + drawing + loss_share → negative amounts (−, #C0392B)
-   '−' is U+2212 minus sign, not ASCII hyphen '-'.
+8. CapitalBreakdown signed amount convention
+   capital_injection + profit_share → positive (+, #1A7D4F)
+   capital_reduction + drawing + loss_share → negative (−, #C0392B)
+   '−' is U+2212 minus sign, not ASCII hyphen.
+
+================================================================================
+
+============================================================================
+Sprint 13 — GL-Based Reports (E8 Stories)
+============================================================================
+
+S-102 — Trial Balance Page (ميزان المراجعة)
+Epic  : E8 — التقارير والتصدير
+Sprint: Sprint 13
+Status: ✅ Done
+Closed: Sprint 13
+Depends on: S-100 (entries must be posted to appear in general_ledger)
+            S-101 (reversal entries must appear in general_ledger)
+            S-095 (general_ledger VIEW rebuilt with entry_status)
+Blocks: S-103 (Period Closing — reads trial balance for validation)
+        S-104 (Rebuild Reports — same data source)
+
+---
+
+Overview
+
+Builds a standalone trial balance page at /reports/trial-balance reading
+exclusively from the general_ledger VIEW (posted entries only). Lists every
+account with total debits, total credits, and net balance for a selected date
+range, grouped by account class. Verifies Σ debits = Σ credits automatically.
+Includes PDF export via jsPDF + html2canvas.
+
+This is the first report in the project to query the general_ledger VIEW
+directly — establishing the GL-query pattern used by S-104.
+
+---
+
+What Was Built
+
+1. New Files (4)
+
+  src/types/trialBalance.ts
+    AccountClass union type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense'
+    NormalBalance union type: 'debit' | 'credit'
+    TrialBalanceRow interface: account_code, account_name, account_class,
+      normal_balance, total_debit, total_credit, net_balance
+    TrialBalanceSummary interface: rows[], grand_total_debit, grand_total_credit,
+      is_balanced, as_of_date, period_label
+
+  src/lib/supabase/trialBalance.ts
+    getTrialBalance(dateFrom, dateTo): Promise<TrialBalanceSummary>
+      Queries general_ledger VIEW with .gte/.lte on entry_date.
+      Client-side aggregation by account_code via Map (Supabase does not
+      support GROUP BY on Views via the JS client).
+      Sorts by account_code ASC; computes net_balance and is_balanced.
+    getCurrentPeriodRange(): Promise<{ from: string; to: string }>
+      Finds open accounting_period for today's date.
+      Fallback: current calendar year start → today.
+
+  src/hooks/useTrialBalance.ts
+    useTrialBalance(dateFrom, dateTo): staleTime 30_000
+    queryKey: ['trial-balance', dateFrom, dateTo]
+    enabled: Boolean(dateFrom && dateTo)
+
+  src/pages/TrialBalancePage.tsx
+    applied state pattern (dateFrom/dateTo controlled + appliedFrom/appliedTo
+      committed) — same as all other report pages.
+    useEffect on mount: calls getCurrentPeriodRange() to set default range.
+    Three quick-select buttons: الفترة الحالية · هذا العام · هذا الشهر
+    Balance banner:
+      is_balanced → success green bg-[#EBF5F0] text-[#1A7D4F]
+      not balanced → danger red  bg-[#FEF0EF] text-[#C0392B] + difference amount
+    Grouped table: 5 account class groups (CLASS_ORDER constant) with group
+      header rows (bg-slate-100) and subtotal columns.
+    Footer totals row: grand totals + net column (green if balanced, red if not).
+    Zero amounts displayed as "—" not "0.00".
+    PDF export: landscape A4, scale 2, printRef excludes filter bar.
+    Filename: trial-balance-{dateTo}.pdf
+    Loading skeleton: 8 animated rows × 5 columns.
+    Empty state: Scale icon + "لا توجد قيود مُرحَّلة في هذه الفترة".
+    React.Fragment with key={group.class} on grouped tbody rows.
+
+2. Modified Files (5)
+
+  src/router/routes.ts — TRIAL_BALANCE: '/reports/trial-balance'
+  src/router/index.tsx — { path: 'reports/trial-balance', element: <TrialBalancePage /> }
+  src/pages/ReportsPage.tsx — "ميزان المراجعة" card with Scale icon
+  src/i18n/locales/ar.ts — full trialBalance.* namespace
+  src/i18n/locales/en.ts — English mirror
+
+---
+
+Key Decisions
+
+- general_ledger VIEW only — no direct table queries.
+- Client-side aggregation (not GROUP BY): Supabase JS client does not
+  support aggregate functions on Views; Map-based accumulation used instead.
+- applied state pattern: queries re-fetch only on "تحديث" click or
+  quick-select button — not on every date input keystroke.
+- net_balance = total_debit - total_credit (raw, no sign flip by
+  normal_balance) — unambiguous for audit purposes.
+- staleTime 30s: trial balance changes only on new postings.
+
+---
+
+Issues Encountered & Resolved (S-102)
+
+None. Implementation matched spec exactly.
+
+---
+
+Final Verification (S-102)
+
+Check	Result
+/reports/trial-balance renders	✅
+Defaults to current open period date range	✅
+Table grouped by 5 account classes with subtotals	✅
+Balance banner: green when balanced, red with diff when not	✅
+Footer totals match column sums	✅
+Quick-select buttons update date range	✅
+PDF export: landscape A4, filename includes dateTo	✅
+Empty state when no posted entries in range	✅
+"ميزان المراجعة" card on ReportsPage	✅
+npx tsc --noEmit	✅ Zero errors
+9 files, new + modified	✅
+
+================================================================================
+
+S-104 — Rebuild Reports from General Ledger
+إعادة بناء التقارير من الأستاذ العام
+Epic  : E8 — التقارير والتصدير
+Sprint: Sprint 13
+Status: ✅ Done
+Closed: Sprint 13
+Depends on: S-102 (GL query pattern established)
+            S-103 (closed periods must appear in reports)
+Blocks: Sprint 13 merge → main
+
+---
+
+Overview
+
+Rebuilds three financial statement pages (P&L, Partners Equity, Balance Sheet)
+to read from the general_ledger VIEW instead of source tables. Reports now
+reflect only formally posted, auditable data — not raw table records.
+
+Old source-table helpers preserved (not deleted) — safe rollback path.
+New GL-based helpers added alongside them.
+
+Architecture change per report:
+  P&L (S-068):          transactions/lease_payments/property_expenses tables
+                        → general_ledger WHERE account_class IN ('revenue','expense')
+  Partners Equity (S-069): capital_accounts/capital_transactions tables
+                        → general_ledger WHERE account_class = 'equity'
+  Balance Sheet (S-071): portfolios/properties/capital_accounts tables
+                        → general_ledger cumulative (entry_date <= asOfDate, no lower bound)
+
+---
+
+What Was Built
+
+1. New Files (3)
+
+  src/types/reportsGL.ts
+    IFRSCategory: 'operating' | 'investing' | 'financing'
+    PLAccountRow: account_code, account_name, account_class, ifrs_category,
+      net (absolute value), is_income
+    PLCategory: category, revenues[], expenses[], total_revenue, total_expense, profit
+    PLSummary: categories[], operating_profit, investing_profit, financing_profit,
+      net_profit, dateFrom, dateTo
+    EquityAccountRow: account_code, account_name, total_debit, total_credit, net_balance
+    EquityPartnerSection: label, capital_rows (31XX), current_rows (32XX), net_equity
+    EquitySummary: partners[], retained_earnings (3300 | null), total_equity, dateFrom, dateTo
+    BSAccountRow: account_code, account_name, account_class, net_balance
+    BSSummary: assets[], liabilities[], equity[], total_assets, total_liabilities,
+      total_equity, total_liabilities_and_equity, is_balanced, asOfDate
+
+  src/lib/supabase/reportsGL.ts
+    getIFRSCategory(accountCode): IFRSCategory
+      Code ranges: 4000–4999 = operating rev · 5000–5999 = investing rev ·
+      6000–6999 = financing rev · 7000–7999 = operating exp · 8000–8999 =
+      investing exp · 9000–9999 = financing exp.
+
+    getProfitLossGL(dateFrom, dateTo): Promise<PLSummary>
+      Queries general_ledger WHERE account_class IN ('revenue','expense'),
+      entry_date between range. Client-side Map aggregation by account_code.
+      Revenue net = credit - debit; expense net = debit - credit (both positive).
+      Groups into 3 IFRS categories via getIFRSCategory(). Builds PLSummary
+      with operating/investing/financing profit + net_profit.
+
+    getPartnersEquityGL(dateFrom, dateTo): Promise<EquitySummary>
+      Queries general_ledger WHERE account_class = 'equity', date range.
+      Separates account 3300 (retained earnings) from partner accounts.
+      Groups partners by 2-digit suffix (3101/3201 → suffix '01' = same partner).
+      net_balance = total_credit - total_debit (equity is credit-normal).
+
+    getBalanceSheetGL(asOfDate): Promise<BSSummary>
+      Queries general_ledger WHERE entry_date <= asOfDate (cumulative, no lower bound).
+      Asset net = debit - credit; liability/equity net = credit - debit.
+      is_balanced = |total_assets - (total_liabilities + total_equity)| < 0.01.
+
+  src/hooks/useReportsGL.ts
+    useProfitLossGL(dateFrom, dateTo): queryKey ['pl-gl', dateFrom, dateTo]
+    usePartnersEquityGL(dateFrom, dateTo): queryKey ['equity-gl', dateFrom, dateTo]
+    useBalanceSheetGL(asOfDate): queryKey ['balance-sheet-gl', asOfDate]
+    All: staleTime 30_000, enabled: Boolean(params)
+
+2. Modified Components (3)
+
+  PLReportSection (src/components/reports/PLReportSection.tsx)
+    Switched to useProfitLossGL(). Entity filter removed (GL does not filter
+    by portfolio/property — entries are booked to accounts, not entities).
+    Date filter kept. Old fetch functions preserved via void calls (not deleted).
+    Display restructured: 3 IFRS 18 category sections (التشغيل / الاستثمار /
+    التمويل) each with revenue sub-table and expense sub-table + category profit.
+    Footer: net_profit card (green if positive, red if negative).
+
+  EquityReportSection (src/components/reports/EquityReportSection.tsx)
+    Switched to usePartnersEquityGL(). Date filter added (was absent in Sprint 9
+    — all-time; now period-aware via GL query). Partner sections derived from
+    31XX/32XX account suffixes; retained earnings (3300) shown separately.
+    Old source-table queries preserved.
+
+  BalanceSheetSection (src/components/reports/BalanceSheetSection.tsx)
+    Switched to useBalanceSheetGL(). asOfDate filter kept (same UX as S-072).
+    Balance check banner added (matching trial balance design from S-102):
+      is_balanced → green "الميزانية متوازنة ✓"
+      not balanced → red "⚠ ميزانية غير متوازنة — الفرق: {diff}"
+    MVP note removed (GL data is formally posted — balance equation now holds).
+    Old source-table queries preserved.
+
+3. i18n — src/i18n/locales/ar.ts + en.ts
+
+  reportsGL.pl.*      (IFRS category labels, profit/loss labels)
+  reportsGL.equity.*  (capital/current account labels, retained earnings, totals)
+  reportsGL.bs.*      (section labels, balance check banner, as-of-date label)
+  reportsGL.empty / emptyHint
+
+---
+
+Key Decisions
+
+- Old source-table helpers preserved (not deleted): safe rollback; comparison
+  baseline during transition to live GL data.
+- New helpers in separate files (reportsGL.ts, useReportsGL.ts): zero risk of
+  breaking Sprint 9 code paths.
+- Balance sheet: cumulative query (entry_date <= asOfDate, no dateFrom) — a
+  balance sheet is a snapshot of ALL history, not a period range.
+- IFRS category derived from account_code ranges (4000–9999) client-side:
+  no new DB column needed; ranges already mandated by STR-006 chart of accounts.
+- Partner identification from 31XX/32XX suffix: no people table join needed;
+  account_name from accounts table already contains the partner's name.
+- Balance sheet MVP note removed: with GL as source, posted entries balance
+  naturally (Σ debits = Σ credits in any double-entry system).
+
+---
+
+Issues Encountered & Resolved (S-104)
+
+None. Implementation matched spec exactly.
+TypeScript: 0 errors.
+
+---
+
+Final Verification (S-104)
+
+Check	Result
+PLReportSection reads from general_ledger	✅
+P&L grouped into IFRS 18 operating/investing/financing	✅
+EquityReportSection reads equity accounts from GL	✅
+Partner sections grouped by 31XX/32XX suffix	✅
+BalanceSheetSection uses cumulative GL query (lte only)	✅
+Balance check banner on BalanceSheetSection	✅
+MVP note removed from balance sheet	✅
+Old source-table helpers preserved (not deleted)	✅
+PDF export working on all three pages	✅
+reportsGL.* i18n keys (ar + en)	✅
+npx tsc --noEmit	✅ Zero errors
+
+============================================================================
+
+Sprint 13 E8 Stories — Complete ✅
+
+Story   Deliverable
+------  -------------------------------------------------------------------
+S-102   Standalone trial balance page at /reports/trial-balance
+        First page in project to query general_ledger VIEW directly.
+        Establishes GL-query + client-side Map aggregation pattern.
+S-104   Three financial statements rebuilt from general_ledger VIEW.
+        P&L: IFRS 18 three-category display.
+        Equity: partner sections from 31XX/32XX account suffixes.
+        Balance Sheet: cumulative GL query + balance check banner.
+        Old source-table helpers preserved for rollback.
 
 ================================================================================
 
 E8 — Deferred Items (Post-MVP Backlog)
 
 Deferred Item 1 — Dashboard Period Selector
+  Scope: add dateFrom/dateTo committed state to DashboardPage; wire
+  PLIndicatorCard (S-067) and RecentTransactionsTable (S-064) to filter.
+  Depends on: Apply-button pattern (S-072) — available.
 
-EPC-07 Deferred Item 1 called for a period selector on the Dashboard once
-Sprint 9 established the filtering patterns. The Apply-button committed-state
-pattern from S-072 is now the canonical approach.
-
-Scope: add dateFrom/dateTo committed state to DashboardPage; wire PLIndicatorCard
-(S-067) and possibly RecentTransactionsTable (S-064) to filter by period.
-Depends on: Apply-button pattern (S-072) — now available.
-
-Deferred Item 2 — Equity Report Period Filter
-
-EquityReportSection was intentionally left without a period filter in S-072
-(all-time by design for the MVP equity statement). A future enhancement could
-add a "as of date" filter that filters capital_transactions by date, showing
-equity at a historical point in time.
-
-Scope: same as BalanceSheetSection as-of filter (S-072) but applied to
-equity-report-capital-transactions query.
+Deferred Item 2 — Equity Report Period Filter (Sprint 9 version)
+  The Sprint 9 EquityReportSection had no period filter by design.
+  Sprint 13 S-104 added a date filter to the GL-based version.
+  This item is now RESOLVED for the GL version.
+  Remaining: Sprint 9 source-table version (preserved but not updated).
 
 Deferred Item 3 — PDF Filename with Applied Period (PartnerStatement)
+  PartnerStatementSection PDF filename uses today's date, not appliedFrom/To.
+  Scope: one-line change in handleExport. Deferred: low priority.
 
-In S-073, PartnerStatementSection PDF filename uses today's date because
-appliedFrom/appliedTo were committed state from S-072 — the two stories
-ran sequentially and the filename was designed before S-072 landed.
-A future cleanup should update the filename to use appliedFrom/appliedTo.
+Deferred Item 4 — Balance Sheet Reconciliation Note (RESOLVED)
+  The mvpNote (Assets ≠ Liabilities + Equity) was removed in S-104.
+  With GL as data source, posted double-entry transactions balance naturally.
+  STATUS: Resolved in Sprint 13.
 
-Scope: one-line change in PartnerStatementSection handleExport.
-
-Deferred Item 4 — Balance Sheet Reconciliation Note
-
-The MVP balance sheet does not balance (Assets ≠ Liabilities + Equity)
-because each section draws from an independent data source without the
-journal entry posting layer. A mvpNote is displayed in the UI.
-
-Once the double-entry posting layer is activated (post-MVP), all transactions
-will flow through journal_entries → the balance sheet will balance naturally.
-The mvpNote should be removed at that point.
-
-Deferred Item 5 — Report Data Entry Propagation
-
-Three architectural gaps discovered during Sprint 9 testing:
-  a. capital_injection does not increase portfolio balance
-  b. drawing does not decrease portfolio balance
-  c. property_expenses and lease_payments do not affect portfolio balance
-All three require the journal entry posting layer (STR-006) for automatic
-propagation. Dual manual entry (capital transaction + transactions table)
-is the workaround until post-MVP.
+Deferred Item 5 — Report Data Entry Propagation (RESOLVED)
+  Sprint 9 gaps (capital_injection not updating portfolio balance, etc.)
+  required the journal entry posting layer (STR-006).
+  Sprint 11–13 delivered the full double-entry engine.
+  S-104 rebuilt reports from GL — all propagation now flows correctly.
+  STATUS: Resolved in Sprint 13.
