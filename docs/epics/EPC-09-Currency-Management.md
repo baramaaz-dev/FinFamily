@@ -1,7 +1,7 @@
 EPC-09 — Settings & Exchange Rates
 Epic  : E9 — الإعدادات والأسعار
-Sprint: Sprint 5
-Status: ✅ Done
+Sprint: Sprint 5 & 13
+Status: 🔄 In Progress (Sprint 13)
 
 ---
 
@@ -13,6 +13,7 @@ S-044   Exchange Rate Management Page                  ✅ Done
 S-045   Add Exchange Rate Form                         ✅ Done
 S-046   Exchange Rate History View                     ✅ Done
 S-047   Auto-fetch Latest Rate in Forms                ✅ Done
+S-103   Accounting Period Closing                      ✅ Done
 
 ---
 
@@ -111,11 +112,9 @@ Sub-components (in same file):
 
 5. Commits
 
-```
 feat(i18n): add exchangeRates.* namespace to ar and en locales
 feat(settings): add settings sub-nav for people and exchange-rates pages
 feat(exchange-rates): implement ExchangeRatesPage — table, skeleton, empty and error states
-```
 
 ---
 
@@ -181,7 +180,6 @@ Total                          15 keys
 
 3. AddExchangeRateDialog — src/components/exchange-rates/AddExchangeRateDialog.tsx (NEW)
 
-```ts
 const addExchangeRateSchema = z.object({
   date:  z.string().min(1, { message: 'exchangeRates.validation.dateRequired' }),
   rate:  z.coerce.number().positive({ message: 'exchangeRates.validation.ratePositive' }),
@@ -189,7 +187,6 @@ const addExchangeRateSchema = z.object({
 });
 // cast required: z.coerce.number() present (STR-005 §4.1 v1.3)
 resolver: zodResolver(addExchangeRateSchema) as unknown as Resolver<AddExchangeRateFormData>
-```
 
 defaultValues: { date: '', rate: '' as unknown as number, notes: '' }
   rate defaults to '' so input renders blank (not 0) on open.
@@ -201,12 +198,10 @@ onInteractOutside: e.preventDefault()
 
 4. Commits
 
-```
 feat(i18n): add exchangeRates dialog, form, validation and toast keys
 feat(exchange-rates): implement AddExchangeRateDialog with Zod validation and Supabase insert
 feat(exchange-rates): wire Add Rate button and dialog in ExchangeRatesPage
 feat(s-045): implement Add Exchange Rate form
-```
 
 ---
 
@@ -313,12 +308,10 @@ isDeleting disables both Cancel and Confirm during in-flight request.
 
 5. Commits
 
-```
 feat(i18n): add exchangeRates dialog edit/delete and toast update/delete keys
 feat(exchange-rates): implement EditExchangeRateDialog with pre-populated form and UPDATE logic
 feat(exchange-rates): wire Edit/Delete buttons and AlertDialog in ExchangeRatesPage
 feat(s-046): implement exchange rate edit and delete
-```
 
 ---
 
@@ -415,12 +408,10 @@ Self-contained per file — no shared utility created (E5 Canonical Rule 6).
 
 5. Commits
 
-```
 feat(i18n): add exchangeRateHint keys to leases.payment.form and expenses.form
 feat(properties): add latest exchange rate auto-fetch to RecordLeasePaymentDialog
 feat(properties): add latest exchange rate auto-fetch to AddPropertyExpenseDialog
 feat(s-047): auto-fetch latest exchange rate in lease payment and expense forms
-```
 
 ---
 
@@ -438,7 +429,7 @@ Final Verification (S-047): All checks ✅
 
 ================================================================================
 
-E9 — Canonical Rules Established This Sprint
+E9 — Canonical Rules Established in Sprint 5
 
 1. supabaseClient import path: @/lib/supabase
    NOT @/lib/supabaseClient — confirmed in S-044 Phase 0. All E9 prompts
@@ -489,3 +480,190 @@ a date that already has an entry would prevent accidental duplicates.
 Scope: check rates.some(r => r.date === data.date) in AddExchangeRateDialog
 onSubmit before insert; show a Shadcn Alert or toast warning.
 Deferred: low frequency issue for a family-use application.
+
+================================================================================
+
+============================================================================
+Sprint 13 — Period Closing (E9 Story)
+============================================================================
+
+S-103 — Accounting Period Closing (إقفال الفترة المحاسبية)
+Epic  : E9 — الإعدادات والأسعار
+Sprint: Sprint 13
+Status: ✅ Done
+Closed: Sprint 13
+Depends on: S-102 (Trial Balance — period must be balanced before closing)
+            S-100 (posting interface — no pending drafts allowed before closing)
+            S-083 (AccountsPage — account 3300 must exist)
+Blocks: S-104 (Rebuild Reports from GL — closed periods feed historical data)
+
+---
+
+Overview
+
+Implements three-state accounting period lifecycle: open → closed → locked.
+
+  open   : normal operations — posting, reversals, new entries allowed
+  closed : soft close — no new posting; reports still readable; reversible
+  locked : hard lock — irreversible; triggers automatic closing entries
+           transferring revenue/expense balances to retained earnings (3300)
+
+---
+
+What Was Built
+
+1. Migration — supabase/migrations/20260614000001_period_closing_columns.sql
+
+  Added to accounting_periods table:
+    closed_at          timestamptz  NULL
+    locked_at          timestamptz  NULL
+    closing_entry_id   uuid         NULL  REFERENCES journal_entries(id)
+
+  Extended journal_entries source_type CHECK constraint:
+    Dropped existing CHECK constraint, re-added to include all values:
+    'transaction' | 'lease_payment' | 'property_expense' |
+    'capital_transaction' | 'settlement' | 'manual' | 'reversal' | 'closing'
+
+2. Type Update — src/types/index.ts
+
+  AccountingPeriod interface extended:
+    closed_at?:          string | null
+    locked_at?:          string | null
+    closing_entry_id?:   string | null
+
+3. Supabase Helpers — src/lib/supabase/periodClosing.ts (NEW)
+
+  getPendingDraftCount(startDate, endDate): Promise<number>
+    Counts journal_entries WHERE status = 'draft' AND entry_date in range.
+    Blocks period closing if count > 0.
+
+  closePeriod(periodId): Promise<void>
+    UPDATE status = 'closed', closed_at = NOW()
+    .eq('status', 'open') race-condition guard.
+
+  reopenPeriod(periodId): Promise<void>
+    UPDATE status = 'open', closed_at = NULL
+    .eq('status', 'closed') race-condition guard.
+
+  hasOtherOpenPeriod(excludePeriodId): Promise<boolean>
+    Prevents reopening when another period is already open.
+
+  lockPeriod(periodId, periodName, startDate, endDate): Promise<void>
+    7-step sequential process with manual rollback:
+      1. Fetch retained earnings account (3300) — throws RETAINED_EARNINGS_ACCOUNT_NOT_FOUND if absent
+      2. Fetch revenue account balances from general_ledger VIEW
+      3. Fetch expense account balances from general_ledger VIEW
+      4. Aggregate net balances by account_code client-side
+      5. Resolve account IDs from accounts table via code lookup
+      6. Build compound closing entry lines:
+           Revenue accounts: DEBIT (clears credit balance)
+           Expense accounts: CREDIT (clears debit balance)
+           Account 3300: CREDIT net_profit (or DEBIT if net loss)
+      7. INSERT journal_entries (source_type='closing', status='posted')
+         INSERT journal_entry_lines (with manual rollback on failure)
+         UPDATE accounting_periods status='locked', locked_at, closing_entry_id
+
+    Closing entries saved as status = 'posted' immediately — CFO performing
+    lock is the authorizer; no draft/review step needed.
+    Skips journal entry creation if no revenue/expense activity in period.
+
+    Unicode escapes for Arabic description strings (POL-003 spirit):
+      '\u0625\u0642\u0641\u0627\u0644' = 'إقفال'
+      '\u0642\u064a\u0648\u062f \u0625\u0642\u0641\u0627\u0644 \u0627\u0644\u0641\u062a\u0631\u0629' = 'قيود إقفال الفترة'
+
+4. Hooks — src/hooks/usePeriodClosing.ts (NEW)
+
+  useClosePeriod(): useMutation
+    onSuccess: invalidate ['accounting-periods'] + toast.success
+    onError: toast.error
+
+  useReopenPeriod(): useMutation
+    onSuccess: invalidate ['accounting-periods'] + toast.success
+
+  useLockPeriod(): useMutation
+    onSuccess: invalidate ['accounting-periods'] + ['journal-entries'] + toast.success
+    onError: RETAINED_EARNINGS_ACCOUNT_NOT_FOUND → specific toast guidance
+
+  getPendingDraftCount and hasOtherOpenPeriod exported for pre-flight use.
+
+5. New Page — src/pages/AccountingPeriodsPage.tsx (NEW)
+
+  Table of all accounting periods with:
+    Status badge per row:
+      open   → "مفتوحة"   success green   bg-[#EBF5F0] text-[#1A7D4F]
+      closed → "مُغلَقة"  warning amber   bg-[#FEF7EC] text-[#B45309]
+      locked → "مُقفَلة"  danger red      bg-[#FEF0EF] text-[#C0392B]
+
+    Action buttons per status:
+      open   → "إقفال الفترة"  (warning amber)
+      closed → "إعادة الفتح"  (outline) + "قفل نهائي" (danger red)
+      locked → Lock icon + closing_entry_id ref (8 chars)
+
+    Pre-flight checks (direct async calls, not mutations):
+      Close: getPendingDraftCount() → blocking toast if drafts > 0
+      Reopen: hasOtherOpenPeriod() → blocking toast if another open period exists
+
+    AlertDialog for Close and Reopen (simple yes/no — Radix blocks outside-click).
+    Dialog for Lock (requires typing period name exactly — prevents accidental lock).
+      "قفل نهائي" button disabled until lockConfirmText === period.name.
+
+6. Router Update
+
+  /settings/periods route added to src/router/index.tsx.
+  SettingsPage.tsx gains "الفترات المحاسبية" nav tab with CalendarDays icon.
+
+7. i18n — src/i18n/locales/ar.ts + en.ts
+
+  periodClosing.* namespace added (ar + en):
+    status.open / closed / locked
+    action.close / reopen / lock
+    close/reopen/lock success and error toasts
+    closeBlockedDrafts (with {count} placeholder)
+    reopenBlockedOtherOpen
+    lockErrorNoRetainedEarnings (guidance to create account 3300)
+    closeDialog / reopenDialog / lockDialog keys
+    lockDialog.warningTitle / warningPoint1 / warningPoint2 / confirmLabel / locking
+
+---
+
+Key Decisions
+
+- Three-state model: 'closed' as reversible intermediate gives accountant a
+  safety net before the irreversible 'locked' state.
+- Closing entries auto-posted (not draft) — system-generated after CFO
+  authorization; no value in a second review step.
+- Name-confirmation input for lock: strongest guard on most irreversible action.
+- Dialog (not AlertDialog) for lock: requires text input alongside warning banner.
+- AlertDialog for close/reopen: simple yes/no, Radix blocks outside-click by design.
+- Posting guard in S-100 (postJournalEntry) unchanged: open-period lookup
+  naturally blocks posting to closed/locked periods without explicit status check.
+- Manual rollback on lockPeriod: consistent with S-097/S-101 project convention.
+
+---
+
+Issues Encountered & Resolved (S-103)
+
+None. Implementation matched spec exactly.
+Migration CHECK constraint extended cleanly — existing constraint dropped and
+re-added with full set of source_type values.
+
+---
+
+Final Verification (S-103)
+
+Check	Result
+Migration 20260614000001 applied	✅
+closed_at / locked_at / closing_entry_id columns added	✅
+source_type CHECK extended to include 'closing'	✅
+AccountingPeriod type updated (3 new nullable fields)	✅
+getPendingDraftCount / closePeriod / reopenPeriod / hasOtherOpenPeriod	✅
+lockPeriod: closing entries created, period locked, closing_entry_id set	✅
+useClosePeriod / useReopenPeriod / useLockPeriod hooks	✅
+AccountingPeriodsPage: status badges + action buttons	✅
+Close blocked when drafts exist: toast with count	✅
+Reopen blocked when other open period exists	✅
+Lock dialog: name-confirmation required, danger styling	✅
+/settings/periods route + SettingsPage nav tab	✅
+periodClosing.* i18n keys (ar + en)	✅
+npx tsc --noEmit	✅ Zero errors
+10 files changed	✅
