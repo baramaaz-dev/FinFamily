@@ -19,6 +19,7 @@ import CapitalAccountsPage     from '@/pages/CapitalAccountsPage';
 import CapitalStatementPage    from '@/pages/CapitalStatementPage';
 import JournalPage             from '@/pages/JournalPage';
 import JournalReviewPage       from '@/pages/JournalReviewPage';
+import TrialBalancePage        from '@/pages/TrialBalancePage';
 import SettlementsPage         from '@/pages/SettlementsPage';
 import SettlementDetailPage    from '@/pages/SettlementDetailPage';
 import LoginPage               from '@/pages/LoginPage';
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
           { path: 'journal',             element: <ErrorBoundary><JournalPage /></ErrorBoundary> },
           { path: 'journal-review',     element: <ErrorBoundary><JournalReviewPage /></ErrorBoundary> },
           { path: 'reports',            element: <ErrorBoundary><ReportsPage /></ErrorBoundary> },
+          { path: 'reports/trial-balance', element: <ErrorBoundary><TrialBalancePage /></ErrorBoundary> },
           { path: 'capital',            element: <ErrorBoundary><CapitalAccountsPage /></ErrorBoundary> },
           { path: 'capital/:accountId', element: <ErrorBoundary><CapitalStatementPage /></ErrorBoundary> },
           { path: 'settlements',               element: <ErrorBoundary><SettlementsPage /></ErrorBoundary> },
