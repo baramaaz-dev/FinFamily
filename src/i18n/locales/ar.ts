@@ -11,8 +11,9 @@ const ar = {
     expand:          'توسيع القائمة',
     collapse:        'طي القائمة',
     companySettings: 'إعدادات الشركة',
-    journal:         'دفتر اليومية',
-    journalReview:   'مراجعة القيود',
+    journal:         'اليومية',
+    journalEntry:    'دفتر اليومية',
+    journalReview:   'المراجعة والترحيل',
   },
   settings: {
     people:        'إدارة الأشخاص',

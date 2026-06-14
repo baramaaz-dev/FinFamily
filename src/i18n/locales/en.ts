@@ -11,8 +11,9 @@ const en = {
     expand:          'Expand sidebar',
     collapse:        'Collapse sidebar',
     companySettings: 'Company Settings',
-    journal:         'General Journal',
-    journalReview:   'Journal Review',
+    journal:         'Journal',
+    journalEntry:    'Journal Entry',
+    journalReview:   'Review & Posting',
   },
   settings: {
     people:        'People Management',
