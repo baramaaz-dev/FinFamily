@@ -1680,6 +1680,23 @@ const en = {
       hint:  'Post journal entries first from the Journal Review page',
     },
   },
+  devReset: {
+    sectionTitle:       'Test Environment',
+    sectionDescription: 'Development-only tools — will be removed before production.',
+    warningTitle:       'The following data will be permanently deleted:',
+    warningPoint1:      'All financial transactions and journal entries',
+    warningPoint2:      'Leases, payments, and property expenses',
+    warningPoint3:      'Capital accounts and profit settlements',
+    buttonLabel:        'Reset All Financial Data',
+    dialogTitle:        'Confirm Data Reset',
+    dialogWarning:      'This action cannot be undone. All financial transactions and journal entries will be permanently deleted.',
+    confirmLabel:       'Type to confirm:',
+    confirmKeyword:     'تأكيد المسح',
+    confirmButton:      'Reset Data',
+    resetting:          'Resetting…',
+    successToast:       'All financial data reset successfully',
+    errorToast:         'Reset failed',
+  },
   reportsGL: {
     pl: {
       title:          'Income Statement (IFRS 18)',
