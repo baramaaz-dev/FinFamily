@@ -45,18 +45,22 @@ type RawTransaction = {
   reference_no: string | null;
   notes: string | null;
   journal_entry_id: string | null;
+  journal_status: string | null;
   created_at: string;
 };
 
 async function fetchTransactions(accountId: string): Promise<RawTransaction[]> {
   const { data, error } = await supabaseClient
     .from('capital_transactions')
-    .select('id, type, amount, currency, exchange_rate, date, reference_no, notes, journal_entry_id, created_at')
+    .select('id, type, amount, currency, exchange_rate, date, reference_no, notes, journal_entry_id, created_at, journal_entries ( status )')
     .eq('capital_account_id', accountId)
     .order('date',       { ascending: false })
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data ?? []) as unknown as RawTransaction[];
+  return (data ?? []).map((row) => ({
+    ...(row as unknown as RawTransaction),
+    journal_status: (row.journal_entries as unknown as { status: string } | null)?.status ?? null,
+  }));
 }
 
 async function fetchEntityName(entityType: string, entityId: string): Promise<string> {
@@ -520,7 +524,10 @@ export default function CapitalStatementPage() {
 
                           {/* posting status */}
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <PostingStatusBadge journalEntryId={tx.journal_entry_id} />
+                            <PostingStatusBadge
+                              journalEntryId={tx.journal_entry_id}
+                              journalStatus={tx.journal_status}
+                            />
                           </td>
 
                           {/* source */}
