@@ -349,3 +349,14 @@ export interface AuthUser {
   email: string
   displayName: string | null
 }
+
+export interface DrawingJournalLine {
+  id:            string;
+  debit_amount:  number;
+  currency:      'USD' | 'SYP';
+  exchange_rate: number | null;
+  entry_date:    string;
+  description:   string | null;
+  reference_no:  string | null;
+  status:        string;
+}
