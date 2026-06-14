@@ -48,6 +48,7 @@ interface LeasePaymentRow {
   paid_date:        string;
   notes:            string | null;
   journal_entry_id: string | null;
+  journal_status:   string | null;
 }
 
 interface PropertyExpenseRow {
@@ -64,6 +65,7 @@ interface PropertyExpenseRow {
   portfolio_id:     string | null;
   notes:            string | null;
   journal_entry_id: string | null;
+  journal_status:   string | null;
 }
 
 function typeBadgeClass(type: Property['type']): string {
@@ -200,11 +202,14 @@ export default function PropertyOwnershipPage() {
       if (leaseIds.length === 0) return [];
       const { data, error } = await supabaseClient
         .from('lease_payments')
-        .select('id, lease_id, amount, currency, exchange_rate, paid_date, notes, journal_entry_id')
+        .select('id, lease_id, amount, currency, exchange_rate, paid_date, notes, journal_entry_id, journal_entries ( status )')
         .in('lease_id', leaseIds)
         .order('paid_date', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as LeasePaymentRow[];
+      return (data ?? []).map((row) => ({
+        ...(row as unknown as LeasePaymentRow),
+        journal_status: (row.journal_entries as unknown as { status: string } | null)?.status ?? null,
+      }));
     },
     enabled: !!id,
   });
@@ -216,11 +221,14 @@ export default function PropertyOwnershipPage() {
     queryFn: async (): Promise<PropertyExpenseRow[]> => {
       const { data, error } = await supabaseClient
         .from('property_expenses')
-        .select('id, property_id, type, amount, currency, exchange_rate, due_date, paid_date, is_recurring, frequency, portfolio_id, notes, journal_entry_id')
+        .select('id, property_id, type, amount, currency, exchange_rate, due_date, paid_date, is_recurring, frequency, portfolio_id, notes, journal_entry_id, journal_entries ( status )')
         .eq('property_id', id as string)
         .order('due_date', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as PropertyExpenseRow[];
+      return (data ?? []).map((row) => ({
+        ...(row as unknown as PropertyExpenseRow),
+        journal_status: (row.journal_entries as unknown as { status: string } | null)?.status ?? null,
+      }));
     },
     enabled: !!id,
   });
@@ -614,7 +622,10 @@ export default function PropertyOwnershipPage() {
                       {payment.notes ?? '—'}
                     </TableCell>
                     <TableCell className="text-center">
-                      <PostingStatusBadge journalEntryId={payment.journal_entry_id} />
+                      <PostingStatusBadge
+                        journalEntryId={payment.journal_entry_id}
+                        journalStatus={payment.journal_status}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -749,7 +760,10 @@ export default function PropertyOwnershipPage() {
                             {expense.notes ?? '—'}
                           </TableCell>
                           <TableCell className="text-center">
-                            <PostingStatusBadge journalEntryId={expense.journal_entry_id} />
+                            <PostingStatusBadge
+                              journalEntryId={expense.journal_entry_id}
+                              journalStatus={expense.journal_status}
+                            />
                           </TableCell>
                         </TableRow>
                       );
