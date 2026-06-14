@@ -12,7 +12,13 @@ import {
 } from '@/components/ui/table';
 import AddWithdrawalDialog        from '@/components/partners/AddWithdrawalDialog';
 import { buildCapitalBreakdown }  from '@/utils/capital';
-import type { PartnerCapitalAccount } from '@/types';
+import type { PartnerCapitalAccount, DrawingJournalLine } from '@/types';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ROUTES }                 from '@/router/routes';
 
 // ─── Local interfaces ────────────────────────────────────────────────────────
@@ -261,22 +267,43 @@ export default function PartnerDetailPage() {
     staleTime: 30_000,
   });
 
-  // Hook 7 — Partner withdrawals
-  const {
-    data: withdrawals = [],
-    isLoading: withdrawalsLoading,
-  } = useQuery({
-    queryKey: ['partner-withdrawals', id],
+  // Hook 7a — partner's drawing account (32XX)
+  const { data: drawingAccount } = useQuery({
+    queryKey: ['partner-drawing-account', id],
     queryFn: async () => {
       const { data, error } = await supabaseClient
-        .from('distributions')
-        .select('id, entity_type, entity_id, amount, currency, exchange_rate, date, notes')
-        .eq('partner_id', id!)
-        .order('date', { ascending: false });
+        .from('accounts')
+        .select('id, code, name')
+        .like('code', '32%')
+        .eq('is_postable', true)
+        .filter('metadata->>partner_id', 'eq', id!)
+        .maybeSingle();
       if (error) throw error;
-      return data ?? [];
+      return data;
     },
     enabled: !!id,
+    staleTime: 300_000,
+  });
+
+  // Hook 7b — debit lines on the drawing account (posted only, filtered in useMemo)
+  const { data: rawDrawingLines, isLoading: loadingWithdrawals } = useQuery({
+    queryKey: ['partner-drawing-lines', drawingAccount?.id],
+    queryFn: async () => {
+      const { data, error } = await supabaseClient
+        .from('journal_entry_lines')
+        .select(`
+          id,
+          debit_amount,
+          currency,
+          exchange_rate,
+          journal_entries ( entry_date, description, reference_no, status )
+        `)
+        .eq('account_id', drawingAccount!.id)
+        .gt('debit_amount', 0);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!drawingAccount?.id,
     staleTime: 30_000,
   });
 
@@ -337,18 +364,35 @@ export default function PartnerDetailPage() {
     return map;
   }, [portfolioMemberships, propertyOwnerships, cashAccounts]);
 
-  const totalWithdrawalsUSD = useMemo(() => {
-    return withdrawals.reduce((sum, w) => {
-      return (
-        sum +
-        toUSD(
-          Number(w.amount),
-          w.currency as 'USD' | 'SYP',
-          w.exchange_rate ?? 1
-        )
+  const withdrawals = useMemo<DrawingJournalLine[]>(() => {
+    if (!rawDrawingLines) return [];
+    return rawDrawingLines
+      .map(row => ({
+        id:            row.id,
+        debit_amount:  row.debit_amount,
+        currency:      row.currency as 'USD' | 'SYP',
+        exchange_rate: row.exchange_rate,
+        ...(row.journal_entries as unknown as {
+          entry_date:   string;
+          description:  string | null;
+          reference_no: string | null;
+          status:       string;
+        }),
+      }))
+      .filter(line => line.status === 'posted')
+      .sort((a, b) =>
+        new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime()
       );
-    }, 0);
-  }, [withdrawals]);
+  }, [rawDrawingLines]);
+
+  const totalWithdrawalsUSD = useMemo(
+    () =>
+      withdrawals.reduce(
+        (sum, line) => sum + toUSD(line.debit_amount, line.currency, line.exchange_rate ?? 1),
+        0
+      ),
+    [withdrawals]
+  );
 
   const capitalClosingMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -756,16 +800,28 @@ export default function PartnerDetailPage() {
           <h2 className="text-base font-medium text-[#1E293B]">
             {t('partners.withdrawalsSection.title')}
           </h2>
-          <button
-            onClick={() => setWithdrawalDialogOpen(true)}
-            className="rounded-md bg-[#1E5DC4] px-3 py-1.5 text-sm text-white hover:bg-[#164399] transition-colors"
-          >
-            {t('partners.withdrawalsSection.addButton')}
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <button
+                    disabled
+                    className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium
+                               bg-[#1E5DC4] text-white opacity-50 cursor-not-allowed"
+                  >
+                    {t('partners.withdrawalsSection.addButton')}
+                  </button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">{t('partners.withdrawalsSection.addButtonTooltip')}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {/* Content */}
-        {withdrawalsLoading ? (
+        {loadingWithdrawals ? (
           <WithdrawalsSkeleton />
         ) : withdrawals.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-12">
@@ -783,10 +839,7 @@ export default function PartnerDetailPage() {
                     {t('partners.withdrawalsSection.columns.date')}
                   </TableHead>
                   <TableHead className="text-start text-xs font-medium text-[#475569]">
-                    {t('partners.withdrawalsSection.columns.entity')}
-                  </TableHead>
-                  <TableHead className="text-start text-xs font-medium text-[#475569]">
-                    {t('partners.withdrawalsSection.columns.entityType')}
+                    {t('partners.withdrawalsSection.columns.description')}
                   </TableHead>
                   <TableHead className="text-start text-xs font-medium text-[#475569]">
                     {t('partners.withdrawalsSection.columns.amount')}
@@ -795,42 +848,33 @@ export default function PartnerDetailPage() {
                     {t('partners.withdrawalsSection.columns.currency')}
                   </TableHead>
                   <TableHead className="text-start text-xs font-medium text-[#475569]">
-                    {t('partners.withdrawalsSection.columns.notes')}
+                    {t('partners.withdrawalsSection.columns.referenceNo')}
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {withdrawals.map((w) => {
-                  const entityName = entityNameMap.get(w.entity_id) ?? '—';
-                  return (
-                    <TableRow
-                      key={w.id}
-                      className="text-sm text-[#1E293B] hover:bg-[#F8FAFC]"
-                    >
-                      <TableCell className="font-mono tabular-nums text-[#475569]">
-                        {w.date ? format(new Date(w.date), 'dd/MM/yyyy') : '—'}
-                      </TableCell>
-                      <TableCell className="font-medium">{entityName}</TableCell>
-                      <TableCell>
-                        <EntityTypeBadge entityType={w.entity_type} t={t} />
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono tabular-nums text-sm text-[#C0392B]">
-                          {formatCurrency(Number(w.amount), w.currency as 'USD' | 'SYP')}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-[#475569]">{w.currency}</TableCell>
-                      <TableCell>
-                        <span
-                          className="block max-w-[180px] truncate text-[#475569]"
-                          title={w.notes ?? undefined}
-                        >
-                          {w.notes ?? '—'}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {withdrawals.map((line) => (
+                  <TableRow
+                    key={line.id}
+                    className="text-sm text-[#1E293B] hover:bg-[#F8FAFC]"
+                  >
+                    <TableCell className="font-mono tabular-nums text-sm text-[#475569]">
+                      {format(new Date(line.entry_date), 'dd/MM/yyyy')}
+                    </TableCell>
+                    <TableCell className="text-sm text-[#1E293B] max-w-[240px] truncate">
+                      {line.description ?? '—'}
+                    </TableCell>
+                    <TableCell className="font-mono tabular-nums text-sm text-[#C0392B] text-right">
+                      {formatCurrency(line.debit_amount, line.currency)}
+                    </TableCell>
+                    <TableCell className="text-sm text-[#475569]">
+                      {line.currency}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-[#94A3B8]">
+                      {line.reference_no ?? '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
 
