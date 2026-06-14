@@ -23,13 +23,13 @@ export default function MobileSidebar({ open, onClose }: MobileSidebarProps) {
       >
         {/* Visually hidden title for screen-reader accessibility */}
         <SheetHeader className="sr-only">
-          <SheetTitle>FinFamily</SheetTitle>
+          <SheetTitle>Family CFO</SheetTitle>
         </SheetHeader>
 
         {/* Brand block */}
         <div className="flex items-center gap-2 h-14 px-4 border-b border-[#E2E8F0]">
           <Building2 className="w-6 h-6 text-[#1E5DC4] shrink-0" />
-          <span className="font-medium text-lg text-foreground">FinFamily</span>
+          <span className="font-medium text-lg text-foreground">Family CFO (v.01)</span>
         </div>
 
         {/* Navigation */}

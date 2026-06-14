@@ -40,7 +40,7 @@ export default function LoginPage() {
           <div className="w-16 h-16 bg-[#1E5DC4] rounded-lg flex items-center justify-center mb-4">
             <Landmark className="w-9 h-9 text-white" />
           </div>
-          <h1 className="text-2xl font-medium text-foreground">FinFamily</h1>
+          <h1 className="text-2xl font-medium text-foreground">Family CFO (v.01)</h1>
           <p className="text-sm text-muted-foreground mt-1">{t('pages.login')}</p>
         </div>
 

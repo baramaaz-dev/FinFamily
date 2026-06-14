@@ -33,7 +33,7 @@ export default function Sidebar({ collapsed, toggle }: SidebarProps) {
       >
         <Building2 className="w-6 h-6 text-[#1E5DC4] shrink-0" />
         {!collapsed && (
-          <span className="font-medium text-lg text-foreground">FinFamily</span>
+          <span className="font-medium text-lg text-foreground">Family CFO (v.01)</span>
         )}
       </div>
 
