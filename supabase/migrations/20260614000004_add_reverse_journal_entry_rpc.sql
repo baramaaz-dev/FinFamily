@@ -11,7 +11,6 @@ DECLARE
   v_period_id    uuid;
   v_entry_date   date := CURRENT_DATE;
 BEGIN
-  -- التحقق من أن القيد الأصلي مُرحَّل
   IF NOT EXISTS (
     SELECT 1 FROM journal_entries
     WHERE id = p_original_id AND status = 'posted'
@@ -19,7 +18,6 @@ BEGIN
     RAISE EXCEPTION 'NOT_POSTED' USING ERRCODE = 'P0001';
   END IF;
 
-  -- التحقق من عدم وجود عكس سابق
   IF EXISTS (
     SELECT 1 FROM journal_entries
     WHERE source_type = 'reversal' AND source_id = p_original_id
@@ -27,7 +25,6 @@ BEGIN
     RAISE EXCEPTION 'ALREADY_REVERSED' USING ERRCODE = 'P0001';
   END IF;
 
-  -- إيجاد الفترة المفتوحة
   SELECT id INTO v_period_id
   FROM accounting_periods
   WHERE status = 'open'
@@ -39,7 +36,6 @@ BEGIN
     RAISE EXCEPTION 'NO_OPEN_PERIOD' USING ERRCODE = 'P0002';
   END IF;
 
-  -- إدراج قيد العكس
   INSERT INTO journal_entries (
     period_id, entry_date, description,
     status, source_type, source_id, reversal_of
@@ -49,7 +45,6 @@ BEGIN
   )
   RETURNING id INTO v_reversal_id;
 
-  -- إدراج سطور معكوسة (مدين ↔ دائن)
   INSERT INTO journal_entry_lines (
     journal_entry_id, account_id,
     debit_amount, credit_amount,
@@ -60,13 +55,12 @@ BEGIN
     account_id,
     credit_amount,
     debit_amount,
-    u'\u0639\u006B\u0073: ' || COALESCE(description, ''),
+    'عكس: ' || COALESCE(description, ''),
     currency,
     exchange_rate
   FROM journal_entry_lines
   WHERE journal_entry_id = p_original_id;
 
-  -- تحديث القيد الأصلي إلى معكوس
   UPDATE journal_entries
   SET status = 'reversed'
   WHERE id = p_original_id;
