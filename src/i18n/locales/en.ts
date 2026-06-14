@@ -1170,6 +1170,7 @@ const en = {
         portfolio: 'Portfolio',
         property:  'Property',
         project:   'Project',
+        cash:      'Cash',
       },
     },
 
@@ -1191,6 +1192,9 @@ const en = {
         exchangeRate:            'Exchange Rate (SYP/USD)',
         exchangeRatePlaceholder: 'Enter rate',
         date:                    'Withdrawal Date',
+        entityCash:              'Cash Account',
+        entityCashPlaceholder:   'Select cash account',
+        noCashAccounts:          'No cash accounts found',
         notes:                   'Notes',
         notesPlaceholder:        'Optional notes...',
       },

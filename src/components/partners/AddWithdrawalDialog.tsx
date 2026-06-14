@@ -27,18 +27,25 @@ interface EntityOption {
   name: string;
 }
 
+interface CashAccountOption {
+  id:   string;
+  code: string;
+  name: string;
+}
+
 interface AddWithdrawalDialogProps {
-  open:             boolean;
-  onOpenChange:     (open: boolean) => void;
-  personId:         string;
-  portfolioOptions: EntityOption[];
-  propertyOptions:  EntityOption[];
+  open:               boolean;
+  onOpenChange:       (open: boolean) => void;
+  personId:           string;
+  portfolioOptions:   EntityOption[];
+  propertyOptions:    EntityOption[];
+  cashAccountOptions: CashAccountOption[];
 }
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
 const addWithdrawalSchema = z.object({
-  entity_type: z.enum(['portfolio', 'property'], {
+  entity_type: z.enum(['portfolio', 'property', 'project', 'cash'], {
     error: 'partners.withdrawalForm.validation.entityTypeRequired',
   }),
   entity_id: z.string().min(1, {
@@ -79,6 +86,7 @@ export default function AddWithdrawalDialog({
   personId,
   portfolioOptions,
   propertyOptions,
+  cashAccountOptions,
 }: AddWithdrawalDialogProps) {
 
   const { t }          = useTranslation();
@@ -167,6 +175,8 @@ export default function AddWithdrawalDialog({
     handleOpenChange(false);
   };
 
+  const entityTypes = ['portfolio', 'property', 'cash'] as const;
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
@@ -184,7 +194,7 @@ export default function AddWithdrawalDialog({
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-2">
 
-          {/* ENTITY TYPE TOGGLE */}
+          {/* ENTITY TYPE TOGGLE — 3 joined buttons */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium text-[#1E293B]">
               {t('partners.withdrawalForm.form.entityType')}
@@ -193,75 +203,159 @@ export default function AddWithdrawalDialog({
               name="entity_type"
               control={control}
               render={({ field }) => (
-                <div className="flex gap-2">
-                  {(['portfolio', 'property'] as const).map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => field.onChange(type)}
-                      className={`rounded-md px-4 py-1.5 text-sm transition-colors ${
-                        field.value === type
-                          ? 'bg-[#1E5DC4] text-white'
-                          : 'border border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F1F5F9]'
-                      }`}
-                    >
-                      {t(
-                        type === 'portfolio'
-                          ? 'partners.withdrawalForm.form.entityPortfolio'
-                          : 'partners.withdrawalForm.form.entityProperty'
-                      )}
-                    </button>
-                  ))}
+                <div className="flex">
+                  {entityTypes.map((type, idx) => {
+                    const isFirst = idx === 0;
+                    const isLast  = idx === entityTypes.length - 1;
+                    const radiusCls = isFirst
+                      ? 'rounded-r-md rounded-l-none border-l-0'
+                      : isLast
+                      ? 'rounded-l-md rounded-r-none'
+                      : 'rounded-none border-l-0';
+                    const labelKey =
+                      type === 'portfolio'
+                        ? 'partners.withdrawalForm.form.entityPortfolio'
+                        : type === 'property'
+                        ? 'partners.withdrawalForm.form.entityProperty'
+                        : 'partners.withdrawalsSection.entityTypes.cash';
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => field.onChange(type)}
+                        className={`border px-4 py-1.5 text-sm transition-colors ${radiusCls} ${
+                          field.value === type
+                            ? 'bg-[#1E5DC4] text-white border-[#1E5DC4]'
+                            : 'bg-white text-[#475569] border-[#E2E8F0] hover:bg-[#F8FAFC]'
+                        }`}
+                      >
+                        {t(labelKey)}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             />
           </div>
 
-          {/* ENTITY SELECT */}
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-[#1E293B]">
-              {t('partners.withdrawalForm.form.entity')}
-            </Label>
-            {(() => {
-              const options =
-                watchedEntityType === 'portfolio' ? portfolioOptions : propertyOptions;
-              return (
-                <Controller
-                  name="entity_id"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={(v) => field.onChange(v)}
-                      disabled={options.length === 0}
-                    >
-                      <SelectTrigger className="w-full border-[#E2E8F0] text-start focus:ring-[#1E5DC4]">
-                        <SelectValue
-                          placeholder={
-                            options.length === 0
-                              ? t('partners.withdrawalForm.form.noEntities')
-                              : t('partners.withdrawalForm.form.entityPlaceholder')
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {options.map((opt) => (
-                          <SelectItem key={opt.id} value={opt.id}>
-                            {opt.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              );
-            })()}
-            {errors.entity_id && (
-              <p className="text-xs text-[#C0392B]">
-                {t(errors.entity_id.message ?? '')}
-              </p>
-            )}
-          </div>
+          {/* ENTITY SELECT — 3-way conditional */}
+          {watchedEntityType === 'portfolio' && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-[#1E293B]">
+                {t('partners.withdrawalForm.form.entity')}
+              </Label>
+              <Controller
+                name="entity_id"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={(v) => field.onChange(v)}
+                    disabled={portfolioOptions.length === 0}
+                  >
+                    <SelectTrigger className="w-full border-[#E2E8F0] text-start focus:ring-[#1E5DC4]">
+                      <SelectValue
+                        placeholder={
+                          portfolioOptions.length === 0
+                            ? t('partners.withdrawalForm.form.noEntities')
+                            : t('partners.withdrawalForm.form.entityPlaceholder')
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {portfolioOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={opt.id}>
+                          {opt.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.entity_id && (
+                <p className="text-xs text-[#C0392B]">
+                  {t(errors.entity_id.message ?? '')}
+                </p>
+              )}
+            </div>
+          )}
+
+          {watchedEntityType === 'property' && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-[#1E293B]">
+                {t('partners.withdrawalForm.form.entity')}
+              </Label>
+              <Controller
+                name="entity_id"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={(v) => field.onChange(v)}
+                    disabled={propertyOptions.length === 0}
+                  >
+                    <SelectTrigger className="w-full border-[#E2E8F0] text-start focus:ring-[#1E5DC4]">
+                      <SelectValue
+                        placeholder={
+                          propertyOptions.length === 0
+                            ? t('partners.withdrawalForm.form.noEntities')
+                            : t('partners.withdrawalForm.form.entityPlaceholder')
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {propertyOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={opt.id}>
+                          {opt.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.entity_id && (
+                <p className="text-xs text-[#C0392B]">
+                  {t(errors.entity_id.message ?? '')}
+                </p>
+              )}
+            </div>
+          )}
+
+          {watchedEntityType === 'cash' && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-[#1E293B]">
+                {t('partners.withdrawalForm.form.entityCash')}
+              </Label>
+              <Controller
+                name="entity_id"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full border-[#E2E8F0] text-start focus:ring-[#1E5DC4]">
+                      <SelectValue placeholder={t('partners.withdrawalForm.form.entityCashPlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cashAccountOptions.length === 0 && (
+                        <SelectItem value="__empty__" disabled>
+                          {t('partners.withdrawalForm.form.noCashAccounts')}
+                        </SelectItem>
+                      )}
+                      {cashAccountOptions.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.code} — {a.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.entity_id && (
+                <p className="text-xs text-[#C0392B]">
+                  {t(errors.entity_id.message ?? '')}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* AMOUNT + CURRENCY TOGGLE */}
           <div className="grid grid-cols-2 gap-3">

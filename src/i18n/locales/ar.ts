@@ -1170,6 +1170,7 @@ const ar = {
         portfolio: 'محفظة',
         property:  'عقار',
         project:   'مشروع',
+        cash:      'نقدية',
       },
     },
 
@@ -1191,6 +1192,9 @@ const ar = {
         exchangeRate:            'سعر الصرف (SYP/USD)',
         exchangeRatePlaceholder: 'أدخل السعر',
         date:                    'تاريخ المسحوبات',
+        entityCash:              'حساب النقدية',
+        entityCashPlaceholder:   'اختر حساب النقدية',
+        noCashAccounts:          'لا توجد حسابات نقدية',
         notes:                   'ملاحظات',
         notesPlaceholder:        'ملاحظات اختيارية...',
       },
