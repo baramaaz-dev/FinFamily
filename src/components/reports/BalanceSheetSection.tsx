@@ -1,57 +1,18 @@
-import { useMemo, useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Info } from 'lucide-react';
 import { buildCapitalBreakdown } from '../../utils/capital';
 import { supabaseClient } from '@/lib/supabase';
 import { exportToPDF } from '../../utils/exportToPDF';
+import { useBalanceSheetGL } from '@/hooks/useReportsGL';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Legacy source-table helpers (preserved — do not delete) ───────────────────
 
 function toUSD(amount: number, currency: 'USD' | 'SYP', exchangeRate: number | null): number {
   if (currency === 'USD') return amount;
   if (exchangeRate) return amount / exchangeRate;
   return 0;
 }
-
-function formatUSD(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency', currency: 'USD',
-    minimumFractionDigits: 2, maximumFractionDigits: 2,
-  }).format(value);
-}
-
-function signColor(value: number): string {
-  if (value > 0) return '#1A7D4F';
-  if (value < 0) return '#C0392B';
-  return '#94A3B8';
-}
-
-function getInitials(name: string): string {
-  return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('');
-}
-
-function getAccentColors(index: number): { icon: string; bg: string } {
-  if (index === 0) return { icon: '#1E5DC4', bg: '#E8F0FB' };
-  if (index === 1) return { icon: '#1A7D4F', bg: '#EBF5F0' };
-  return { icon: '#B45309', bg: '#FEF7EC' };
-}
-
-function portfolioTypeBadgeStyle(type: string): { color: string; backgroundColor: string } {
-  const map: Record<string, { color: string; backgroundColor: string }> = {
-    cash_usd: { color: '#1A7D4F', backgroundColor: '#EBF5F0' },
-    cash_syp: { color: '#B45309', backgroundColor: '#FEF7EC' },
-    gold:     { color: '#854009', backgroundColor: '#FEF7EC' },
-    project:  { color: '#1E5DC4', backgroundColor: '#E8F0FB' },
-  };
-  return map[type] ?? { color: '#475569', backgroundColor: '#F1F5F9' };
-}
-
-function getToday(): string {
-  return new Date().toISOString().split('T')[0];
-}
-
-// ── Interfaces ────────────────────────────────────────────────────────────────
 
 interface RawTransaction {
   portfolio_id: string;
@@ -98,8 +59,6 @@ interface RawCapitalTransaction {
   currency: 'USD' | 'SYP';
   exchange_rate: number | null;
 }
-
-// ── Fetch functions ───────────────────────────────────────────────────────────
 
 async function fetchBalanceTransactions(asOfDate: string): Promise<RawTransaction[]> {
   const { data, error } = await supabaseClient
@@ -159,6 +118,37 @@ async function fetchBalancePeople(): Promise<{ id: string; name: string }[]> {
   return data ?? [];
 }
 
+// Keep legacy helpers in scope — do not delete
+void toUSD;
+void buildCapitalBreakdown;
+void fetchBalanceTransactions;
+void fetchBalancePortfolios;
+void fetchBalanceProperties;
+void fetchUnpaidExpenses;
+void fetchBalanceCapitalAccounts;
+void fetchBalanceCapitalTransactions;
+void fetchBalancePeople;
+void useQuery;
+
+// ── Display helpers ───────────────────────────────────────────────────────────
+
+function formatUSD(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD',
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function signColor(value: number): string {
+  if (value > 0) return '#1A7D4F';
+  if (value < 0) return '#C0392B';
+  return '#94A3B8';
+}
+
+function getToday(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function BalanceSheetSkeleton() {
@@ -189,159 +179,6 @@ export default function BalanceSheetSection() {
 
   const handleApplyAsOf = () => setAppliedAsOf(asOfDate);
 
-  const txQuery     = useQuery({ queryKey: ['balance-report-transactions',         appliedAsOf], queryFn: () => fetchBalanceTransactions(appliedAsOf),        staleTime: 30_000 });
-  const portfoliosQ = useQuery({ queryKey: ['balance-report-portfolios'],                        queryFn: fetchBalancePortfolios,                             staleTime: 300_000 });
-  const propertiesQ = useQuery({ queryKey: ['balance-report-properties'],                        queryFn: fetchBalanceProperties,                             staleTime: 300_000 });
-  const unpaidQ     = useQuery({ queryKey: ['balance-report-unpaid-expenses',      appliedAsOf], queryFn: () => fetchUnpaidExpenses(appliedAsOf),             staleTime: 30_000 });
-  const accountsQ   = useQuery({ queryKey: ['balance-report-capital-accounts'],                  queryFn: fetchBalanceCapitalAccounts,                        staleTime: 30_000 });
-  const capitalTxQ  = useQuery({ queryKey: ['balance-report-capital-transactions', appliedAsOf], queryFn: () => fetchBalanceCapitalTransactions(appliedAsOf), staleTime: 30_000 });
-  const peopleQ     = useQuery({ queryKey: ['balance-report-people'],                            queryFn: fetchBalancePeople,                                 staleTime: 300_000 });
-
-  const isLoading =
-    txQuery.isLoading || portfoliosQ.isLoading || propertiesQ.isLoading ||
-    unpaidQ.isLoading || accountsQ.isLoading || capitalTxQ.isLoading || peopleQ.isLoading;
-
-  const isError =
-    txQuery.isError || portfoliosQ.isError || propertiesQ.isError ||
-    unpaidQ.isError || accountsQ.isError || capitalTxQ.isError || peopleQ.isError;
-
-  const handleRetry = () => {
-    [txQuery, portfoliosQ, propertiesQ, unpaidQ, accountsQ, capitalTxQ, peopleQ]
-      .forEach((q) => q.refetch());
-  };
-
-  // ── Derived balance sheet data ────────────────────────────────────────────
-  const {
-    portfolioRows,
-    propertyRows,
-    totalPortfoliosUSD,
-    totalPropertiesUSD,
-    totalAssetsUSD,
-    liabilityRows,
-    totalLiabilitiesUSD,
-    partnerEquityRows,
-    totalEquityUSD,
-  } = useMemo(() => {
-    const empty = {
-      portfolioRows: [] as { id: string; name: string; type: string; balanceUSD: number }[],
-      propertyRows: [] as { id: string; name: string; valueUSD: number }[],
-      totalPortfoliosUSD: 0, totalPropertiesUSD: 0, totalAssetsUSD: 0,
-      liabilityRows: [] as { id: string; propertyName: string; type: string; amountUSD: number }[],
-      totalLiabilitiesUSD: 0,
-      partnerEquityRows: [] as { partnerId: string; name: string; totalUSD: number; accentIndex: number }[],
-      totalEquityUSD: 0,
-    };
-
-    if (
-      !txQuery.data || !portfoliosQ.data || !propertiesQ.data ||
-      !unpaidQ.data || !accountsQ.data || !capitalTxQ.data || !peopleQ.data
-    ) {
-      return empty;
-    }
-
-    // ── ASSETS: Portfolio balances (income + / expense - / transfer skipped) ─
-    const portfolioBalanceMap = new Map<string, number>();
-    for (const tx of txQuery.data) {
-      if (tx.type === 'transfer') continue;
-      const usd = toUSD(tx.amount, tx.currency, tx.exchange_rate);
-      const prev = portfolioBalanceMap.get(tx.portfolio_id) ?? 0;
-      portfolioBalanceMap.set(
-        tx.portfolio_id,
-        tx.type === 'income' ? prev + usd : prev - usd,
-      );
-    }
-
-    const portfolioRows = portfoliosQ.data.map((p) => ({
-      id: p.id,
-      name: p.name,
-      type: p.type,
-      balanceUSD: portfolioBalanceMap.get(p.id) ?? 0,
-    }));
-    const totalPortfoliosUSD = portfolioRows.reduce((s, r) => s + r.balanceUSD, 0);
-
-    // ── ASSETS: Property estimated values ────────────────────────────────────
-    const propertyMap = new Map(propertiesQ.data.map((p) => [p.id, p.name]));
-
-    const propertyRows = propertiesQ.data.map((p) => ({
-      id: p.id,
-      name: p.name,
-      valueUSD: p.estimated_value ?? 0,
-    }));
-    const totalPropertiesUSD = propertyRows.reduce((s, r) => s + r.valueUSD, 0);
-    const totalAssetsUSD = totalPortfoliosUSD + totalPropertiesUSD;
-
-    // ── LIABILITIES: Unpaid property expenses ────────────────────────────────
-    const liabilityRows = unpaidQ.data.map((exp) => ({
-      id: exp.id,
-      propertyName: propertyMap.get(exp.property_id) ?? '—',
-      type: exp.type,
-      amountUSD: toUSD(exp.amount, exp.currency, exp.exchange_rate),
-    }));
-    const totalLiabilitiesUSD = liabilityRows.reduce((s, r) => s + r.amountUSD, 0);
-
-    // ── EQUITY: Partners' capital closing balances ────────────────────────────
-    const txByAccount = new Map<string, RawCapitalTransaction[]>();
-    for (const tx of capitalTxQ.data) {
-      const list = txByAccount.get(tx.capital_account_id) ?? [];
-      list.push(tx);
-      txByAccount.set(tx.capital_account_id, list);
-    }
-
-    const partnerTotalMap = new Map<string, number>();
-    for (const account of accountsQ.data) {
-      const txs = txByAccount.get(account.id) ?? [];
-      // canonical rule 2 — buildCapitalBreakdown is the single source of truth
-      const breakdown = buildCapitalBreakdown(
-        account.opening_balance,
-        account.currency,
-        account.exchange_rate,
-        txs,
-      );
-      const prev = partnerTotalMap.get(account.partner_id) ?? 0;
-      partnerTotalMap.set(account.partner_id, prev + breakdown.closingBalance);
-    }
-
-    const peopleMap = new Map(peopleQ.data.map((p) => [p.id, p.name]));
-
-    const unsorted = Array.from(partnerTotalMap.entries()).map(
-      ([partnerId, totalUSD]) => ({
-        partnerId,
-        name: peopleMap.get(partnerId) ?? '—',
-        totalUSD,
-      }),
-    );
-    unsorted.sort((a, b) => b.totalUSD - a.totalUSD);
-
-    const partnerEquityRows = unsorted.map((p, idx) => ({
-      ...p,
-      accentIndex: idx, // assigned AFTER sort per STR-004 §2.4
-    }));
-    const totalEquityUSD = partnerEquityRows.reduce((s, r) => s + r.totalUSD, 0);
-
-    return {
-      portfolioRows, propertyRows,
-      totalPortfoliosUSD, totalPropertiesUSD, totalAssetsUSD,
-      liabilityRows, totalLiabilitiesUSD,
-      partnerEquityRows, totalEquityUSD,
-    };
-  }, [
-    txQuery.data, portfoliosQ.data, propertiesQ.data, unpaidQ.data,
-    accountsQ.data, capitalTxQ.data, peopleQ.data,
-  ]);
-
-  // Explicit map for portfolio type labels — avoids TypeScript strict mode issues
-  const portfolioTypeLabel = (type: string): string => {
-    const map: Record<string, string> = {
-      cash_usd: t('reports.balance.typeCashUsd'),
-      cash_syp: t('reports.balance.typeCashSyp'),
-      gold:     t('reports.balance.typeGold'),
-      project:  t('reports.balance.typeProject'),
-    };
-    return map[type] ?? type;
-  };
-
-  const hasData = portfolioRows.length > 0 || propertyRows.length > 0;
-
   const printRef                      = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -355,15 +192,18 @@ export default function BalanceSheetSection() {
     );
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  const glQuery = useBalanceSheetGL(appliedAsOf);
+  const summary = glQuery.data;
+  const hasData = summary !== undefined &&
+    (summary.assets.length > 0 || summary.liabilities.length > 0 || summary.equity.length > 0);
+
   return (
     <div className="space-y-4">
-
       {/* As-of-date filter — always visible */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-xs text-[#475569]">
-            {t('reports.filters.asOfDate')}
+            {t('reportsGL.bs.asOfDate')}
           </label>
           <input
             type="date"
@@ -379,87 +219,106 @@ export default function BalanceSheetSection() {
           className="px-4 py-2 rounded-md text-sm font-medium text-white
                      bg-[#1E5DC4] hover:bg-[#164399] transition-colors"
         >
-          {t('reports.pl.apply')}
+          {t('reportsGL.bs.apply')}
         </button>
         <button
           onClick={handleExport}
-          disabled={isExporting || isLoading || !hasData}
+          disabled={isExporting || glQuery.isLoading || !hasData}
           className={[
             'px-4 py-2 rounded-md text-sm font-medium transition-colors ms-auto',
-            isExporting || isLoading || !hasData
+            isExporting || glQuery.isLoading || !hasData
               ? 'text-[#94A3B8] bg-[#F1F5F9] border border-[#E2E8F0] cursor-not-allowed opacity-60'
               : 'text-white bg-[#1E5DC4] hover:bg-[#164399] cursor-pointer',
           ].join(' ')}
         >
-          {isExporting ? t('reports.pl.exporting') : t('reports.pl.exportPdf')}
+          {isExporting ? t('reportsGL.bs.exporting') : t('reportsGL.bs.exportPdf')}
         </button>
       </div>
 
-      {isLoading && <BalanceSheetSkeleton />}
+      {glQuery.isLoading && <BalanceSheetSkeleton />}
 
-      {!isLoading && isError && (
+      {!glQuery.isLoading && glQuery.isError && (
         <div className="flex flex-col items-center gap-3 py-12 text-[#C0392B]">
-          <p className="text-sm">{t('reports.balance.error')}</p>
+          <p className="text-sm">{t('reportsGL.bs.error')}</p>
           <button
-            onClick={handleRetry}
+            onClick={() => glQuery.refetch()}
             className="px-4 py-2 rounded-md text-sm font-medium text-white
                        bg-[#C0392B] hover:bg-[#922B21] transition-colors"
           >
-            {t('reports.balance.retry')}
+            {t('reportsGL.bs.retry')}
           </button>
         </div>
       )}
 
-      {!isLoading && !isError && !hasData && (
+      {!glQuery.isLoading && !glQuery.isError && !hasData && (
         <div className="flex items-center justify-center py-12">
-          <p className="text-sm text-[#94A3B8]">{t('reports.balance.empty')}</p>
+          <p className="text-sm text-[#94A3B8]">{t('reportsGL.bs.empty')}</p>
         </div>
       )}
 
-      {!isLoading && !isError && hasData && (
+      {!glQuery.isLoading && !glQuery.isError && hasData && summary && (
         <div ref={printRef} className="space-y-4">
           {/* Print header — hidden in browser, revealed by exportToPDF during capture */}
           <div className="pdf-show hidden border-b-2 border-[#E2E8F0] pb-4 mb-6">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-2xl font-medium text-[#0F172A]">FinFamily</p>
-                <p className="text-sm text-[#475569]">إدارة الأصول العائلية</p>
+                <p className="text-sm text-[#475569]">{'إدارة الأصول العائلية'}</p>
               </div>
               <div className="text-end">
-                <p className="text-base font-medium text-[#1E293B]">
-                  {t('reports.balance.title')}
+                <p className="text-base font-medium text-[#1E293B]">{t('reportsGL.bs.title')}</p>
+                <p className="text-xs text-[#94A3B8]">
+                  {t('reportsGL.bs.asOfDate')}: {appliedAsOf}
                 </p>
                 <p className="text-xs text-[#94A3B8]">
-                  {t('reports.filters.asOfDate')}: {appliedAsOf}
-                </p>
-                <p className="text-xs text-[#94A3B8]">
-                  تاريخ التصدير: {new Date().toLocaleDateString('ar-SA')}
+                  {'تاريخ التصدير:'}{' '}
+                  {new Date().toLocaleDateString('ar-SA')}
                 </p>
               </div>
             </div>
           </div>
 
+          {/* Balance banner */}
+          {summary.is_balanced ? (
+            <div
+              className="rounded-lg border px-4 py-3 text-sm font-medium"
+              style={{ borderColor: '#A3D4BC', backgroundColor: '#EBF5F0', color: '#1A7D4F' }}
+            >
+              {t('reportsGL.bs.balanced').replace('{amount}', formatUSD(summary.total_assets))}
+            </div>
+          ) : (
+            <div
+              className="rounded-lg border px-4 py-3 text-sm font-medium"
+              style={{ borderColor: '#F5B9B5', backgroundColor: '#FEF0EF', color: '#C0392B' }}
+            >
+              {t('reportsGL.bs.unbalanced').replace(
+                '{diff}',
+                formatUSD(Math.abs(summary.total_assets - (summary.total_liabilities + summary.total_equity))),
+              )}
+            </div>
+          )}
+
           {/* Summary cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-lg border border-[#A3D4BC] bg-[#EBF5F0] p-4">
-              <p className="text-xs text-[#475569] mb-1">{t('reports.balance.totalAssets')}</p>
+              <p className="text-xs text-[#475569] mb-1">{t('reportsGL.bs.totalAssets')}</p>
               <p className="font-mono tabular-nums text-2xl font-medium text-[#1A7D4F]">
-                {formatUSD(totalAssetsUSD)}
+                {summary.total_assets !== 0 ? formatUSD(summary.total_assets) : '—'}
               </p>
             </div>
             <div className="rounded-lg border border-[#F5B9B5] bg-[#FEF0EF] p-4">
-              <p className="text-xs text-[#475569] mb-1">{t('reports.balance.totalLiabilities')}</p>
+              <p className="text-xs text-[#475569] mb-1">{t('reportsGL.bs.totalLiab')}</p>
               <p className="font-mono tabular-nums text-2xl font-medium text-[#C0392B]">
-                {formatUSD(totalLiabilitiesUSD)}
+                {summary.total_liabilities !== 0 ? formatUSD(summary.total_liabilities) : '—'}
               </p>
             </div>
             <div className="rounded-lg border border-[#E2E8F0] bg-white p-4">
-              <p className="text-xs text-[#475569] mb-1">{t('reports.balance.totalEquity')}</p>
+              <p className="text-xs text-[#475569] mb-1">{t('reportsGL.bs.totalEquity')}</p>
               <p
                 className="font-mono tabular-nums text-2xl font-medium"
-                style={{ color: signColor(totalEquityUSD) }}
+                style={{ color: signColor(summary.total_equity) }}
               >
-                {formatUSD(totalEquityUSD)}
+                {summary.total_equity !== 0 ? formatUSD(summary.total_equity) : '—'}
               </p>
             </div>
           </div>
@@ -467,187 +326,136 @@ export default function BalanceSheetSection() {
           {/* Balance sheet table */}
           <div className="rounded-lg border border-[#E2E8F0] overflow-hidden">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <tbody>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
+                    <th className="ps-4 pe-2 py-3 text-start text-xs font-medium text-[#475569]">
+                      {t('reportsGL.bs.colCode')}
+                    </th>
+                    <th className="ps-2 pe-4 py-3 text-start text-xs font-medium text-[#475569]">
+                      {t('reportsGL.bs.colName')}
+                    </th>
+                    <th className="ps-2 pe-4 py-3 text-end text-xs font-medium text-[#475569]">
+                      {t('reportsGL.bs.colBalance')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
 
-                {/* ══ ASSETS ══ */}
-                <tr className="bg-[#F1F5F9]">
-                  <td colSpan={2} className="ps-4 pe-4 py-2 font-medium text-[#475569]">
-                    {t('reports.balance.sectionAssets')}
-                  </td>
-                </tr>
+                  {/* ══ ASSETS ══ */}
+                  <tr className="bg-[#F1F5F9]">
+                    <td colSpan={3} className="ps-4 pe-4 py-2 font-medium text-[#475569]">
+                      {t('reportsGL.bs.sectionAssets')}
+                    </td>
+                  </tr>
+                  {summary.assets.length === 0 ? (
+                    <tr className="border-t border-[#F1F5F9]">
+                      <td colSpan={3} className="ps-8 pe-4 py-3 text-[#94A3B8]">{t('reportsGL.bs.noItems')}</td>
+                    </tr>
+                  ) : (
+                    summary.assets.map((row) => (
+                      <tr key={row.account_code} className="border-t border-[#F1F5F9] hover:bg-[#F8FAFC]">
+                        <td className="ps-8 pe-2 py-2 font-mono text-xs text-[#94A3B8]">{row.account_code}</td>
+                        <td className="ps-2 pe-4 py-2 text-[#1E293B]">{row.account_name}</td>
+                        <td className="ps-2 pe-4 py-2 text-end font-mono tabular-nums text-[#1A7D4F]">
+                          {row.balance !== 0 ? formatUSD(row.balance) : '—'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  <tr className="border-t-2 border-[#E2E8F0] bg-[#EBF5F0]">
+                    <td colSpan={2} className="ps-4 pe-4 py-3 text-base font-medium text-[#126038]">
+                      {t('reportsGL.bs.totalAssets')}
+                    </td>
+                    <td className="ps-2 pe-4 py-3 text-end font-mono tabular-nums text-lg font-medium text-[#1A7D4F]">
+                      {summary.total_assets !== 0 ? formatUSD(summary.total_assets) : '—'}
+                    </td>
+                  </tr>
 
-                {/* Portfolios sub-section */}
-                <tr className="bg-[#F8FAFC]">
-                  <td colSpan={2} className="ps-6 pe-4 py-1 text-xs font-medium text-[#94A3B8]">
-                    {t('reports.balance.subPortfolios')}
-                  </td>
-                </tr>
-                {portfolioRows.map((p) => (
-                  <tr key={p.id} className="border-t border-[#F1F5F9]">
-                    <td className="ps-8 pe-4 py-2 text-[#1E293B]">
-                      <div className="flex items-center gap-2">
-                        <span>{p.name}</span>
-                        <span
-                          className="text-xs px-2 py-0.5 rounded-full font-medium"
-                          style={portfolioTypeBadgeStyle(p.type)}
+                  {/* ══ LIABILITIES ══ */}
+                  <tr className="bg-[#F1F5F9]">
+                    <td colSpan={3} className="ps-4 pe-4 py-2 font-medium text-[#475569]">
+                      {t('reportsGL.bs.sectionLiab')}
+                    </td>
+                  </tr>
+                  {summary.liabilities.length === 0 ? (
+                    <tr className="border-t border-[#F1F5F9]">
+                      <td colSpan={3} className="ps-8 pe-4 py-3 text-[#94A3B8]">{t('reportsGL.bs.noItems')}</td>
+                    </tr>
+                  ) : (
+                    summary.liabilities.map((row) => (
+                      <tr key={row.account_code} className="border-t border-[#F1F5F9] hover:bg-[#F8FAFC]">
+                        <td className="ps-8 pe-2 py-2 font-mono text-xs text-[#94A3B8]">{row.account_code}</td>
+                        <td className="ps-2 pe-4 py-2 text-[#1E293B]">{row.account_name}</td>
+                        <td className="ps-2 pe-4 py-2 text-end font-mono tabular-nums text-[#C0392B]">
+                          {row.balance !== 0 ? formatUSD(row.balance) : '—'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  <tr className="border-t-2 border-[#E2E8F0] bg-[#FEF0EF]">
+                    <td colSpan={2} className="ps-4 pe-4 py-3 text-base font-medium text-[#922B21]">
+                      {t('reportsGL.bs.totalLiab')}
+                    </td>
+                    <td className="ps-2 pe-4 py-3 text-end font-mono tabular-nums text-lg font-medium text-[#C0392B]">
+                      {summary.total_liabilities !== 0 ? formatUSD(summary.total_liabilities) : '—'}
+                    </td>
+                  </tr>
+
+                  {/* ══ EQUITY ══ */}
+                  <tr className="bg-[#F1F5F9]">
+                    <td colSpan={3} className="ps-4 pe-4 py-2 font-medium text-[#475569]">
+                      {t('reportsGL.bs.sectionEquity')}
+                    </td>
+                  </tr>
+                  {summary.equity.length === 0 ? (
+                    <tr className="border-t border-[#F1F5F9]">
+                      <td colSpan={3} className="ps-8 pe-4 py-3 text-[#94A3B8]">{t('reportsGL.bs.noItems')}</td>
+                    </tr>
+                  ) : (
+                    summary.equity.map((row) => (
+                      <tr key={row.account_code} className="border-t border-[#F1F5F9] hover:bg-[#F8FAFC]">
+                        <td className="ps-8 pe-2 py-2 font-mono text-xs text-[#94A3B8]">{row.account_code}</td>
+                        <td className="ps-2 pe-4 py-2 text-[#1E293B]">{row.account_name}</td>
+                        <td
+                          className="ps-2 pe-4 py-2 text-end font-mono tabular-nums font-medium"
+                          style={{ color: signColor(row.balance) }}
                         >
-                          {portfolioTypeLabel(p.type)}
-                        </span>
-                      </div>
+                          {row.balance !== 0 ? formatUSD(row.balance) : '—'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  <tr className="border-t border-[#E2E8F0] bg-[#F8FAFC]">
+                    <td colSpan={2} className="ps-4 pe-4 py-3 text-base font-medium text-[#0F172A]">
+                      {t('reportsGL.bs.totalEquity')}
                     </td>
                     <td
-                      className="ps-4 pe-4 py-2 text-end font-mono tabular-nums"
-                      style={{ color: signColor(p.balanceUSD) }}
+                      className="ps-2 pe-4 py-3 text-end font-mono tabular-nums text-lg font-medium"
+                      style={{ color: signColor(summary.total_equity) }}
                     >
-                      {formatUSD(p.balanceUSD)}
+                      {summary.total_equity !== 0 ? formatUSD(summary.total_equity) : '—'}
                     </td>
                   </tr>
-                ))}
-                <tr className="border-t border-[#E2E8F0] bg-[#F8FAFC]">
-                  <td className="ps-6 pe-4 py-2 text-[#475569]">
-                    {t('reports.balance.subPortfolios')}
-                  </td>
-                  <td
-                    className="ps-4 pe-4 py-2 text-end font-mono tabular-nums font-medium"
-                    style={{ color: signColor(totalPortfoliosUSD) }}
-                  >
-                    {formatUSD(totalPortfoliosUSD)}
-                  </td>
-                </tr>
 
-                {/* Properties sub-section */}
-                <tr className="bg-[#F8FAFC]">
-                  <td colSpan={2} className="ps-6 pe-4 py-1 text-xs font-medium text-[#94A3B8]">
-                    {t('reports.balance.subProperties')}
-                  </td>
-                </tr>
-                {propertyRows.map((p) => (
-                  <tr key={p.id} className="border-t border-[#F1F5F9]">
-                    <td className="ps-8 pe-4 py-2 text-[#1E293B]">{p.name}</td>
-                    <td className="ps-4 pe-4 py-2 text-end font-mono tabular-nums text-[#1A7D4F]">
-                      {formatUSD(p.valueUSD)}
+                  {/* ══ LIABILITIES + EQUITY ══ */}
+                  <tr className="border-t-2 border-[#E2E8F0] bg-[#F1F5F9]">
+                    <td colSpan={2} className="ps-4 pe-4 py-3 text-base font-medium text-[#0F172A]">
+                      {t('reportsGL.bs.totalLiabEquity')}
+                    </td>
+                    <td
+                      className="ps-2 pe-4 py-3 text-end font-mono tabular-nums text-lg font-medium"
+                      style={{ color: signColor(summary.total_liabilities + summary.total_equity) }}
+                    >
+                      {(summary.total_liabilities + summary.total_equity) !== 0
+                        ? formatUSD(summary.total_liabilities + summary.total_equity)
+                        : '—'}
                     </td>
                   </tr>
-                ))}
-                <tr className="border-t border-[#E2E8F0] bg-[#F8FAFC]">
-                  <td className="ps-6 pe-4 py-2 text-[#475569]">
-                    {t('reports.balance.subProperties')}
-                  </td>
-                  <td className="ps-4 pe-4 py-2 text-end font-mono tabular-nums font-medium text-[#1A7D4F]">
-                    {formatUSD(totalPropertiesUSD)}
-                  </td>
-                </tr>
 
-                {/* Total Assets */}
-                <tr className="border-t-2 border-[#E2E8F0] bg-[#EBF5F0]">
-                  <td className="ps-4 pe-4 py-3 text-base font-medium text-[#126038]">
-                    {t('reports.balance.totalAssets')}
-                  </td>
-                  <td className="ps-4 pe-4 py-3 text-end font-mono tabular-nums text-lg font-medium text-[#1A7D4F]">
-                    {formatUSD(totalAssetsUSD)}
-                  </td>
-                </tr>
-
-                {/* ══ LIABILITIES ══ */}
-                <tr className="bg-[#F1F5F9]">
-                  <td colSpan={2} className="ps-4 pe-4 py-2 font-medium text-[#475569]">
-                    {t('reports.balance.sectionLiabilities')}
-                  </td>
-                </tr>
-                {liabilityRows.length === 0 ? (
-                  <tr className="border-t border-[#F1F5F9]">
-                    <td colSpan={2} className="ps-8 pe-4 py-3 text-[#94A3B8]">
-                      {t('reports.balance.noLiabilities')}
-                    </td>
-                  </tr>
-                ) : (
-                  liabilityRows.map((exp) => (
-                    <tr key={exp.id} className="border-t border-[#F1F5F9]">
-                      <td className="ps-8 pe-4 py-2 text-[#1E293B]">
-                        {exp.propertyName}
-                        <span className="text-xs text-[#94A3B8] ms-2">{exp.type}</span>
-                      </td>
-                      <td className="ps-4 pe-4 py-2 text-end font-mono tabular-nums text-[#C0392B]">
-                        {formatUSD(exp.amountUSD)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-                <tr className="border-t-2 border-[#E2E8F0] bg-[#FEF0EF]">
-                  <td className="ps-4 pe-4 py-3 text-base font-medium text-[#922B21]">
-                    {t('reports.balance.totalLiabilities')}
-                  </td>
-                  <td className="ps-4 pe-4 py-3 text-end font-mono tabular-nums text-lg font-medium text-[#C0392B]">
-                    {formatUSD(totalLiabilitiesUSD)}
-                  </td>
-                </tr>
-
-                {/* ══ EQUITY ══ */}
-                <tr className="bg-[#F1F5F9]">
-                  <td colSpan={2} className="ps-4 pe-4 py-2 font-medium text-[#475569]">
-                    {t('reports.balance.sectionEquity')}
-                  </td>
-                </tr>
-                {partnerEquityRows.map((p) => {
-                  const accent = getAccentColors(p.accentIndex);
-                  return (
-                    <tr key={p.partnerId} className="border-t border-[#F1F5F9]">
-                      <td className="ps-8 pe-4 py-2 text-[#1E293B]">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="inline-flex items-center justify-center
-                                       w-6 h-6 rounded-full text-xs font-medium"
-                            style={{ backgroundColor: accent.bg, color: accent.icon }}
-                          >
-                            {getInitials(p.name)}
-                          </span>
-                          <span>{p.name}</span>
-                        </div>
-                      </td>
-                      <td
-                        className="ps-4 pe-4 py-2 text-end font-mono tabular-nums font-medium"
-                        style={{ color: signColor(p.totalUSD) }}
-                      >
-                        {formatUSD(p.totalUSD)}
-                      </td>
-                    </tr>
-                  );
-                })}
-                <tr className="border-t-2 border-[#E2E8F0] bg-[#F8FAFC]">
-                  <td className="ps-4 pe-4 py-3 text-base font-medium text-[#0F172A]">
-                    {t('reports.balance.totalEquity')}
-                  </td>
-                  <td
-                    className="ps-4 pe-4 py-3 text-end font-mono tabular-nums text-lg font-medium"
-                    style={{ color: signColor(totalEquityUSD) }}
-                  >
-                    {formatUSD(totalEquityUSD)}
-                  </td>
-                </tr>
-
-                {/* ══ LIABILITIES + EQUITY COMBINED ══ */}
-                <tr className="border-t-2 border-[#E2E8F0] bg-[#F1F5F9]">
-                  <td className="ps-4 pe-4 py-3 text-base font-medium text-[#0F172A]">
-                    {t('reports.balance.totalLiabilitiesEquity')}
-                  </td>
-                  <td
-                    className="ps-4 pe-4 py-3 text-end font-mono tabular-nums text-lg font-medium"
-                    style={{ color: signColor(totalLiabilitiesUSD + totalEquityUSD) }}
-                  >
-                    {formatUSD(totalLiabilitiesUSD + totalEquityUSD)}
-                  </td>
-                </tr>
-
-              </tbody>
-            </table>
+                </tbody>
+              </table>
             </div>
-          </div>
-
-          {/* MVP Note */}
-          <div className="flex items-start gap-2 text-xs text-[#94A3B8]">
-            <Info size={12} className="mt-0.5 shrink-0" />
-            <p>{t('reports.balance.mvpNote')}</p>
           </div>
         </div>
       )}
