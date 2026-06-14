@@ -21,4 +21,5 @@ export const ROUTES = {
   SETTINGS_PEOPLE:   '/settings/people',
   SETTINGS_EXCHANGE: '/settings/exchange-rates',
   SETTINGS_COMPANY:  '/settings/company',
+  SETTINGS_PERIODS:  '/settings/periods',
 } as const;

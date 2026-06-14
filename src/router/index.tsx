@@ -20,6 +20,7 @@ import CapitalStatementPage    from '@/pages/CapitalStatementPage';
 import JournalPage             from '@/pages/JournalPage';
 import JournalReviewPage       from '@/pages/JournalReviewPage';
 import TrialBalancePage        from '@/pages/TrialBalancePage';
+import AccountingPeriodsPage   from '@/pages/AccountingPeriodsPage';
 import SettlementsPage         from '@/pages/SettlementsPage';
 import SettlementDetailPage    from '@/pages/SettlementDetailPage';
 import LoginPage               from '@/pages/LoginPage';
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
               { path: 'exchange-rates', element: <ErrorBoundary><ExchangeRatesPage /></ErrorBoundary> },
               { path: 'accounts',       element: <ErrorBoundary><AccountsPage /></ErrorBoundary> },
               { path: 'company',        element: <ErrorBoundary><CompanySettingsPage /></ErrorBoundary> },
+              { path: 'periods',        element: <ErrorBoundary><AccountingPeriodsPage /></ErrorBoundary> },
             ],
           },
           { path: '*',                  element: <ErrorBoundary><NotFoundPage /></ErrorBoundary> },
