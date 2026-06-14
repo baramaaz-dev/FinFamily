@@ -70,7 +70,8 @@ async function fetchTransactions(): Promise<Transaction[]> {
       notes,
       journal_entry_id,
       created_at,
-      portfolios ( name )
+      portfolios ( name ),
+      journal_entries ( status )
     `)
     .order('date', { ascending: false })
     .order('created_at', { ascending: false });
@@ -87,6 +88,7 @@ async function fetchTransactions(): Promise<Transaction[]> {
     date:             row.date,
     notes:            row.notes,
     journal_entry_id: row.journal_entry_id,
+    journal_status:   (row.journal_entries as unknown as { status: string } | null)?.status ?? null,
     created_at:       row.created_at,
   }));
 }
@@ -360,7 +362,10 @@ export default function TransactionsPage() {
 
                   {/* Posting status */}
                   <TableCell className="text-center">
-                    <PostingStatusBadge journalEntryId={tx.journal_entry_id} />
+                    <PostingStatusBadge
+                      journalEntryId={tx.journal_entry_id}
+                      journalStatus={tx.journal_status}
+                    />
                   </TableCell>
 
                   {/* Actions */}
