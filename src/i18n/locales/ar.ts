@@ -226,7 +226,8 @@ const ar = {
   portfolios: {
     pageTitle:    'المحافظ المالية',
     pageSubtitle: 'إدارة المحافظ والمشاريع المالية للعائلة',
-    addPortfolio: 'إضافة محفظة',
+    addPortfolio:    'إضافة محفظة',
+    transactionsBtn: 'المعاملات',
     columns: {
       name:        'اسم المحفظة',
       type:        'النوع',

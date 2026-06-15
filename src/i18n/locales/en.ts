@@ -226,7 +226,8 @@ const en = {
   portfolios: {
     pageTitle:    'Financial Portfolios',
     pageSubtitle: 'Manage family financial portfolios and projects',
-    addPortfolio: 'Add Portfolio',
+    addPortfolio:    'Add Portfolio',
+    transactionsBtn: 'Transactions',
     columns: {
       name:        'Portfolio Name',
       type:        'Type',
