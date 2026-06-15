@@ -1,15 +1,16 @@
-import { ChevronDown, ChevronRight, ChevronLeft, Minus, Lock } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronLeft, Minus, Lock, BookOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useDirection } from '@/hooks/useDirection';
-import type { AccountNode } from '@/types';
+import type { Account, AccountNode } from '@/types';
 import AccountClassBadge from './AccountClassBadge';
 
 interface AccountTreeNodeProps {
-  node:        AccountNode;
-  depth:       number;
-  isExpanded:  boolean;
-  expandedIds: Set<string>;
-  onToggle:    (id: string) => void;
+  node:          AccountNode;
+  depth:         number;
+  isExpanded:    boolean;
+  expandedIds:   Set<string>;
+  onToggle:      (id: string) => void;
+  onOpenLedger:  (account: Account) => void;
 }
 
 export default function AccountTreeNode({
@@ -18,6 +19,7 @@ export default function AccountTreeNode({
   isExpanded,
   expandedIds,
   onToggle,
+  onOpenLedger,
 }: AccountTreeNodeProps) {
   const { t }     = useTranslation();
   const { isRTL } = useDirection();
@@ -91,8 +93,18 @@ export default function AccountTreeNode({
           )}
         </div>
 
-        {/* Col 5: disabled action buttons */}
+        {/* Col 5: action buttons */}
         <div className="w-24 flex-shrink-0 flex items-center gap-1">
+          {node.is_postable && (
+            <button
+              type="button"
+              onClick={() => onOpenLedger(node)}
+              title={t('settings.accounts.ledger.viewLedger')}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[#1E5DC4] border border-[#E2E8F0] bg-[#F1F5F9] hover:bg-[#E8F0FB] transition-colors"
+            >
+              <BookOpen size={11} />
+            </button>
+          )}
           <button
             disabled
             title={t('settings.accounts.lockedTooltip')}
@@ -121,6 +133,7 @@ export default function AccountTreeNode({
           isExpanded={expandedIds.has(child.id)}
           expandedIds={expandedIds}
           onToggle={onToggle}
+          onOpenLedger={onOpenLedger}
         />
       ))}
     </>
