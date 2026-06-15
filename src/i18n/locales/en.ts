@@ -113,6 +113,25 @@ const en = {
         edit:   'Edit',
         delete: 'Delete',
       },
+      ledger: {
+        title:          'Account Ledger',
+        viewLedger:     'View Ledger',
+        fromDate:       'From Date',
+        toDate:         'To Date',
+        postedOnly:     'Posted entries only',
+        noEntries:      'No entries in this period',
+        closingBalance: 'Closing Balance',
+        totalDebit:     'Total Debit',
+        totalCredit:    'Total Credit',
+        columns: {
+          date:    'Date',
+          ref:     'Reference',
+          desc:    'Description',
+          debit:   'Debit',
+          credit:  'Credit',
+          balance: 'Balance',
+        },
+      },
     },
   },
   auth: {
@@ -150,6 +169,7 @@ const en = {
     add:      'Add',
     search:   'Search',
     confirm:  'Confirm',
+    apply:    'Apply',
   },
   people: {
     pageTitle: 'People',

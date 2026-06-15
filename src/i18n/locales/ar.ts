@@ -113,6 +113,25 @@ const ar = {
         edit:   'تعديل',
         delete: 'حذف',
       },
+      ledger: {
+        title:          'دفتر أستاذ الحساب',
+        viewLedger:     'عرض الأستاذ',
+        fromDate:       'من تاريخ',
+        toDate:         'إلى تاريخ',
+        postedOnly:     'القيود المرحّلة فقط',
+        noEntries:      'لا توجد حركات في هذه الفترة',
+        closingBalance: 'الرصيد الختامي',
+        totalDebit:     'إجمالي المدين',
+        totalCredit:    'إجمالي الدائن',
+        columns: {
+          date:    'التاريخ',
+          ref:     'رقم مرجعي',
+          desc:    'الوصف',
+          debit:   'مدين',
+          credit:  'دائن',
+          balance: 'الرصيد',
+        },
+      },
     },
   },
   auth: {
@@ -150,6 +169,7 @@ const ar = {
     add:      'إضافة',
     search:   'بحث',
     confirm:  'تأكيد',
+    apply:    'تحديث',
   },
   people: {
     pageTitle: 'الأشخاص',
