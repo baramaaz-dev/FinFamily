@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Wallet, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, Wallet, Users, ArrowLeftRight } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase';
 import { AddPortfolioDialog } from '@/components/portfolios/AddPortfolioDialog';
 import { EditPortfolioDialog } from '@/components/portfolios/EditPortfolioDialog';
@@ -181,13 +181,24 @@ export default function PortfoliosPage() {
             {t('portfolios.pageSubtitle')}
           </p>
         </div>
-        <Button
-          className="bg-[#1E5DC4] text-white hover:bg-[#164399]"
-          onClick={() => setDialogOpen(true)}
-        >
-          {t('portfolios.addPortfolio')}
-          <Plus className="ms-2 h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link to={ROUTES.TRANSACTIONS}>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md border border-[#E2E8F0] px-3 py-2 text-sm font-medium text-[#475569] hover:bg-[#F1F5F9] transition-colors"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              {t('portfolios.transactionsBtn')}
+            </button>
+          </Link>
+          <Button
+            className="bg-[#1E5DC4] text-white hover:bg-[#164399]"
+            onClick={() => setDialogOpen(true)}
+          >
+            {t('portfolios.addPortfolio')}
+            <Plus className="ms-2 h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[#E2E8F0] bg-white">
