@@ -14,6 +14,9 @@ const ar = {
     journal:         'اليومية',
     journalEntry:    'دفتر اليومية',
     journalReview:   'المراجعة والترحيل',
+    assets:           'إدارة الأصول',
+    assetsPortfolios: 'المحافظ والمشاريع',
+    assetsProperties: 'العقارات',
   },
   settings: {
     people:        'إدارة الأشخاص',

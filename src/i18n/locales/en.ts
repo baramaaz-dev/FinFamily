@@ -14,6 +14,9 @@ const en = {
     journal:         'Journal',
     journalEntry:    'Journal Entry',
     journalReview:   'Review & Posting',
+    assets:           'Asset Management',
+    assetsPortfolios: 'Portfolios & Projects',
+    assetsProperties: 'Properties',
   },
   settings: {
     people:        'People Management',
