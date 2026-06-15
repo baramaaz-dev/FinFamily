@@ -1,6 +1,5 @@
 import {
   LayoutDashboard,
-  ArrowLeftRight,
   BookOpen,
   Briefcase,
   Users,
@@ -21,7 +20,6 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { labelKey: 'nav.dashboard',    icon: LayoutDashboard, href: ROUTES.DASHBOARD,    exactMatch: true  },
-  { labelKey: 'nav.transactions', icon: ArrowLeftRight,  href: ROUTES.TRANSACTIONS, exactMatch: false },
   { labelKey: 'nav.journal',       icon: BookOpen,        href: ROUTES.JOURNAL,        exactMatch: false },
   { labelKey: 'nav.assets',        icon: Briefcase,       href: ROUTES.ASSETS,         exactMatch: false },
   { labelKey: 'nav.partners',     icon: Users,           href: ROUTES.PARTNERS,     exactMatch: false },
