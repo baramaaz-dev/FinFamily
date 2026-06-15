@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Plus, PlusCircle } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase';
+import { ROUTES }          from '@/router/routes';
 import { formatCurrency } from '@/lib/currency';
 import { AddLeaseDialog } from '@/components/properties/AddLeaseDialog';
 import { RecordLeasePaymentDialog } from '@/components/properties/RecordLeasePaymentDialog';
@@ -265,7 +266,7 @@ export default function PropertyOwnershipPage() {
 
       {/* Back button */}
       <button
-        onClick={() => navigate('/properties')}
+        onClick={() => navigate(ROUTES.PROPERTIES)}
         className="flex items-center gap-1.5 text-sm text-[#475569] hover:text-[#1E293B] transition-colors"
       >
         <ArrowRight className="h-4 w-4" />
