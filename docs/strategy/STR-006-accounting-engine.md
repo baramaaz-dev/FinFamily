@@ -1,10 +1,10 @@
-# FinFamily — المحرك المحاسبي
+# Family CFO — المحرك المحاسبي
 **الوثيقة:** STR-006
-**الإصدار:** 1.3
+**الإصدار:** 1.4
 **الحالة:** ✅ معتمدة
-**آخر تحديث:** 2026-06-14
+**آخر تحديث:** 2026-06-15
 
-> **قاعدة إلزامية:** أي قصة (Story) تتعلق بترحيل القيود أو حسابات رأس المال أو التسويات
+> **قاعدة إلزامية:** أي قصة (Story) تتعلق بترحيل القيود أو حسابات الورثة أو التسويات
 > يجب أن تُراجع هذه الوثيقة أولاً. هذا الملف هو المرجع الوحيد لمنطق القيد المزدوج في المشروع.
 > عند وجود تعارض بينه وبين أي وثيقة أخرى، هذه الوثيقة هي المرجع.
 
@@ -25,47 +25,48 @@
         ↓
    general_ledger (VIEW)
         ↓
-  قوائم مالية (P&L · ميزانية · كشف حساب)
+  قوائم مالية (P&L · ميزانية · كشف حساب · صافي قيمة الأصول NAV)
 ```
 
-### 1.2 ما الذي لا يُغطيه هذا الملف
+### 1.2 طبيعة الكيان ← **محدَّث v1.4**
 
-- تفاصيل واجهة المستخدم لإدخال البيانات — هذه مغطاة في ملفات EPC الخاصة بكل Epic.
-- قواعد التحقق من صحة النماذج (Zod schemas) — مغطاة في STR-005.
-- هيكل قاعدة البيانات — مغطى في STR-002.
-- إرشادات التصميم البصري — مغطاة في STR-004.
+Family CFO منصة لإدارة **ثروة عائلية** تنطبق عليها الخصائص الآتية:
 
-### 1.3 المصادر التي تُولِّد قيوداً
+- الورثة (المستفيدون) هم أصحاب الحقوق في الثروة — حصصهم محددة بالميراث وثابتة قانوناً.
+- الأصول تُدار لصالح الورثة لا لتحقيق ربح تجاري — الهدف صون الثروة وتنميتها.
+- لا رأسمال مُضخ تقليدياً — أي أموال يضعها وارث في الصندوق هي **قرض** لا مساهمة رأسمالية.
+- لا إقفال سنوي بقيد موحَّد — التوزيعات تتم عبر تسويات دورية حسب الحاجة.
+- حسابات الاستحقاق (حقوق كل وارث) محسوبة لكل أصل بشكل مستقل.
+- **المعيار المرجعي:** IFRS 9 (الأدوات المالية) + IFRS 13 (القياس بالقيمة العادلة) + IFRS 18 (عرض القوائم).
 
-ستة مصادر فقط تُولِّد قيوداً في هذا النظام، وكل واحد منها يُسجَّل في `source_type`:
+### 1.3 المصادر التي تُولِّد قيوداً ← **محدَّث v1.4**
 
-| source_type | الجدول المصدري | Sprint التنفيذ |
-|-------------|---------------|----------------|
-| `transaction` | `transactions` | Sprint 6 |
-| `lease_payment` | `lease_payments` | Sprint 6 |
-| `property_expense` | `property_expenses` | Sprint 6 |
-| `capital_transaction` | `capital_transactions` | Sprint 6 |
+| source_type | الجدول المصدري | ملاحظة |
+|-------------|---------------|--------|
+| `transaction` | `transactions` | معاملات المحافظ |
+| `lease_payment` | `lease_payments` | دفعات الإيجار |
+| `property_expense` | `property_expenses` | مصروفات العقارات |
+| `capital_transaction` | `capital_transactions` | حركات رأسمالية |
+| `profit_settlement` | `profit_settlements` | تسوية أرباح مؤكَّدة |
+| `settlement` | — | تسويات أخرى |
+| `reversal` | — | قيد عكسي تلقائي |
+| `closing` | — | قيد إقفال فترة |
 | `project_transaction` | `project_transactions` | ما بعد MVP |
-| `manual` | لا يوجد — القيد مدخل يدوياً | Sprint 6 |
+| `manual` | NULL | قيد يدوي مباشر |
 
 ---
 
 ## 2. دليل الحسابات — Chart of Accounts (IFRS 18)
 
-### 2.1 معيار التصنيف — IFRS 18
+### 2.1 معيار التصنيف
 
-دليل الحسابات مبني وفق **IFRS 18** (صدر أبريل 2024، يسري من يناير 2027) الذي استبدل IAS 1.
-التغيير الجوهري: إلزامية تصنيف جميع بنود قائمة الدخل ضمن ثلاث فئات محددة:
+دليل الحسابات مبني وفق **IFRS 18** مع مراعاة متطلبات **IFRS 9** لتصنيف الأدوات المالية.
+فئات قائمة الدخل الثلاث الإلزامية:
 
 ```
-فئة التشغيل   (Operating)   ← النشاط الرئيسي — الإيجارات · المحافظ · المصروفات التشغيلية
-فئة الاستثمار (Investing)   ← عوائد الأصول المستقلة — بيع عقار · عوائد استثمارات
-فئة التمويل   (Financing)   ← من الالتزامات المالية — فوائد أي تمويل
-```
-
-ومنها يُشتق المؤشر الإلزامي الجديد في IFRS 18:
-```
-إيرادات التشغيل − مصروفات التشغيل = ربح التشغيل  ←  مؤشر إلزامي جديد
+فئة التشغيل   (Operating)   ← الإيجارات · إيرادات الأصول التشغيلية
+فئة الاستثمار (Investing)   ← عوائد الأصول المالية · مكاسب/خسائر البيع
+فئة التمويل   (Financing)   ← أي تمويل خارجي
 ```
 
 ### 2.2 الهيكل الهرمي الكامل
@@ -93,18 +94,17 @@
     2130  إيرادات مؤجلة                   [liability · credit · is_postable=true ]
   2200  الخصوم غير المتداولة              [liability · credit · is_postable=false]
     2210  التزامات طويلة الأجل             [liability · credit · is_postable=true ]
-  2300  قروض الشركاء                      [liability · credit · is_postable=false]
-    23XX  قرض شريك أ                       [liability · credit · is_postable=true ] ★
-    23XX  قرض شريك ب                       [liability · credit · is_postable=true ] ★
+  2300  قروض الورثة                       [liability · credit · is_postable=false]
+    23XX  قرض وارث أ                       [liability · credit · is_postable=true ] ★
+    23XX  قرض وارث ب                       [liability · credit · is_postable=true ] ★
 
-3000  حقوق الشركاء                        [equity    · credit · is_postable=false]
-  3100  رأس المال                          [equity    · credit · is_postable=false]
-    3110  رأس مال شريك أ                   [equity    · credit · is_postable=true ] ★
-    3120  رأس مال شريك ب                   [equity    · credit · is_postable=true ] ★
-    31XX  رأس مال شريك ج ...               [equity    · credit · is_postable=true ] ★
-  3200  المسحوبات                          [equity    · debit  · is_postable=false]
-    3210  مسحوبات شريك أ                   [equity    · debit  · is_postable=true ] ★
-    3220  مسحوبات شريك ب                   [equity    · debit  · is_postable=true ] ★
+3000  حقوق الاستحقاق (الورثة)             [equity    · credit · is_postable=false]
+  3100  حصص الاستحقاق                     [equity    · credit · is_postable=false]
+    31XX  حصة وارث أ                       [equity    · credit · is_postable=true ] ★
+    31XX  حصة وارث ب                       [equity    · credit · is_postable=true ] ★
+  3200  التوزيعات المسحوبة                [equity    · debit  · is_postable=false]
+    32XX  توزيعات وارث أ                   [equity    · debit  · is_postable=true ] ★
+    32XX  توزيعات وارث ب                   [equity    · debit  · is_postable=true ] ★
   3300  الأرباح المحتجزة                   [equity    · credit · is_postable=true ]
 
 ════════════════════════════════════════════════
@@ -151,132 +151,98 @@
   9200  مصاريف تمويلية أخرى              [expense   · debit  · is_postable=true ]
 ```
 
-> ★ الحسابات الأكثر استخداماً في قوالب القيود الموثَّقة في هذه الوثيقة.
-
 ### 2.3 قاعدة الرصيد الطبيعي
 
 ```
-الأصول      → رصيد طبيعي مدين   → يزيد بـ debit_amount
-الخصوم      → رصيد طبيعي دائن   → يزيد بـ credit_amount
-حقوق ملكية  → رصيد طبيعي دائن   → يزيد بـ credit_amount
-الإيرادات   → رصيد طبيعي دائن   → يزيد بـ credit_amount
-المصروفات   → رصيد طبيعي مدين   → يزيد بـ debit_amount
+الأصول      → رصيد طبيعي مدين
+الخصوم      → رصيد طبيعي دائن
+حقوق ملكية  → رصيد طبيعي دائن
+الإيرادات   → رصيد طبيعي دائن
+المصروفات   → رصيد طبيعي مدين
 ```
 
-**استثناء:** حسابات المسحوبات (`3200`) رصيدها الطبيعي **مدين** رغم انتمائها لمجموعة حقوق الملكية — لأنها تُقلِّصها.
+**استثناء:** حسابات التوزيعات المسحوبة (`3200`) رصيدها الطبيعي **مدين** رغم انتمائها لحقوق الاستحقاق.
 
-### 2.4 قاعدة إنشاء حسابات الشركاء
+### 2.4 قاعدة إنشاء حسابات الورثة ← **محدَّث v1.4**
 
-#### الإنشاء التلقائي
+لكل وارث جديد يُضاف إلى جدول `people`، يُنشأ تلقائياً **ثلاثة** حسابات:
+- حساب الاستحقاق: `31XX` — equity · credit-normal
+- حساب التوزيعات: `32XX` — equity · debit-normal
+- حساب قرض الوارث: `23XX` — liability · credit-normal
 
-لكل شريك/وريث جديد يُضاف إلى جدول `people`، يُنشأ تلقائياً ثلاثة حسابات في شجرة الحسابات:
-- حساب رأس مال: `31XX` (رقم تسلسلي تصاعدي)
-- حساب مسحوبات: `32XX`
-- حساب قرض الشريك: `23XX` (رقم تسلسلي تصاعدي)
-
-**التوقيت:** `AFTER INSERT ON people` — الإنشاء فوري مع إضافة الشخص، قبل أي ربط بكيان.
-**السبب:** ضمان وجود الحسابات قبل أي قيد محاسبي، وتفادي خطر ترحيل قيد لشريك لا حسابات له.
-يبقى الحساب فارغاً دون أي أثر على التقارير حتى تُسجَّل حركة مالية فعلية.
+**التوقيت:** `AFTER INSERT ON people` — فوري قبل أي ربط بكيان.
 
 ```sql
 CREATE OR REPLACE FUNCTION auto_create_partner_accounts()
 RETURNS TRIGGER AS $$
 DECLARE
+  v_company_id          uuid;
   v_capital_parent_id   uuid;
   v_drawings_parent_id  uuid;
   v_loan_parent_id      uuid;
-  v_next_capital_code   text;
-  v_next_drawings_code  text;
-  v_next_loan_code      text;
   v_max_capital_code    integer;
   v_max_drawings_code   integer;
   v_max_loan_code       integer;
+  v_next_capital_code   text;
+  v_next_drawings_code  text;
+  v_next_loan_code      text;
 BEGIN
-  -- تحقق: هل للشريك حسابات بالفعل؟
   IF EXISTS (
-    SELECT 1 FROM accounts
-    WHERE metadata->>'partner_id' = NEW.id::text
+    SELECT 1 FROM accounts WHERE metadata->>'partner_id' = NEW.id::text
   ) THEN
     RETURN NEW;
   END IF;
 
-  -- جلب معرِّفات الحسابات الأم
+  SELECT id INTO v_company_id FROM company LIMIT 1;
+
   SELECT id INTO v_capital_parent_id  FROM accounts WHERE code = '3100' LIMIT 1;
   SELECT id INTO v_drawings_parent_id FROM accounts WHERE code = '3200' LIMIT 1;
   SELECT id INTO v_loan_parent_id     FROM accounts WHERE code = '2300' LIMIT 1;
 
-  -- احسب الرقم التسلسلي التالي (MAX+1 — لا يفيض مع أي عدد من الشركاء)
-  SELECT COALESCE(MAX(code::integer), 3100)
-  INTO   v_max_capital_code
-  FROM   accounts WHERE code LIKE '31%' AND is_postable = true;
+  SELECT COALESCE(MAX(code::integer), 3100) INTO v_max_capital_code
+  FROM accounts WHERE code LIKE '31%' AND is_postable = true;
 
-  SELECT COALESCE(MAX(code::integer), 3200)
-  INTO   v_max_drawings_code
-  FROM   accounts WHERE code LIKE '32%' AND is_postable = true;
+  SELECT COALESCE(MAX(code::integer), 3200) INTO v_max_drawings_code
+  FROM accounts WHERE code LIKE '32%' AND is_postable = true;
 
-  SELECT COALESCE(MAX(code::integer), 2300)
-  INTO   v_max_loan_code
-  FROM   accounts WHERE code LIKE '23%' AND is_postable = true;
+  SELECT COALESCE(MAX(code::integer), 2300) INTO v_max_loan_code
+  FROM accounts WHERE code LIKE '23%' AND is_postable = true;
 
   v_next_capital_code  := (v_max_capital_code  + 1)::text;
   v_next_drawings_code := (v_max_drawings_code + 1)::text;
   v_next_loan_code     := (v_max_loan_code     + 1)::text;
 
-  -- أنشئ حساب رأس المال
-  INSERT INTO accounts (
-    code, name, account_class, normal_balance,
-    level, is_postable, parent_id, metadata
-  ) VALUES (
-    v_next_capital_code,
-    'رأس مال ' || NEW.name,
-    'equity', 'credit', 3, true,
-    v_capital_parent_id,
-    jsonb_build_object('partner_id', NEW.id::text)
-  );
-
-  -- أنشئ حساب المسحوبات
-  INSERT INTO accounts (
-    code, name, account_class, normal_balance,
-    level, is_postable, parent_id, metadata
-  ) VALUES (
-    v_next_drawings_code,
-    'مسحوبات ' || NEW.name,
-    'equity', 'debit', 3, true,
-    v_drawings_parent_id,
-    jsonb_build_object('partner_id', NEW.id::text)
-  );
-
-  -- أنشئ حساب القرض
-  INSERT INTO accounts (
-    code, name, account_class, normal_balance,
-    level, is_postable, parent_id, metadata
-  ) VALUES (
-    v_next_loan_code,
-    'قرض ' || NEW.name,
-    'liability', 'credit', 3, true,
-    v_loan_parent_id,
-    jsonb_build_object('partner_id', NEW.id::text)
-  );
+  INSERT INTO accounts (company_id, code, name, account_class, normal_balance,
+                        level, is_postable, parent_id, metadata)
+  VALUES
+    (v_company_id, v_next_capital_code,
+     U&'\062D\0635\0629 ' || NEW.name,
+     'equity', 'credit', 3, true, v_capital_parent_id,
+     jsonb_build_object('partner_id', NEW.id::text)),
+    (v_company_id, v_next_drawings_code,
+     U&'\062A\0648\0632\064A\0639\0627\062A ' || NEW.name,
+     'equity', 'debit', 3, true, v_drawings_parent_id,
+     jsonb_build_object('partner_id', NEW.id::text)),
+    (v_company_id, v_next_loan_code,
+     U&'\0642\0631\0636 ' || NEW.name,
+     'liability', 'credit', 3, true, v_loan_parent_id,
+     jsonb_build_object('partner_id', NEW.id::text));
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER trg_auto_create_partner_accounts
-  AFTER INSERT ON people
-  FOR EACH ROW EXECUTE FUNCTION auto_create_partner_accounts();
 ```
 
-#### الحذف المشروط
+> **تغيير v1.4:** إضافة `company_id` إلى جميع INSERT statements — إلزامي لأن `accounts.company_id NOT NULL` (STR-002 v1.5).
+> **تغيير v1.3:** إضافة حساب القرض 23XX (قروض الورثة).
+> **تغيير مصطلحي:** رأس مال → حصة · مسحوبات → توزيعات.
 
-حذف حسابات الشريك مسموح **فقط** إذا لم يكن أي منها مرتبطاً بسطور قيود في `journal_entry_lines`.
-الحذف يتم حصراً عبر RPC — لا يُنفَّذ DELETE مباشر من الواجهة.
+#### الحذف المشروط
 
 ```sql
 CREATE OR REPLACE FUNCTION delete_partner_accounts(p_person_id uuid)
 RETURNS void AS $$
 BEGIN
-  -- رفض الحذف إذا كان أي حساب مرتبطاً بقيود
   IF EXISTS (
     SELECT 1
     FROM journal_entry_lines jel
@@ -292,8 +258,6 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
-> `ACCOUNTS_HAVE_ENTRIES` — يُعرض للمستخدم برسالة: "لا يمكن حذف الشريك — توجد قيود محاسبية مرتبطة بحساباته."
-
 ---
 
 ## 3. دورة حياة الفترة المحاسبية
@@ -302,218 +266,149 @@ $$ LANGUAGE plpgsql;
 
 ```
 open → closed → locked
-  ↑        ↓
-  └────────┘  (قابلة للعكس: closed → open)
-              (locked: نهائية — لا عودة)
 ```
 
-| الحالة | المعنى | الترحيل مسموح؟ | التراجع مسموح؟ |
-|--------|--------|----------------|-----------------|
-| `open` | مفتوحة للعمل اليومي | ✅ نعم | ✅ نعم |
-| `closed` | مُقفلة مؤقتاً (مراجعة) | ❌ لا | ✅ نعم → open |
-| `locked` | مُقفلة نهائياً بعد إعداد القوائم | ❌ لا | ❌ لا |
+| الحالة | الترحيل | التراجع |
+|--------|---------|---------|
+| `open` | ✅ | ✅ → open |
+| `closed` | ❌ | ✅ → open |
+| `locked` | ❌ | ❌ |
 
 ### 3.2 تحديد الفترة لأي قيد
 
+```sql
+WHERE start_date <= entry_date
+  AND end_date   >= entry_date
+  AND status = 'open'
+LIMIT 1
 ```
-period_id = accounting_periods
-  WHERE start_date <= entry_date
-    AND end_date   >= entry_date
-    AND status = 'open'
-  LIMIT 1
-```
-
-إذا لم تُوجد فترة مفتوحة تحتوي التاريخ → يُرفض الترحيل.
 
 ---
 
 ## 4. دورة حياة القيد اليومية
 
-### 4.1 الحالات الممكنة
+### 4.1 الحالات الممكنة ← **محدَّث v1.4**
 
 ```
   [إنشاء القيد]
         ↓
-     draft ──────────────────────────────────────►  (حذف مسموح)
+     draft  ────── يظهر في صفحة "مراجعة القيود" ──────►  (حذف مسموح)
         │
-        │  [التحقق من التوازن + الفترة المفتوحة]
+        │  [المراجعة + الترحيل من صفحة review]
         ↓
-     posted ──────────────────────────────────────►  (لا تعديل ولا حذف)
+     posted  ──────────────────────────────────────────►  (لا تعديل ولا حذف)
         │
-        │  [قيد عكسي جديد يُنشأ]
+        │  [قيد عكسي جديد]
         ↓
-    reversed  ←──  journal_entry (reversal_of = id الأصلي)
+    reversed
 ```
+
+> **مهم:** القيود تُنشأ بحالة `draft` دائماً (S-098). لا ترحيل فوري تلقائي.
+> الترحيل يتم يدوياً من صفحة مراجعة القيود (/journal/review).
 
 ### 4.2 شروط الترحيل (draft → posted)
 
-يجب أن تتحقق **جميع** هذه الشروط:
-
 ```
-① مجموع debit_amount لجميع السطور = مجموع credit_amount لجميع السطور
+① مجموع debit_amount = مجموع credit_amount
 ② عدد السطور >= 2
-③ كل سطر: (debit_amount > 0 AND credit_amount = 0)
-           OR (credit_amount > 0 AND debit_amount = 0)
-④ كل account_id يشير لحساب is_postable = true
-⑤ الفترة المحاسبية status = 'open'
-⑥ entry_date يقع ضمن [period.start_date, period.end_date]
+③ كل سطر: debit XOR credit > 0
+④ كل account_id: is_postable = true
+⑤ الفترة المحاسبية: status = 'open'
+⑥ entry_date ضمن [period.start_date, period.end_date]
 ```
 
-### 4.3 القيد العكسي (Reversal)
+### 4.3 القيد العكسي
 
-القيد العكسي هو النهج الوحيد لتصحيح قيد مُرحَّل. لا تعديل على سطوره.
-
-**آلية العكس:**
-1. يُنشأ قيد جديد بنفس السطور مع **تبديل المدين والدائن**.
-2. يُضبط `reversal_of = id` القيد الأصلي.
-3. يُحدَّث القيد الأصلي: `status = 'reversed'`.
-4. يُرحَّل القيد الجديد.
-
-إذا كانت الفترة الأصلية `locked` → يُرحَّل القيد العكسي في أول فترة مفتوحة لاحقة.
+1. قيد جديد بنفس السطور مع تبديل المدين والدائن
+2. `reversal_of = id` القيد الأصلي · `source_type = 'reversal'`
+3. تحديث القيد الأصلي: `status = 'reversed'`
 
 ---
 
-## 5. قوالب القيود — Journal Entry Templates
-
-> **ملاحظة:** جميع أرقام الحسابات أدناه مُحدَّثة وفق IFRS 18 (v1.1).
-> النمط: حساب النقدية يتحدد بالعملة — 1110 لـ USD · 1120 لـ SYP.
-
----
+## 5. قوالب القيود
 
 ### 5.1 معاملات المحفظة — `source_type: 'transaction'`
 
-#### دخل (income)
+#### دخل
 ```
-مدين:  1110  النقدية USD          [amount]
-دائن:  4300  إيرادات المحافظ     [amount]
-```
-
-#### مصروف (expense)
-```
-مدين:  7300  مصروفات المحافظ     [amount]
-دائن:  1110  النقدية USD          [amount]
+مدين:  1110  النقدية USD       [amount]
+دائن:  4300  إيرادات المحافظ  [amount]
 ```
 
-#### تحويل (transfer) — MVP: صف واحد
+#### مصروف
+```
+مدين:  7300  مصروفات المحافظ  [amount]
+دائن:  1110  النقدية USD       [amount]
+```
+
+#### تحويل
 ```
 مدين:  1110  النقدية USD (الوجهة)  [amount]
 دائن:  1110  النقدية USD (المصدر)  [amount]
 ```
 
-**ربط المصدر:**
-```
-source_type = 'transaction' · source_id = transactions.id
-transactions.journal_entry_id = journal_entries.id
-```
-
----
-
 ### 5.2 دفعات الإيجار — `source_type: 'lease_payment'`
 
 ```
-مدين:  1110  النقدية USD          [amount]
-دائن:  4100  إيرادات الإيجار     [amount]
+مدين:  1110  النقدية USD      [amount]
+دائن:  4100  إيرادات الإيجار [amount]
 ```
-> عملة SYP → الحساب المُدان: `1120 النقدية SYP`
-
-**ربط المصدر:**
-```
-source_type = 'lease_payment' · source_id = lease_payments.id
-lease_payments.journal_entry_id = journal_entries.id
-```
-
----
 
 ### 5.3 مصروفات العقار — `source_type: 'property_expense'`
 
-يُحدَّد حساب المصروف حسب `property_expenses.type`:
-
 | type | الحساب المُدان |
 |------|----------------|
-| `maintenance` | 7110 مصروفات الصيانة |
-| `utilities` | 7120 مصروفات المرافق |
-| `tax` | 7130 الضرائب والرسوم العقارية |
-| `fees` | 7140 مصروفات عقارية أخرى |
+| `maintenance` | 7110 |
+| `utilities` | 7120 |
+| `tax` | 7130 |
+| `fees` | 7140 |
 
-**عند تحديد محفظة (`portfolio_id IS NOT NULL`):**
+**مع محفظة (portfolio_id IS NOT NULL):**
 ```
-مدين:  71XX  [حسب النوع أعلاه]    [amount]
-دائن:  1110  النقدية USD           [amount]
-```
-
-**عند عدم تحديد محفظة (`portfolio_id IS NULL`):**
-```
-مدين:  71XX  [حسب النوع أعلاه]    [amount]
-دائن:  2120  مصروفات مستحقة الدفع [amount]
+مدين:  71XX  [حسب النوع]       [amount]
+دائن:  1110  النقدية USD        [amount]
 ```
 
-**ربط المصدر:**
+**بدون محفظة (portfolio_id IS NULL):**
 ```
-source_type = 'property_expense' · source_id = property_expenses.id
-property_expenses.journal_entry_id = journal_entries.id
+مدين:  71XX  [حسب النوع]       [amount]
+دائن:  2120  مصروفات مستحقة    [amount]
 ```
-
----
 
 ### 5.4 الحركات الرأسمالية — `source_type: 'capital_transaction'`
 
-#### ضخ رأسمال (capital_injection)
-```
-مدين:  1110  النقدية USD           [amount]
-دائن:  31XX  رأس مال الشريك [X]    [amount]
-```
+| النوع | مدين | دائن |
+|-------|------|------|
+| capital_injection | 1110 النقدية | 31XX حصة الوارث |
+| capital_reduction | 31XX حصة الوارث | 1110 النقدية |
+| drawing | 32XX توزيعات الوارث | 1110 النقدية |
+| profit_share | (من قيد التسوية) | 31XX حصة الوارث |
+| loss_share | 31XX حصة الوارث | 7XXX مصروفات |
 
-#### إنقاص رأسمال (capital_reduction)
-```
-مدين:  31XX  رأس مال الشريك [X]    [amount]
-دائن:  1110  النقدية USD           [amount]
-```
+> **ملاحظة ثروة عائلية:** `capital_injection` نادر الاستخدام — الأموال التي يضعها الوارث تُسجَّل عادةً في `23XX قرض الوارث` لا في `31XX حصة الاستحقاق`.
 
-#### مسحوبات شخصية (drawing)
-```
-مدين:  32XX  مسحوبات الشريك [X]    [amount]
-دائن:  1110  النقدية USD           [amount]
-```
+### 5.5 قيود التسوية — `source_type: 'profit_settlement'`
 
-#### توزيع أرباح (profit_share) — ينشأ تلقائياً عند تأكيد التسوية
-راجع §8.4 — قيد التسوية مُوحَّد يشمل جميع الشركاء في سطر واحد.
-
-#### تحمُّل خسارة (loss_share)
-```
-مدين:  31XX  رأس مال الشريك [X]    [amount]
-دائن:  7300/7100  مصروفات الكيان  [amount]
-```
-
-**ربط المصدر:**
-```
-source_type = 'capital_transaction' · source_id = capital_transactions.id
-capital_transactions.journal_entry_id = journal_entries.id
-```
-
----
-
-### 5.5 القيود اليدوية — `source_type: 'manual'`
+قيد واحد مُركَّب (N+1 سطر):
 
 ```
-source_id = NULL
+مدين:  4100/4300  إيرادات الكيان   [total_profit]    ← سطر واحد
+دائن:  31XX       حصة وارث أ       [partnerAmount_A]  ← سطر لكل وارث
+دائن:  31XX       حصة وارث ب       [partnerAmount_B]
+...
 ```
-المستخدم يختار الحسابات والمبالغ يدوياً.
-شرط التوازن (§ 4.2 بند ①) يبقى سارياً دون استثناء.
+
+### 5.6 القيود اليدوية — `source_type: 'manual'`
+
+`source_id = NULL` · المستخدم يختار الحسابات يدوياً.
 
 ---
 
 ## 6. معالجة العملات في القيود
 
-### 6.1 المبدأ الأساسي
+### 6.1 المبدأ
 
-المبالغ مُخزَّنة **بعملتها الأصلية** في سطور القيد — لا تحويل تلقائي في قاعدة البيانات.
-
-| حالة المعاملة | currency في السطر | exchange_rate |
-|---------------|-------------------|---------------|
-| معاملة USD | `USD` | `NULL` |
-| معاملة SYP | `SYP` | قيمة السعر لحظة التسجيل |
-
-### 6.2 حساب المبلغ المكافئ بالـ USD (طبقة التطبيق فقط)
+المبالغ مُخزَّنة بعملتها الأصلية — لا تحويل في DB.
 
 ```typescript
 function toUSD(amount: number, currency: 'USD' | 'SYP', exchangeRate: number | null): number {
@@ -523,186 +418,117 @@ function toUSD(amount: number, currency: 'USD' | 'SYP', exchangeRate: number | n
 }
 ```
 
-### 6.3 قاعدة اختيار حساب النقدية
+### 6.2 حساب النقدية حسب العملة
 
 ```
-currency = 'USD'  →  1110  النقدية USD
-currency = 'SYP'  →  1120  النقدية SYP
+USD → 1110 · SYP → 1120
 ```
 
 ---
 
-## 7. معادلة رأس المال الختامي
+## 7. معادلة رصيد الوارث الختامي
 
 ### 7.1 المعادلة
 
 ```
-رأس المال الختامي
-  = opening_balance
-  + Σ capital_injection
-  + Σ profit_share
-  − Σ loss_share
-  − Σ drawing
-  − Σ capital_reduction
+رصيد الاستحقاق الختامي
+  = الرصيد الافتتاحي
+  + Σ profit_share    (نصيب من التوزيعات)
+  − Σ loss_share      (نصيب من الخسائر)
+  − Σ drawing         (توزيعات مسحوبة فعلياً)
+  ± Σ capital_injection / capital_reduction  (نادر)
 ```
+
+> **قاعدة الثروة:** المعادلة الأساسية = الرصيد الافتتاحي + نصيب الأرباح − التوزيعات المسحوبة.
 
 ### 7.2 التطبيق في TypeScript
 
 ```typescript
 function calcClosingBalance(b: {
   openingBalance: number;
-  injections:     number;
   profitShares:   number;
   lossShares:     number;
   drawings:       number;
+  injections:     number;
   reductions:     number;
 }): number {
   return (
     b.openingBalance
-    + b.injections
     + b.profitShares
     - b.lossShares
     - b.drawings
+    + b.injections
     - b.reductions
   );
 }
 ```
 
-### 7.3 استعلام Supabase
-
-```typescript
-const { data: account } = await supabase
-  .from('partner_capital_accounts')
-  .select(`
-    id, opening_balance, currency,
-    capital_transactions ( type, amount, currency, exchange_rate )
-  `)
-  .eq('partner_id', partnerId)
-  .eq('entity_type', entityType)
-  .eq('entity_id', entityId)
-  .single();
-
-const totals = account.capital_transactions.reduce(
-  (acc, ct) => {
-    const usd = toUSD(ct.amount, ct.currency, ct.exchange_rate);
-    switch (ct.type) {
-      case 'capital_injection': acc.injections  += usd; break;
-      case 'profit_share':      acc.profitShares += usd; break;
-      case 'loss_share':        acc.lossShares   += usd; break;
-      case 'drawing':           acc.drawings     += usd; break;
-      case 'capital_reduction': acc.reductions   += usd; break;
-    }
-    return acc;
-  },
-  { injections: 0, profitShares: 0, lossShares: 0, drawings: 0, reductions: 0 }
-);
-```
-
 ---
 
-## 8. تسويات الأرباح — Profit Settlements
+## 8. تسويات الأرباح / توزيع الدخل
 
 ### 8.1 دورة الحياة
 
 ```
-draft ──────────────────────►  (قابل للتعديل — لم تُنشأ قيود بعد)
-   │
-   │  [المستخدم يؤكد التسوية]
-   ▼
-confirmed  →  تُنشأ capital_transactions تلقائياً لكل شريك
-              ثم يُرحَّل قيد واحد مُوحَّد يشمل جميع الشركاء
+draft ──► confirmed → capital_transactions لكل وارث → قيد موحَّد
 ```
 
-### 8.2 خوارزمية احتساب الحصص
+### 8.2 حساب حصة كل وارث
 
 ```typescript
-const partnerAmount = total_profit * (share_numerator / share_denominator);
-// تحقق: Σ partnerAmount = total_profit  ← قبل التأكيد
+const amount = total_profit * (share_numerator / share_denominator);
+// Σ amounts = total_profit ← يُتحقق قبل التأكيد
 ```
 
-### 8.3 الروابط بين الجداول عند التأكيد
+### 8.3 قيد التسوية — قيد واحد مُركَّب
 
 ```
-profit_settlements (confirmed)
-    └──► settlement_shares (لكل شريك)
-              └──► capital_transactions (type='profit_share', لكل شريك)
-                        └──► journal_entries (قيد واحد مُوحَّد — source_type='profit_settlement')
-                                  └──► journal_entry_lines (سطر مدين + سطر دائن لكل شريك)
-```
-
-> **تغيير جوهري عن v1.1:** التسوية تُنشئ **قيداً واحداً مُركَّباً** بدلاً من N قيود منفصلة.
-> السبب: توزيع الأرباح حدث مالي واحد — تفتيته إلى N قيود يُكرِّر الدَّيْن على حساب الإيرادات
-> ويُشوِّه الأستاذ العام. القيد الواحد هو الصحيح محاسبياً.
-
-### 8.4 قيد التسوية — قيد واحد مُركَّب (N+1 سطر)
-
-```
-مدين:  4100/4300  إيرادات الكيان     [total_profit]      ← سطر واحد
-دائن:  31XX       رأس مال شريك أ    [partnerAmount_A]   ← سطر لكل شريك
-دائن:  31XX       رأس مال شريك ب    [partnerAmount_B]
-دائن:  31XX       رأس مال شريك ج    [partnerAmount_C]
-...
+source_type = 'profit_settlement' · source_id = profit_settlements.id
 ```
 
 **شرط التوازن:**
 ```
-total_profit = Σ partnerAmount_i   ← يُتحقق منه قبل الترحيل
-```
-
-**ربط المصدر:**
-```
-source_type = 'profit_settlement' · source_id = profit_settlements.id
-profit_settlements.journal_entry_id = journal_entries.id
-```
-
-> ملاحظة: يُضاف `journal_entry_id` إلى جدول `profit_settlements` — راجع STR-002 عند تنفيذ هذا التغيير.
-
-**تحديث cache بعد ترحيل التسوية:**
-```typescript
-// يجب invalidation لكل شريك في التسوية
-settlementShares.forEach(share => {
-  queryClient.invalidateQueries({ queryKey: ['capital-accounts', share.partnerId] });
-});
-queryClient.invalidateQueries({ queryKey: ['profit-settlements'] });
-queryClient.invalidateQueries({ queryKey: ['journal-entries'] });
-queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+total_profit = Σ partnerAmount_i
 ```
 
 ---
 
-## 9. الأستاذ العام — General Ledger
+## 9. الأستاذ العام — General Ledger ← **محدَّث v1.4**
 
-### 9.1 مصدر البيانات
-
-`general_ledger` هو **VIEW** لا جدول، يعرض فقط القيود ذات `status = 'posted'`.
+### 9.1 تعريف VIEW الحالي (19 عموداً)
 
 ```sql
 CREATE VIEW general_ledger AS
 SELECT
-  a.code            AS account_code,
-  a.name            AS account_name,
+  c.id                      AS company_id,
+  a.code                    AS account_code,
+  a.name                    AS account_name,
   a.account_class,
   a.normal_balance,
   ap.fiscal_year,
   ap.period_number,
-  ap.name           AS period_name,
+  ap.name                   AS period_name,
   je.entry_date,
   je.reference_no,
-  je.description    AS entry_description,
-  jel.description   AS line_description,
+  je.description            AS entry_description,
+  jel.description           AS line_description,
   jel.debit_amount,
   jel.credit_amount,
   jel.currency,
   jel.exchange_rate,
   je.source_type,
-  je.source_id
-FROM journal_entry_lines jel
-JOIN journal_entries     je  ON je.id  = jel.journal_entry_id
-JOIN accounts            a   ON a.id   = jel.account_id
-JOIN accounting_periods  ap  ON ap.id  = je.period_id
+  je.source_id,
+  je.status                 AS entry_status
+FROM journal_entry_lines     jel
+JOIN journal_entries         je  ON je.id  = jel.journal_entry_id
+JOIN accounts                a   ON a.id   = jel.account_id
+JOIN accounting_periods      ap  ON ap.id  = je.period_id
+JOIN company                 c   ON c.id   = a.company_id
 WHERE je.status = 'posted'
 ORDER BY a.code, je.entry_date, je.id;
 ```
+
+> **تغيير v1.4 (S-095):** إضافة `company_id` (أول عمود) و`entry_status` (آخر عمود) وJOIN مع جدول `company`.
 
 ### 9.2 رصيد الحساب في تاريخ محدد
 
@@ -715,7 +541,7 @@ SELECT
 FROM general_ledger gl
 JOIN accounts a ON a.code = gl.account_code
 WHERE gl.account_code = :accountCode
-  AND gl.entry_date  <= :asOfDate
+  AND gl.entry_date  <= :asOfDate;
 ```
 
 ---
@@ -725,16 +551,16 @@ WHERE gl.account_code = :accountCode
 ### 10.1 تسلسل العمليات عند الترحيل
 
 ```
-1. التحقق من journal_entry_id IS NULL  (منع الترحيل المزدوج)
-2. إنشاء صف في journal_entries (status='draft')
-3. إنشاء سطور القيد في journal_entry_lines
+1. التحقق من journal_entry_id IS NULL (منع الترحيل المزدوج)
+2. إنشاء journal_entries (status='draft')
+3. إنشاء journal_entry_lines
 4. التحقق من التوازن: Σ debit = Σ credit
-5. التحقق من فتح الفترة: period.status = 'open'
+5. التحقق من فتح الفترة
 6. تحديث status → 'posted'
 7. تحديث source_table.journal_entry_id = journal_entry.id
 ```
 
-> الخطوات 1–7 تتم في **transaction واحدة** (Supabase RPC).
+جميع الخطوات في **transaction واحدة** (RPC).
 
 ### 10.2 منع الترحيل المزدوج
 
@@ -750,102 +576,103 @@ const { data: existing } = await supabase
 if (existing) throw new Error('ALREADY_POSTED');
 ```
 
-### 10.3 حالة الترحيل في الواجهة
-
-```typescript
-const isPosted = (record: { journal_entry_id: string | null }): boolean =>
-  record.journal_entry_id !== null;
-```
-
-### 10.4 RPCs المعتمدة
+### 10.3 RPCs المعتمدة
 
 | الدالة | الغرض |
 |--------|-------|
-| `post_journal_entry(source_type, source_id)` | ترحيل قيد من مصدر محدد |
-| `post_settlement_entry(settlement_id)` | ترحيل قيد تسوية أرباح مُركَّب (§8.4) |
-| `delete_partner_accounts(person_id)` | حذف حسابات شريك (مشروط بـ §2.4) |
+| `post_journal_entry(source_type, source_id)` | ترحيل قيد من مصدر |
+| `post_settlement_entry(settlement_id)` | ترحيل قيد تسوية مُركَّب |
+| `delete_partner_accounts(person_id)` | حذف حسابات وارث (مشروط) |
 
 ---
 
-## 11. القيود الخاصة بالمشروع
+## 11. قيود خاصة بالسياق
 
-### 11.1 خصائص شركة المحاصة
+### 11.1 خصائص إدارة الثروة العائلية ← **محدَّث v1.4**
 
-- لا رأسمال موحَّد للشركة — الرأسمال موزَّع على شركاء × كيانات.
-- لا إقفال سنوي بقيد ترحيل موحَّد — يُوزَّع عبر `profit_settlements`.
-- حسابات رأس المال مستقلة لكل كيان.
-
-### 11.2 العملة المرجعية
-
+- حصص الورثة ثابتة بالميراث — لا تتغير بالضخ المالي.
+- الأموال التي يضعها الوارث هي **قروض** (23XX) لا مساهمات رأسمالية (31XX).
+- الهدف: صافي قيمة أصول (NAV) متنامٍ — لا ربح تجاري.
+- التوزيعات دورية حسب توافر السيولة — لا إقفال سنوي إلزامي.
 - USD هي العملة المرجعية في جميع التقارير.
-- التحويل يتم في TypeScript لحظة العرض — لا في قاعدة البيانات.
 
-### 11.3 بنية القيود — قاعدة عامة
+### 11.2 بنية القيود
 
-معظم الحركات المالية في FinFamily تُولِّد **قيداً بسطرين فقط** (مدين واحد + دائن واحد).
-الاستثناء الوحيد هو **قيد تسوية الأرباح** الذي يُولِّد N+1 سطر (سطر مدين واحد للإيرادات الكلية
-+ سطر دائن لكل شريك). لا توجد حركات ضريبية مركَّبة في النظام الحالي.
+معظم القيود = سطران (مدين + دائن).
+الاستثناء الوحيد: قيد تسوية الأرباح = N+1 سطر.
 
-### 11.4 حدود MVP
+### 11.3 حدود MVP
 
 | الميزة | الحالة |
 |--------|--------|
-| ترحيل `transactions` | ✅ Sprint 6 |
-| ترحيل `lease_payments` | ✅ Sprint 6 |
-| ترحيل `property_expenses` | ✅ Sprint 6 |
-| ترحيل `capital_transactions` | ✅ Sprint 6 |
-| قيود يدوية (`manual`) | ✅ Sprint 6 |
-| عكس القيود (Reversal) | ✅ Sprint 6 |
-| إنشاء حسابات الشركاء تلقائياً عند `people INSERT` | 🔄 مُحدَّث في v1.2 |
-| قيد تسوية الأرباح مُوحَّد (N+1 سطر) | 🔄 مُحدَّث في v1.2 |
-| حذف حسابات الشريك عبر RPC | 🔄 مُحدَّث في v1.2 |
-| ترحيل `project_transactions` | ⏸️ ما بعد MVP |
-| إقفال فترات سنوي تلقائي | ⏸️ يدوي في MVP |
-| إدارة دليل الحسابات من الواجهة | 🔒 S-083 — أزرار خاملة في MVP |
+| ترحيل transactions | ✅ |
+| ترحيل lease_payments | ✅ |
+| ترحيل property_expenses | ✅ |
+| ترحيل capital_transactions | ✅ |
+| قيود يدوية | ✅ |
+| عكس القيود | ✅ |
+| إنشاء حسابات الورثة تلقائياً (3 حسابات) | ✅ |
+| قيد تسوية موحَّد (N+1) | ✅ |
+| draft → review → post workflow | ✅ S-098 |
+| general_ledger drill-down | ✅ S-10009 |
+| ترحيل project_transactions | ⏸️ |
+| إقفال فترات تلقائي | ⏸️ |
 
 ---
 
-## 12. ربط القصص بالمحرك — Story Mapping
+## 12. المعايير المحاسبية المرجعية ← **محدَّث v1.4**
 
-| القصة | العنوان | الاعتماد على هذه الوثيقة |
-|--------|---------|--------------------------|
-| S-048 | إنشاء حساب رأس مال | القسم 7 — معادلة رأس المال |
-| S-049 | تسجيل حركة رأسمالية | القسم 5.4 — قوالب الحركات الرأسمالية |
-| S-050 | كشف حساب رأسمالي | القسم 7 — حساب الرصيد |
-| S-051 | حساب رأس المال الختامي | القسم 7.2 — TypeScript |
-| S-052 | نموذج إنشاء تسوية أرباح | القسم 8 — دورة التسويات |
-| S-053 | احتساب حصص التسوية | القسم 8.2 — الخوارزمية |
-| S-054 | تأكيد التسوية | القسم 8.3 — ربط الجداول |
-| S-055 | ربط settlement_shares | القسم 8.4 — قيد التسوية المُركَّب |
-| S-083 | صفحة دليل الحسابات (إعدادات) | القسم 2 — الهيكل الهرمي |
-| S-10002 | إضافة حسابات قروض الشركاء (23XX) | القسم 2.2 و2.4 |
+| المعيار | الموضوع | الأثر |
+|---------|---------|-------|
+| IFRS 18 | عرض القوائم المالية | تصنيف الدخل: تشغيل · استثمار · تمويل |
+| IFRS 9 | الأدوات المالية | تصنيف الأصول الاستثمارية وقياسها |
+| IFRS 13 | القياس بالقيمة العادلة | تقييم الأصول الاستثمارية (ذهب · أوراق مالية) |
+| IAS 16 | العقارات والمنشآت | الاهتلاك + المراجعة الدورية (STR-007) |
+| IAS 8 | التقديرات المحاسبية | معالجة تغييرات الاهتلاك (STR-007) |
+| IFRS 15 | الإيرادات | الاعتراف بإيرادات بيع السكراب (STR-007) |
 
 ---
 
-## 13. قائمة التحقق قبل كل قيد
+## 13. ربط القصص بالمحرك
+
+| القصة | العنوان |
+|--------|---------|
+| S-048–S-055 | منظومة رأس المال والتسويات |
+| S-083 | صفحة دليل الحسابات |
+| S-085 | post_journal_entry RPC |
+| S-091 | post_settlement_entry RPC |
+| S-097 | واجهة دفتر اليومية |
+| S-098 | draft mode |
+| S-099/S-100 | صفحة مراجعة القيود |
+| S-10002 | حسابات قروض الورثة 23XX |
+| S-10009 | drill-down دفتر الأستاذ |
+
+---
+
+## 14. قائمة التحقق قبل كل قيد
 
 ```
-[ ] 1.  هل source_type و source_id محددان؟ (أو هو قيد manual؟)
-[ ] 2.  هل journal_entry_id IS NULL في المصدر؟ (منع التكرار)
-[ ] 3.  هل entry_date يقع ضمن فترة محاسبية مفتوحة؟
-[ ] 4.  هل القالب الصحيح مُطبَّق؟ (القسم 5)
-[ ] 5.  هل حساب النقدية صحيح؟ (1110 USD · 1120 SYP)
-[ ] 6.  هل مجموع debit = مجموع credit؟
-[ ] 7.  هل جميع الحسابات is_postable = true؟
-[ ] 8.  هل عدد السطور >= 2؟
-[ ] 9.  هل تم تحديث journal_entry_id في جدول المصدر بعد الترحيل؟
-[ ] 10. هل العملية ملفوفة في transaction واحدة (Supabase RPC)؟
-[ ] 11. [تسوية أرباح فقط] هل Σ partnerAmount = total_profit قبل الترحيل؟
-[ ] 12. [تسوية أرباح فقط] هل تم invalidation لكل ['capital-accounts', partnerId]؟
+[ ] 1.  source_type و source_id محددان (أو manual)
+[ ] 2.  journal_entry_id IS NULL في المصدر
+[ ] 3.  entry_date ضمن فترة مفتوحة
+[ ] 4.  القالب الصحيح مُطبَّق (§5)
+[ ] 5.  حساب النقدية صحيح (1110 USD · 1120 SYP)
+[ ] 6.  Σ debit = Σ credit
+[ ] 7.  جميع الحسابات is_postable = true
+[ ] 8.  عدد السطور >= 2
+[ ] 9.  تحديث journal_entry_id في جدول المصدر بعد الترحيل
+[ ] 10. العملية في transaction واحدة (RPC)
+[ ] 11. [تسوية فقط] Σ partnerAmount = total_profit
 ```
 
 ---
 
-## 14. سجل التغييرات — Changelog
+## 15. سجل التغييرات
 
 | التاريخ | الإصدار | التغيير |
 |---------|---------|---------|
-| 2026-06-08 | 1.0 | إنشاء الوثيقة — المحرك المحاسبي الكامل لـ Sprint 6 |
-| 2026-06-08 | 1.1 | تحديث دليل الحسابات وفق IFRS 18: فصل قائمة الدخل إلى ثلاث فئات (4000/7000 تشغيل · 5000/8000 استثمار · 6000/9000 تمويل) · إضافة مجموعة 2200 للخصوم غير المتداولة · إضافة 3300 الأرباح المحتجزة · تحديث جميع قوالب القيود بالأرقام الجديدة · إضافة S-083 لجدول Story Mapping |
-| 2026-06-11 | 1.2 | §2.4: تغيير توقيت إنشاء حسابات الشركاء من "أول ربط بكيان" إلى "AFTER INSERT ON people" مع Trigger كامل · §2.4: إضافة قاعدة الحذف المشروط عبر RPC delete_partner_accounts · §8.3–8.4: تغيير هيكل قيد تسوية الأرباح من N قيود منفصلة إلى قيد واحد مُركَّب N+1 سطر (صحيح محاسبياً) · §8.4: إضافة منطق invalidateQueries لتسوية الأرباح · §10.4: إضافة جدول RPCs المعتمدة · §11.3: توثيق قاعدة "معظم الحركات قيدان فقط" · §11.4: تحديث جدول حدود MVP · §13: إضافة بندَي تحقق 11 و12 لتسوية الأرباح |
-| 2026-06-14 | 1.3 | §2.2: إضافة مجموعة 2300 قروض الشركاء تحت الخصوم · §2.4: تغيير "حسابان" إلى "ثلاثة حسابات" مع إضافة حساب القرض 23XX · §2.4: تحديث كتلة SQL للـ Trigger لإنشاء ثلاثة حسابات بدلاً من اثنين · §12: إضافة S-10002 لجدول Story Mapping |
+| 2026-06-08 | 1.0 | إنشاء الوثيقة |
+| 2026-06-08 | 1.1 | تحديث COA وفق IFRS 18 |
+| 2026-06-11 | 1.2 | تحسينات trigger + قيد تسوية موحَّد |
+| 2026-06-14 | 1.3 | إضافة حسابات قروض الورثة 23XX |
+| 2026-06-15 | 1.4 | **تحديث شامل للاتساق مع STR-002 v1.5 وSTR-007:** إضافة company_id للـ trigger · تحديث general_ledger VIEW إلى 19 عموداً · توسيع source_type (profit_settlement/settlement/reversal/closing) · تحويل مصطلح "شركة محاصة" إلى "إدارة ثروة عائلية" · تحويل شركاء إلى ورثة · إضافة IFRS 9/13 للمعايير · توثيق draft→review→post workflow · ملاحظة نادر استخدام capital_injection |
