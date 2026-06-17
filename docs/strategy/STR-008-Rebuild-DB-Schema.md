@@ -1,8 +1,8 @@
 STR-008 — مخطط قاعدة البيانات الجديد (إعادة البناء)
 Rebuild Database Schema — Family Wealth Management
-Version : 1.0
+Version : 1.1
 Status  : 🔲 Draft
-Date    : 2026-06-15
+Date    : 2026-06-17
 Author  : BaraKaat (Family CFO — Sprint 100 Session)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -783,7 +783,125 @@ asset_depreciation
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-§13. سجل التغييرات
+§13. سياسات RLS للجداول الجديدة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+مستخلص من: RLS-POLICY-MATRIX v1.1 (مؤرشف)
+المبدأ: تطبيق أحادي المستخدم — جميع السياسات تمنح الوصول الكامل للمستخدم
+        المُوثَّق (authenticated) وتحجب أي وصول غير مُوثَّق.
+
+§13.1 النمط أ — Wildcard (سياسة واحدة لكل العمليات)
+
+  يُستخدم مع: الجداول التي تُعدَّل كثيراً وبأنماط موحدة.
+
+  ```sql
+  ALTER TABLE public.<table_name> ENABLE ROW LEVEL SECURITY;
+
+  CREATE POLICY "authenticated_full_access"
+  ON public.<table_name>
+  FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+  ```
+
+§13.2 النمط ب — منفصلة (4 سياسات مستقلة)
+
+  يُستخدم مع: الجداول ذات الحساسية الأعلى أو التي قد تحتاج تقييداً مستقبلاً.
+
+  ```sql
+  ALTER TABLE public.<table> ENABLE ROW LEVEL SECURITY;
+
+  CREATE POLICY "auth_select_<table>"
+    ON public.<table> FOR SELECT TO authenticated USING (true);
+  CREATE POLICY "auth_insert_<table>"
+    ON public.<table> FOR INSERT TO authenticated WITH CHECK (true);
+  CREATE POLICY "auth_update_<table>"
+    ON public.<table> FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+  CREATE POLICY "auth_delete_<table>"
+    ON public.<table> FOR DELETE TO authenticated USING (true);
+  ```
+
+  > ملاحظة: كلا النمطين متكافئان وظيفياً لتطبيق أحادي المستخدم.
+  > التمييز بينهما هو للتهيؤ لأي تقييد مستقبلي لا للأداء.
+
+§13.3 حالة خاصة — family_office (صف واحد · لا INSERT · لا DELETE)
+
+  ```sql
+  ALTER TABLE public.family_office ENABLE ROW LEVEL SECURITY;
+
+  CREATE POLICY "auth_select_family_office"
+    ON public.family_office FOR SELECT TO authenticated USING (true);
+  CREATE POLICY "auth_update_family_office"
+    ON public.family_office FOR UPDATE TO authenticated
+    USING (true) WITH CHECK (true);
+  ```
+
+  السبب: family_office جدول أحادي الصف (single-row).
+  INSERT يحدث مرة واحدة عبر seed migration مباشرةً.
+  DELETE محظور نهائياً — لا واجهة لحذف مكتب العائلة.
+
+§13.4 مصفوفة تطبيق النمط على الجداول الـ 24
+
+  #    الجدول                      النمط   ملاحظة
+  ──   ────────────────────────    ─────   ──────────────────────────────────
+  1    family_office               خاص     SELECT + UPDATE فقط — راجع §13.3
+  2    people                      ب       —
+  3    exchange_rates              ب       —
+  4    accounting_periods          أ       —
+  5    entities                    ب       —
+  6    entity_members              ب       —
+  7    accounts                    أ       —
+  8    journal_entries             أ       —
+  9    journal_entry_lines         أ       —
+  10   capital_transactions        ب       —
+  11   profit_settlements          ب       —
+  12   settlement_shares           ب       —
+  13   inter_entity_transactions   ب       —
+  14   distributions               ب       —
+  15   properties                  ب       —
+  16   leases                      ب       —
+  17   lease_payments              ب       —
+  18   property_expenses           ب       —
+  19   portfolios                  ب       —
+  20   transactions                ب       —
+  21   projects                    أ       —
+  22   wbs_items                   أ       —
+  23   project_transactions        أ       —
+  24   asset_depreciation          أ       —
+
+§13.5 استعلام التدقيق
+
+  لإعادة التحقق من تغطية RLS في أي وقت من Supabase SQL Editor:
+
+  ```sql
+  SELECT
+    c.relname        AS table_name,
+    c.relrowsecurity AS rls_enabled,
+    p.polname        AS policy_name,
+    p.polcmd         AS command
+  FROM pg_class c
+  LEFT JOIN pg_policy p ON p.polrelid = c.oid
+  WHERE c.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+    AND c.relkind = 'r'
+  ORDER BY c.relname, p.polcmd;
+  ```
+
+  النتيجة الصحيحة: لا يوجد صف يجمع بين
+    rls_enabled = true  و  policy_name = null
+  في نفس الوقت.
+
+§13.6 قاعدة الصيانة
+
+  عند إضافة جدول جديد في أي sprint لاحق:
+    1. فعّل RLS في نفس ملف الـ migration مباشرةً
+    2. طبّق النمط المناسب (أ أو ب) وفق §13.4
+    3. أضف صفاً جديداً للجدول في مصفوفة §13.4
+    4. شغّل استعلام §13.5 للتحقق قبل الـ commit
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+§14. سجل التغييرات
 ━━━━━━━━━━━━━━━━━━━
 
   التاريخ      الإصدار   الوصف
@@ -792,5 +910,10 @@ asset_depreciation
                          المخطط الجديد لإعادة بناء Family CFO
                          24 جدولاً · هيكل ثلاثي · entity_members موحد
 
+  2026-06-17   1.1       إضافة §13 سياسات RLS — منقولة من RLS-POLICY-MATRIX
+                         v1.1 (مؤرشف). يشمل: نمطَي A/B · حالة خاصة
+                         family_office · مصفوفة الـ 24 جدول ·
+                         استعلام التدقيق · قاعدة الصيانة.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-END OF DOCUMENT — STR-008 v1.0
+END OF DOCUMENT — STR-008 v1.1
