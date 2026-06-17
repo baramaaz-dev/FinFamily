@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Plus, PlusCircle } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase';
+import { ROUTES }          from '@/router/routes';
 import { formatCurrency } from '@/lib/currency';
 import { AddLeaseDialog } from '@/components/properties/AddLeaseDialog';
 import { RecordLeasePaymentDialog } from '@/components/properties/RecordLeasePaymentDialog';
@@ -48,6 +49,7 @@ interface LeasePaymentRow {
   paid_date:        string;
   notes:            string | null;
   journal_entry_id: string | null;
+  journal_status:   string | null;
 }
 
 interface PropertyExpenseRow {
@@ -64,6 +66,7 @@ interface PropertyExpenseRow {
   portfolio_id:     string | null;
   notes:            string | null;
   journal_entry_id: string | null;
+  journal_status:   string | null;
 }
 
 function typeBadgeClass(type: Property['type']): string {
@@ -200,11 +203,14 @@ export default function PropertyOwnershipPage() {
       if (leaseIds.length === 0) return [];
       const { data, error } = await supabaseClient
         .from('lease_payments')
-        .select('id, lease_id, amount, currency, exchange_rate, paid_date, notes, journal_entry_id')
+        .select('id, lease_id, amount, currency, exchange_rate, paid_date, notes, journal_entry_id, journal_entries ( status )')
         .in('lease_id', leaseIds)
         .order('paid_date', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as LeasePaymentRow[];
+      return (data ?? []).map((row) => ({
+        ...(row as unknown as LeasePaymentRow),
+        journal_status: (row.journal_entries as unknown as { status: string } | null)?.status ?? null,
+      }));
     },
     enabled: !!id,
   });
@@ -216,11 +222,14 @@ export default function PropertyOwnershipPage() {
     queryFn: async (): Promise<PropertyExpenseRow[]> => {
       const { data, error } = await supabaseClient
         .from('property_expenses')
-        .select('id, property_id, type, amount, currency, exchange_rate, due_date, paid_date, is_recurring, frequency, portfolio_id, notes, journal_entry_id')
+        .select('id, property_id, type, amount, currency, exchange_rate, due_date, paid_date, is_recurring, frequency, portfolio_id, notes, journal_entry_id, journal_entries ( status )')
         .eq('property_id', id as string)
         .order('due_date', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as PropertyExpenseRow[];
+      return (data ?? []).map((row) => ({
+        ...(row as unknown as PropertyExpenseRow),
+        journal_status: (row.journal_entries as unknown as { status: string } | null)?.status ?? null,
+      }));
     },
     enabled: !!id,
   });
@@ -257,7 +266,7 @@ export default function PropertyOwnershipPage() {
 
       {/* Back button */}
       <button
-        onClick={() => navigate('/properties')}
+        onClick={() => navigate(ROUTES.PROPERTIES)}
         className="flex items-center gap-1.5 text-sm text-[#475569] hover:text-[#1E293B] transition-colors"
       >
         <ArrowRight className="h-4 w-4" />
@@ -614,7 +623,10 @@ export default function PropertyOwnershipPage() {
                       {payment.notes ?? '—'}
                     </TableCell>
                     <TableCell className="text-center">
-                      <PostingStatusBadge journalEntryId={payment.journal_entry_id} />
+                      <PostingStatusBadge
+                        journalEntryId={payment.journal_entry_id}
+                        journalStatus={payment.journal_status}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -749,7 +761,10 @@ export default function PropertyOwnershipPage() {
                             {expense.notes ?? '—'}
                           </TableCell>
                           <TableCell className="text-center">
-                            <PostingStatusBadge journalEntryId={expense.journal_entry_id} />
+                            <PostingStatusBadge
+                              journalEntryId={expense.journal_entry_id}
+                              journalStatus={expense.journal_status}
+                            />
                           </TableCell>
                         </TableRow>
                       );

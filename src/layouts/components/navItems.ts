@@ -1,10 +1,7 @@
 import {
   LayoutDashboard,
-  ArrowLeftRight,
   BookOpen,
-  Clock,
   Briefcase,
-  Building2,
   Users,
   FileBarChart,
   Wallet,
@@ -23,11 +20,8 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { labelKey: 'nav.dashboard',    icon: LayoutDashboard, href: ROUTES.DASHBOARD,    exactMatch: true  },
-  { labelKey: 'nav.transactions', icon: ArrowLeftRight,  href: ROUTES.TRANSACTIONS, exactMatch: false },
   { labelKey: 'nav.journal',       icon: BookOpen,        href: ROUTES.JOURNAL,        exactMatch: false },
-  { labelKey: 'nav.journalReview', icon: Clock,           href: ROUTES.JOURNAL_REVIEW, exactMatch: false },
-  { labelKey: 'nav.portfolios',   icon: Briefcase,       href: ROUTES.PORTFOLIOS,   exactMatch: false },
-  { labelKey: 'nav.properties',   icon: Building2,       href: ROUTES.PROPERTIES,   exactMatch: false },
+  { labelKey: 'nav.assets',        icon: Briefcase,       href: ROUTES.ASSETS,         exactMatch: false },
   { labelKey: 'nav.partners',     icon: Users,           href: ROUTES.PARTNERS,     exactMatch: false },
   { labelKey: 'nav.reports',      icon: FileBarChart,    href: ROUTES.REPORTS,      exactMatch: false },
   { labelKey: 'capital.title',      icon: Wallet,     href: ROUTES.CAPITAL,      exactMatch: false },

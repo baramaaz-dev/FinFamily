@@ -2,17 +2,17 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation }  from 'react-i18next';
 import { ROUTES }          from '@/router/routes';
 
-export default function JournalPage() {
+export default function AssetsPage() {
   const { t } = useTranslation();
 
   const tabs = [
-    { to: ROUTES.JOURNAL_ENTRY,  label: t('nav.journalEntry')  },
-    { to: ROUTES.JOURNAL_REVIEW, label: t('nav.journalReview') },
+    { to: ROUTES.PORTFOLIOS,  label: t('nav.assetsPortfolios') },
+    { to: ROUTES.PROPERTIES,  label: t('nav.assetsProperties') },
   ];
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold text-[#0F172A]">{t('nav.journal')}</h1>
+      <h1 className="text-2xl font-bold text-[#0F172A]">{t('nav.assets')}</h1>
 
       <nav className="flex gap-1 border-b border-[#E2E8F0] mb-6 mt-4">
         {tabs.map(tab => (

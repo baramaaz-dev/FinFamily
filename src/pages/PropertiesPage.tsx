@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/table';
 import { supabaseClient } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/currency';
+import { ROUTES }          from '@/router/routes';
 import type { Property } from '@/types';
 
 async function fetchProperties(): Promise<Property[]> {
@@ -259,7 +260,7 @@ export function PropertiesPage() {
                 >
                   <TableCell>
                     <Link
-                      to={`/properties/${property.id}`}
+                      to={ROUTES.PROPERTY(property.id)}
                       className="text-sm font-medium text-[#1E5DC4] hover:text-[#164399] hover:underline"
                     >
                       {property.name}

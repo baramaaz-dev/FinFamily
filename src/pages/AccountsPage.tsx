@@ -5,6 +5,7 @@ import { BookOpen, Lock }       from 'lucide-react';
 import { supabaseClient }       from '@/lib/supabase';
 import type { Account, AccountNode } from '@/types';
 import AccountTreeNode          from '@/components/settings/accounts/AccountTreeNode';
+import AccountLedgerSheet       from '@/components/accounts/AccountLedgerSheet';
 import { useCompany }           from '@/hooks/useCompany';
 
 // ─── Data helpers ─────────────────────────────────────────────────────────────
@@ -93,7 +94,9 @@ export default function AccountsPage() {
     queryFn:  fetchAccounts,
   });
 
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedIds,    setExpandedIds]    = useState<Set<string>>(new Set());
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [ledgerOpen,       setLedgerOpen]      = useState(false);
 
   const tree = useMemo(() => buildTree(data ?? []), [data]);
 
@@ -212,12 +215,19 @@ export default function AccountsPage() {
                 isExpanded={expandedIds.has(node.id)}
                 expandedIds={expandedIds}
                 onToggle={toggleExpand}
+                onOpenLedger={(account) => { setSelectedAccount(account); setLedgerOpen(true); }}
               />
             ))}
           </div>
         )}
 
       </div>
+
+      <AccountLedgerSheet
+        account={selectedAccount}
+        open={ledgerOpen}
+        onOpenChange={setLedgerOpen}
+      />
     </div>
   );
 }

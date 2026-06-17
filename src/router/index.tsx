@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import ProtectedRoute          from '@/components/auth/ProtectedRoute';
 import AppLayout               from '@/layouts/AppLayout';
 import DashboardPage           from '@/pages/DashboardPage';
@@ -17,7 +17,9 @@ import AccountsPage            from '@/pages/AccountsPage';
 import CompanySettingsPage     from '@/pages/CompanySettingsPage';
 import CapitalAccountsPage     from '@/pages/CapitalAccountsPage';
 import CapitalStatementPage    from '@/pages/CapitalStatementPage';
+import AssetsPage              from '@/pages/AssetsPage';
 import JournalPage             from '@/pages/JournalPage';
+import JournalEntryPage        from '@/pages/JournalEntryPage';
 import JournalReviewPage       from '@/pages/JournalReviewPage';
 import TrialBalancePage        from '@/pages/TrialBalancePage';
 import AccountingPeriodsPage   from '@/pages/AccountingPeriodsPage';
@@ -41,14 +43,38 @@ export const router = createBrowserRouter([
         children: [
           { index: true,                element: <ErrorBoundary><DashboardPage /></ErrorBoundary> },
           { path: 'transactions',       element: <ErrorBoundary><TransactionsPage /></ErrorBoundary> },
-          { path: 'portfolios',         element: <ErrorBoundary><PortfoliosPage /></ErrorBoundary> },
-          { path: 'portfolios/:id',     element: <ErrorBoundary><PortfolioDetailPage /></ErrorBoundary> },
-          { path: 'properties',         element: <ErrorBoundary><PropertiesPage /></ErrorBoundary> },
-          { path: 'properties/:id',     element: <ErrorBoundary><PropertyOwnershipPage /></ErrorBoundary> },
+          {
+            path: 'assets',
+            element: <ErrorBoundary><AssetsPage /></ErrorBoundary>,
+            children: [
+              { index: true, element: <Navigate to="portfolios" replace /> },
+              {
+                path: 'portfolios',
+                children: [
+                  { index: true,   element: <ErrorBoundary><PortfoliosPage /></ErrorBoundary> },
+                  { path: ':id',   element: <ErrorBoundary><PortfolioDetailPage /></ErrorBoundary> },
+                ],
+              },
+              {
+                path: 'properties',
+                children: [
+                  { index: true,   element: <ErrorBoundary><PropertiesPage /></ErrorBoundary> },
+                  { path: ':id',   element: <ErrorBoundary><PropertyOwnershipPage /></ErrorBoundary> },
+                ],
+              },
+            ],
+          },
           { path: 'partners',           element: <ErrorBoundary><PartnersPage /></ErrorBoundary> },
           { path: 'partners/:id',       element: <ErrorBoundary><PartnerDetailPage /></ErrorBoundary> },
-          { path: 'journal',             element: <ErrorBoundary><JournalPage /></ErrorBoundary> },
-          { path: 'journal-review',     element: <ErrorBoundary><JournalReviewPage /></ErrorBoundary> },
+          {
+            path: 'journal',
+            element: <ErrorBoundary><JournalPage /></ErrorBoundary>,
+            children: [
+              { index: true,     element: <Navigate to="entry" replace /> },
+              { path: 'entry',   element: <ErrorBoundary><JournalEntryPage /></ErrorBoundary> },
+              { path: 'review',  element: <ErrorBoundary><JournalReviewPage /></ErrorBoundary> },
+            ],
+          },
           { path: 'reports',            element: <ErrorBoundary><ReportsPage /></ErrorBoundary> },
           { path: 'reports/trial-balance', element: <ErrorBoundary><TrialBalancePage /></ErrorBoundary> },
           { path: 'capital',            element: <ErrorBoundary><CapitalAccountsPage /></ErrorBoundary> },

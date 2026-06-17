@@ -12,10 +12,24 @@ import {
 } from '@/components/ui/table';
 import AddWithdrawalDialog        from '@/components/partners/AddWithdrawalDialog';
 import { buildCapitalBreakdown }  from '@/utils/capital';
-import type { PartnerCapitalAccount } from '@/types';
+import type { PartnerCapitalAccount, DrawingJournalLine } from '@/types';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ROUTES }                 from '@/router/routes';
 
 // ─── Local interfaces ────────────────────────────────────────────────────────
+
+interface PartnerBalanceSummary {
+  capital:    number;
+  drawings:   number;
+  netEquity:  number;
+  loans:      number;
+  totalClaim: number;
+}
 
 interface PortfolioMembership {
   share_numerator:   number;
@@ -55,6 +69,7 @@ function EntityTypeBadge({
     portfolio: 'bg-[#E8F0FB] text-[#1E5DC4]',
     property:  'bg-[#EBF5F0] text-[#1A7D4F]',
     project:   'bg-[#FEF7EC] text-[#B45309]',
+    cash:      'bg-[#F1F5F9] text-[#475569]',
   };
   const style = styles[entityType] ?? 'bg-[#F1F5F9] text-[#475569]';
   const label = t(`partners.withdrawalsSection.entityTypes.${entityType}`);
@@ -260,24 +275,148 @@ export default function PartnerDetailPage() {
     staleTime: 30_000,
   });
 
-  // Hook 7 — Partner withdrawals
-  const {
-    data: withdrawals = [],
-    isLoading: withdrawalsLoading,
-  } = useQuery({
-    queryKey: ['partner-withdrawals', id],
+  // Hook 7a — partner's drawing account (32XX)
+  const { data: drawingAccount } = useQuery({
+    queryKey: ['partner-drawing-account', id],
     queryFn: async () => {
       const { data, error } = await supabaseClient
-        .from('distributions')
-        .select('id, entity_type, entity_id, amount, currency, exchange_rate, date, notes')
-        .eq('partner_id', id!)
-        .order('date', { ascending: false });
+        .from('accounts')
+        .select('id, code, name')
+        .like('code', '32%')
+        .eq('is_postable', true)
+        .filter('metadata->>partner_id', 'eq', id!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+    staleTime: 300_000,
+  });
+
+  // Hook 7b — debit lines on the drawing account (posted only, filtered in useMemo)
+  const { data: rawDrawingLines, isLoading: loadingWithdrawals } = useQuery({
+    queryKey: ['partner-drawing-lines', drawingAccount?.id],
+    queryFn: async () => {
+      const { data, error } = await supabaseClient
+        .from('journal_entry_lines')
+        .select(`
+          id,
+          debit_amount,
+          currency,
+          exchange_rate,
+          journal_entries ( entry_date, description, reference_no, status )
+        `)
+        .eq('account_id', drawingAccount!.id)
+        .gt('debit_amount', 0);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!drawingAccount?.id,
+    staleTime: 30_000,
+  });
+
+  // Hook 8 — Cash accounts for withdrawals
+  const { data: cashAccounts } = useQuery({
+    queryKey: ['cash-accounts-for-withdrawals'],
+    queryFn: async () => {
+      const { data, error } = await supabaseClient
+        .from('accounts')
+        .select('id, code, name')
+        .like('code', '111%')
+        .eq('is_postable', true)
+        .order('code');
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 300_000,
+  });
+
+  // Hook 9 — Partner's three chart-of-accounts accounts (31XX, 32XX, 23XX)
+  const { data: partnerAccounts, isLoading: loadingPartnerAccounts } = useQuery({
+    queryKey: ['partner-all-accounts', id],
+    queryFn: async () => {
+      const { data, error } = await supabaseClient
+        .from('accounts')
+        .select('id, code, name, account_class, normal_balance')
+        .filter('metadata->>partner_id', 'eq', id!)
+        .order('code');
       if (error) throw error;
       return data ?? [];
     },
     enabled: !!id,
+    staleTime: 300_000,
+  });
+
+  const partnerAccountIds = useMemo(
+    () => (partnerAccounts ?? []).map(a => a.id),
+    [partnerAccounts]
+  );
+
+  // Hook 10 — Posted journal lines on those accounts
+  const { data: partnerJournalLines, isLoading: loadingPartnerBalances } = useQuery({
+    queryKey: ['partner-account-balances', id, partnerAccountIds.join(',')],
+    queryFn: async () => {
+      const { data, error } = await supabaseClient
+        .from('journal_entry_lines')
+        .select(`
+          account_id,
+          debit_amount,
+          credit_amount,
+          currency,
+          exchange_rate,
+          journal_entries!inner ( status )
+        `)
+        .in('account_id', partnerAccountIds)
+        .eq('journal_entries.status', 'posted');
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: partnerAccountIds.length > 0,
     staleTime: 30_000,
   });
+
+  const cashAccountOptions = useMemo(
+    () => (cashAccounts ?? []).map((a) => ({ id: a.id, code: a.code, name: a.name })),
+    [cashAccounts]
+  );
+
+  const partnerBalanceSummary = useMemo<PartnerBalanceSummary>(() => {
+    const zero: PartnerBalanceSummary = {
+      capital: 0, drawings: 0, netEquity: 0, loans: 0, totalClaim: 0,
+    };
+
+    if (!partnerAccounts || !partnerJournalLines) return zero;
+
+    const accountMap = new Map(partnerAccounts.map(a => [a.id, a]));
+
+    const netBalances = new Map<string, number>();
+    for (const line of partnerJournalLines) {
+      const account = accountMap.get(line.account_id);
+      if (!account) continue;
+
+      const debit  = toUSD(line.debit_amount  ?? 0, line.currency as 'USD' | 'SYP', line.exchange_rate ?? 1);
+      const credit = toUSD(line.credit_amount ?? 0, line.currency as 'USD' | 'SYP', line.exchange_rate ?? 1);
+
+      const prev = netBalances.get(line.account_id) ?? 0;
+      if (account.normal_balance === 'credit') {
+        netBalances.set(line.account_id, prev + credit - debit);
+      } else {
+        netBalances.set(line.account_id, prev + debit - credit);
+      }
+    }
+
+    const capital31  = partnerAccounts.find(a => a.code.startsWith('31'));
+    const drawings32 = partnerAccounts.find(a => a.code.startsWith('32'));
+    const loans23    = partnerAccounts.find(a => a.code.startsWith('23'));
+
+    const capital    = capital31  ? (netBalances.get(capital31.id)  ?? 0) : 0;
+    const drawings   = drawings32 ? (netBalances.get(drawings32.id) ?? 0) : 0;
+    const loans      = loans23    ? (netBalances.get(loans23.id)    ?? 0) : 0;
+    const netEquity  = capital - drawings;
+    const totalClaim = netEquity + loans;
+
+    return { capital, drawings, netEquity, loans, totalClaim };
+  }, [partnerAccounts, partnerJournalLines]);
 
   // Portfolio balance map — net USD balance per portfolio id
   const portfolioBalanceMap = useMemo(() => {
@@ -309,21 +448,41 @@ export default function PartnerDetailPage() {
     propertyOwnerships.forEach((po) =>
       map.set(po.properties.id, po.properties.name)
     );
+    (cashAccounts ?? []).forEach((a) =>
+      map.set(a.id, `${a.code} — ${a.name}`)
+    );
     return map;
-  }, [portfolioMemberships, propertyOwnerships]);
+  }, [portfolioMemberships, propertyOwnerships, cashAccounts]);
 
-  const totalWithdrawalsUSD = useMemo(() => {
-    return withdrawals.reduce((sum, w) => {
-      return (
-        sum +
-        toUSD(
-          Number(w.amount),
-          w.currency as 'USD' | 'SYP',
-          w.exchange_rate ?? 1
-        )
+  const withdrawals = useMemo<DrawingJournalLine[]>(() => {
+    if (!rawDrawingLines) return [];
+    return rawDrawingLines
+      .map(row => ({
+        id:            row.id,
+        debit_amount:  row.debit_amount,
+        currency:      row.currency as 'USD' | 'SYP',
+        exchange_rate: row.exchange_rate,
+        ...(row.journal_entries as unknown as {
+          entry_date:   string;
+          description:  string | null;
+          reference_no: string | null;
+          status:       string;
+        }),
+      }))
+      .filter(line => line.status === 'posted')
+      .sort((a, b) =>
+        new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime()
       );
-    }, 0);
-  }, [withdrawals]);
+  }, [rawDrawingLines]);
+
+  const totalWithdrawalsUSD = useMemo(
+    () =>
+      withdrawals.reduce(
+        (sum, line) => sum + toUSD(line.debit_amount, line.currency, line.exchange_rate ?? 1),
+        0
+      ),
+    [withdrawals]
+  );
 
   const capitalClosingMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -426,6 +585,98 @@ export default function PartnerDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Partner Balance Statement — skeleton */}
+      {(loadingPartnerAccounts || loadingPartnerBalances) && (
+        <div className="bg-white rounded-lg border border-[#E2E8F0] p-4">
+          <div className="h-4 bg-[#F1F5F9] rounded w-48 mb-4 animate-pulse" />
+          <div className="grid grid-cols-3 gap-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-3 bg-[#F1F5F9] rounded w-24 animate-pulse" />
+                <div className="h-5 bg-[#F1F5F9] rounded w-32 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Partner Balance Statement */}
+      {!loadingPartnerAccounts && !loadingPartnerBalances && (
+        <div className="bg-white rounded-lg border border-[#E2E8F0] p-4">
+
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-medium text-[#1E293B]">
+              {t('partners.balanceStatement.title')}
+            </h3>
+            <span className="text-xs text-[#94A3B8]">
+              {t('partners.balanceStatement.postedOnly')}
+            </span>
+          </div>
+
+          {/* Top row: capital · drawings · net equity */}
+          <div className="grid grid-cols-3 gap-4 mb-4">
+
+            <div className="bg-[#F8FAFC] rounded-md p-3">
+              <p className="text-xs text-[#475569] mb-1">
+                {t('partners.balanceStatement.capital')}
+              </p>
+              <p className="font-mono tabular-nums text-lg font-medium text-[#1A7D4F]">
+                {formatCurrency(partnerBalanceSummary.capital, 'USD')}
+              </p>
+            </div>
+
+            <div className="bg-[#F8FAFC] rounded-md p-3">
+              <p className="text-xs text-[#475569] mb-1">
+                {t('partners.balanceStatement.drawings')}
+              </p>
+              <p className="font-mono tabular-nums text-lg font-medium text-[#C0392B]">
+                {formatCurrency(partnerBalanceSummary.drawings, 'USD')}
+              </p>
+            </div>
+
+            <div className="bg-[#F8FAFC] rounded-md p-3 border border-[#E2E8F0]">
+              <p className="text-xs text-[#475569] mb-1">
+                {t('partners.balanceStatement.netEquity')}
+              </p>
+              <p className={`font-mono tabular-nums text-lg font-medium ${signColor(partnerBalanceSummary.netEquity)}`}>
+                {partnerBalanceSummary.netEquity < 0 ? '-' : ''}
+                {formatCurrency(Math.abs(partnerBalanceSummary.netEquity), 'USD')}
+              </p>
+            </div>
+
+          </div>
+
+          <div className="border-t border-[#E2E8F0] mb-4" />
+
+          {/* Bottom row: loans · total claim */}
+          <div className="grid grid-cols-2 gap-4">
+
+            <div className="bg-[#FEF7EC] rounded-md p-3">
+              <p className="text-xs text-[#B45309] mb-1">
+                {t('partners.balanceStatement.loans')}
+              </p>
+              <p className="font-mono tabular-nums text-lg font-medium text-[#B45309]">
+                {formatCurrency(partnerBalanceSummary.loans, 'USD')}
+              </p>
+              <p className="text-xs text-[#B45309] mt-1 opacity-70">
+                {t('partners.balanceStatement.asOf')}
+              </p>
+            </div>
+
+            <div className="bg-[#F8FAFC] rounded-md p-3 border-2 border-[#E2E8F0]">
+              <p className="text-xs text-[#475569] mb-1">
+                {t('partners.balanceStatement.totalClaim')}
+              </p>
+              <p className={`font-mono tabular-nums text-xl font-semibold ${signColor(partnerBalanceSummary.totalClaim)}`}>
+                {partnerBalanceSummary.totalClaim < 0 ? '-' : ''}
+                {formatCurrency(Math.abs(partnerBalanceSummary.totalClaim), 'USD')}
+              </p>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Statistics strip */}
       <div className="grid grid-cols-3 gap-3">
@@ -731,16 +982,28 @@ export default function PartnerDetailPage() {
           <h2 className="text-base font-medium text-[#1E293B]">
             {t('partners.withdrawalsSection.title')}
           </h2>
-          <button
-            onClick={() => setWithdrawalDialogOpen(true)}
-            className="rounded-md bg-[#1E5DC4] px-3 py-1.5 text-sm text-white hover:bg-[#164399] transition-colors"
-          >
-            {t('partners.withdrawalsSection.addButton')}
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <button
+                    disabled
+                    className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium
+                               bg-[#1E5DC4] text-white opacity-50 cursor-not-allowed"
+                  >
+                    {t('partners.withdrawalsSection.addButton')}
+                  </button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">{t('partners.withdrawalsSection.addButtonTooltip')}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {/* Content */}
-        {withdrawalsLoading ? (
+        {loadingWithdrawals ? (
           <WithdrawalsSkeleton />
         ) : withdrawals.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-12">
@@ -758,10 +1021,7 @@ export default function PartnerDetailPage() {
                     {t('partners.withdrawalsSection.columns.date')}
                   </TableHead>
                   <TableHead className="text-start text-xs font-medium text-[#475569]">
-                    {t('partners.withdrawalsSection.columns.entity')}
-                  </TableHead>
-                  <TableHead className="text-start text-xs font-medium text-[#475569]">
-                    {t('partners.withdrawalsSection.columns.entityType')}
+                    {t('partners.withdrawalsSection.columns.description')}
                   </TableHead>
                   <TableHead className="text-start text-xs font-medium text-[#475569]">
                     {t('partners.withdrawalsSection.columns.amount')}
@@ -770,42 +1030,33 @@ export default function PartnerDetailPage() {
                     {t('partners.withdrawalsSection.columns.currency')}
                   </TableHead>
                   <TableHead className="text-start text-xs font-medium text-[#475569]">
-                    {t('partners.withdrawalsSection.columns.notes')}
+                    {t('partners.withdrawalsSection.columns.referenceNo')}
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {withdrawals.map((w) => {
-                  const entityName = entityNameMap.get(w.entity_id) ?? '—';
-                  return (
-                    <TableRow
-                      key={w.id}
-                      className="text-sm text-[#1E293B] hover:bg-[#F8FAFC]"
-                    >
-                      <TableCell className="font-mono tabular-nums text-[#475569]">
-                        {w.date ? format(new Date(w.date), 'dd/MM/yyyy') : '—'}
-                      </TableCell>
-                      <TableCell className="font-medium">{entityName}</TableCell>
-                      <TableCell>
-                        <EntityTypeBadge entityType={w.entity_type} t={t} />
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono tabular-nums text-sm text-[#C0392B]">
-                          {formatCurrency(Number(w.amount), w.currency as 'USD' | 'SYP')}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-[#475569]">{w.currency}</TableCell>
-                      <TableCell>
-                        <span
-                          className="block max-w-[180px] truncate text-[#475569]"
-                          title={w.notes ?? undefined}
-                        >
-                          {w.notes ?? '—'}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {withdrawals.map((line) => (
+                  <TableRow
+                    key={line.id}
+                    className="text-sm text-[#1E293B] hover:bg-[#F8FAFC]"
+                  >
+                    <TableCell className="font-mono tabular-nums text-sm text-[#475569]">
+                      {format(new Date(line.entry_date), 'dd/MM/yyyy')}
+                    </TableCell>
+                    <TableCell className="text-sm text-[#1E293B] max-w-[240px] truncate">
+                      {line.description ?? '—'}
+                    </TableCell>
+                    <TableCell className="font-mono tabular-nums text-sm text-[#C0392B] text-right">
+                      {formatCurrency(line.debit_amount, line.currency)}
+                    </TableCell>
+                    <TableCell className="text-sm text-[#475569]">
+                      {line.currency}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-[#94A3B8]">
+                      {line.reference_no ?? '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
 
@@ -833,6 +1084,7 @@ export default function PartnerDetailPage() {
           id:   po.properties.id,
           name: po.properties.name,
         }))}
+        cashAccountOptions={cashAccountOptions}
       />
 
     </div>

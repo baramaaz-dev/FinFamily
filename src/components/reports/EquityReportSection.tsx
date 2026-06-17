@@ -206,7 +206,7 @@ export default function EquityReportSection() {
           <div className="pdf-show hidden border-b-2 border-[#E2E8F0] pb-4 mb-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-2xl font-medium text-[#0F172A]">FinFamily</p>
+                <p className="text-2xl font-medium text-[#0F172A]">Family CFO (v.01)</p>
                 <p className="text-sm text-[#475569]">{'إدارة الأصول العائلية'}</p>
               </div>
               <div className="text-end">
